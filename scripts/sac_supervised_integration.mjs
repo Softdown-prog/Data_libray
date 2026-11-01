@@ -77,6 +77,34 @@ try {
   assert.equal(passed.browser_pass, true);
   assert.equal(passed.deployment_authorized, false);
 
+  // End-to-end 008B inbox -> Python supervisor -> fixed Node auditor -> Docker Guardian.
+  const python = `
+import json,sys
+from pathlib import Path
+from scripts import sac_job_queue as queue
+from scripts import sac_execution as executor
+state=Path(sys.argv[1]) / "one-worker"
+policy={"schema_version":1,"projects":[{"project_id":"synthetic-app","profile_id":"integration-ci"}]}
+registry={"schema_version":1,"projects":[{"project_id":"synthetic-app","profile_id":"integration-ci","manifest":sys.argv[2]}]}
+job={"schema_version":1,"job_id":"gha-999-1","project_id":"synthetic-app",
+     "profile_id":"integration-ci","source_sha":sys.argv[3],"kind":"angular-validate"}
+queue.enqueue(state,job,policy)
+received=queue.receive_pending(state,policy)
+assert received["received"]==1, received
+first=executor.execute_received(state,policy,registry,executor=sys.argv[4],timeout=100)
+assert first["processed"]==1, first
+result=json.loads((state/"sac-results"/"gha-999-1.json").read_text())
+assert result["status"]=="pass" and result["browser_pass"]==True and result["deployment_authorized"]==False, result
+again=executor.execute_received(state,policy,registry,executor=sys.argv[4],timeout=100)
+assert again["processed"]==0, again
+print("SAC_WORKER_CHAIN_PASS")
+`;
+  const chain = spawnSync('python3', ['-c', python, dir, manifest, sourceSha, process.execPath], {
+    cwd: root, encoding: 'utf8', timeout: 130000, maxBuffer: 20000,
+    env: { PATH: process.env.PATH, HOME: os.tmpdir() }
+  });
+  assert.equal(chain.status, 0, chain.stderr?.slice(0, 3000));
+  assert.match(chain.stdout, /SAC_WORKER_CHAIN_PASS/);
   const badSha = test(manifest, 'f'.repeat(40));
   assert.notEqual(badSha.status, 'pass', 'mismatched checkout must not verify');
   await writeFile(receiptFile, JSON.stringify({ ...receipt, authentication: '0'.repeat(64) }));
