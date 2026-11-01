@@ -6,6 +6,7 @@ import { chmod, copyFile, lstat, mkdir, mkdtemp, readdir, realpath, rm } from 'n
 import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
+import { dockerChildEnvironment } from '../packages/angular-guardian/src/docker-environment.mjs';
 
 const pinned = /^mcr\.microsoft\.com\/playwright@sha256:[0-9a-f]{64}$/;
 const angularName = /^[a-z][a-z0-9-]{0,63}$/;
@@ -140,7 +141,7 @@ export async function isolatedAngularBuild({ resources, projectName, image,
     const args = dockerBuildArgs({ image, work, dependencies, name, projectName, uid, gid });
     const result = spawnSync(docker, args, { shell: false, encoding: 'utf8',
       timeout: timeoutMs, maxBuffer: 16384,
-      env: { PATH: process.env.PATH ?? '/usr/bin:/bin', HOME: os.tmpdir() } });
+      env: dockerChildEnvironment() });
     if (result.error?.code === 'ETIMEDOUT') return failure('build-timeout');
     if (result.error || result.signal || result.status !== 0) return failure('build-failed');
     const output = path.join(work, resources.dist);
