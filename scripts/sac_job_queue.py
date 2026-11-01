@@ -5,11 +5,12 @@ compiler or checks out a repository. Execution requires a separately approved
 project-specific sandbox runner in a later milestone.
 """
 from __future__ import annotations
+
 import json
 import os
-from pathlib import Path
 import re
 import tempfile
+from pathlib import Path
 
 SCHEMA = 1
 REQUEST_KEYS = frozenset(("schema_version", "job_id", "project_id", "profile_id", "source_sha", "kind"))
