@@ -75,6 +75,29 @@ class ExecutionTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.call()
 
+
+    def test_build_requires_explicit_gate_and_cannot_select_shell(self):
+        calls = []
+        def receive(job, manifest, **kwargs):
+            calls.append(kwargs["enable_build"])
+            return {**self.result(), "execution": "sac-build-audit",
+                    "code": "isolated-build-browser-pass"}
+        self.assertEqual(self.call(receive, enable_build=True)["processed"], 1)
+        self.assertEqual(calls, [True])
+        stored = json.loads((self.root / "sac-results" / "gha-789-1.json").read_text())
+        self.assertEqual(stored["execution"], "sac-build-audit")
+        self.assertFalse(stored["deployment_authorized"])
+
+    def test_build_status_cannot_be_forged_without_browser(self):
+        def forged(job, manifest, **kwargs):
+            return {**self.result(), "execution": "sac-build-audit", "browser_pass": False,
+                    "code": "isolated-build-browser-pass"}
+        self.call(forged, enable_build=True)
+        stored = json.loads((self.root / "sac-results" / "gha-789-1.json").read_text())
+        self.assertEqual(stored["status"], "infra-error")
+        with self.assertRaises(ValueError):
+            self.call(enable_build="true")
+
     def test_runner_invocation_has_fixed_args_not_project_commands(self):
         with patch.object(se.subprocess,"Popen") as popen:
             p=popen.return_value
