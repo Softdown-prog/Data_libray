@@ -1,0 +1,19 @@
+name: SAC-008D Angular build sandbox
+on:
+  push:
+    branches: ['feat/sac-008d-isolated-angular-build']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node --check scripts/sac_sandbox_builder.mjs
+      - run: node --test tests/sac_sandbox_builder.test.mjs
