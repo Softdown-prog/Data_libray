@@ -139,7 +139,7 @@ def build() -> dict:
                 raise ValueError(f"categoria ou slug inválido: {metadata_path}")
             meta = json.loads(metadata_path.read_text(encoding="utf-8"))
             if not isinstance(meta, dict):
-                raise ValueError("metadados não são objeto")
+                raise TypeError("metadados não são objeto")
             ident = f"{language}.{category}.{slug}"
             if ident in seen or meta.get("id") != ident:
                 raise ValueError(f"ID duplicado/incorreto: {ident}")
@@ -173,9 +173,9 @@ def build() -> dict:
             entries.append(entry)
             indexed_dirs.add(directory)
         for item in folder.rglob("*"):
-            if item.is_file() and item.suffix in CODE_EXTENSIONS:
-                if not any(item.is_relative_to(d) for d in indexed_dirs):
-                    raise ValueError(f"código sem registro: {item.relative_to(ROOT)}")
+            if (item.is_file() and item.suffix in CODE_EXTENSIONS
+                    and not any(item.is_relative_to(d) for d in indexed_dirs)):
+                raise ValueError(f"código sem registro: {item.relative_to(ROOT)}")
     if found_legacy != set(frozen):
         raise ValueError("congelamento inconsistente: ID legado ausente ou promovido incorretamente")
     entries.sort(key=lambda e: e["id"])
