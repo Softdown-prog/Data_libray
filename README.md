@@ -25,6 +25,14 @@ python scripts/search.py --language go --category algorithms busca
 python scripts/catalog.py --check
 ```
 
+## Dataset com níveis de revisão
+
+Este catálogo distingue a documentação completa (`documented`) de itens antigos, congelados para revisão (`legacy_pending_review`). **Aprovação no CI não significa que a especificação de um item esteja completa.**
+
+Veja o [contrato de catalogação v2](docs/DATASET_SCHEMA.md), o [inventário das ferramentas internas](docs/INTERNAL_TOOLS.md) e as entradas pendentes em `docs/LEGACY_REVIEW.json`.
+
+Novos exemplos sem contexto de uso, falhas, tratamento, riscos, testes e documentação no próprio código serão rejeitados automaticamente. O volume da biblioteca não é prioridade sobre sua rastreabilidade.
+
 ## Qualidade
 
 Pull requests executam validações de estrutura, catálogo e verificações específicas para cada linguagem. **CI verde não equivale a prova de ausência de bugs**; indica apenas que as verificações automatizadas especificadas passaram.

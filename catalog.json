@@ -1,6 +1,8 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "count": 18,
+  "documented_count": 1,
+  "pending_review_count": 17,
   "examples": [
     {
       "id": "angular.ui.accessible-toggle",
@@ -16,7 +18,8 @@
         "standalone",
         "signals",
         "accessibility"
-      ]
+      ],
+      "catalog_status": "legacy_pending_review"
     },
     {
       "id": "angular.web.query-param-service",
@@ -32,7 +35,8 @@
         "query-params",
         "url",
         "injectable"
-      ]
+      ],
+      "catalog_status": "legacy_pending_review"
     },
     {
       "id": "cpp.algorithms.binary-search",
@@ -48,7 +52,8 @@
         "binary-search",
         "vector",
         "optional"
-      ]
+      ],
+      "catalog_status": "legacy_pending_review"
     },
     {
       "id": "cpp.data-structures.ring-buffer",
@@ -64,7 +69,8 @@
         "ring-buffer",
         "queue",
         "fixed-capacity"
-      ]
+      ],
+      "catalog_status": "legacy_pending_review"
     },
     {
       "id": "go.algorithms.binary-search",
@@ -80,7 +86,68 @@
         "binary-search",
         "search",
         "sorted"
-      ]
+      ],
+      "catalog_status": "documented",
+      "spec": {
+        "purpose": "Encontra a primeira ocorrência de target em um slice de números inteiros ordenado em ordem crescente, inclusive quando há duplicatas, devolvendo um índice seguro e um indicador de sucesso.",
+        "when_to_use": "Use em consultas repetidas a dados que já estão ordenados quando for importante saber a primeira posição de um valor, por exemplo a ocorrência inicial de uma faixa de registros iguais.",
+        "when_not_to_use": "Não use sobre slices desordenados, dados alterados durante a consulta ou quando a preservação da ordem original impedir uma classificação prévia; nesses casos use busca linear ou uma estrutura de índice apropriada.",
+        "requirements": [
+          "Go 1.23+ (módulo go/go.mod).",
+          "Os inteiros de entrada devem estar em ordem não decrescente.",
+          "A função não depende de rede, banco ou pacotes externos."
+        ],
+        "inputs": [
+          "sorted []int: slice de inteiros previamente ordenados, podendo ser nil ou vazio.",
+          "target int: número inteiro a pesquisar, com valores positivos, negativos ou zero."
+        ],
+        "outputs": [
+          "Retorna (i, true) quando encontra target; i é o índice da primeira ocorrência (base zero).",
+          "Retorna (-1, false) quando não encontra o valor; nunca retorna índice válido com false.",
+          "Não altera o slice recebido e usa O(log n) de tempo e O(1) de espaço adicional."
+        ],
+        "error_handling": [
+          "Slice nil ou vazio: retorno (-1, false), sem panic.",
+          "Alvo ausente, abaixo do mínimo ou acima do máximo: retorno (-1, false).",
+          "Não existe validação automática da pré-condição de ordenação; resultados incorretos podem ocorrer para entrada desordenada."
+        ],
+        "limitations": [
+          "A ordenação é responsabilidade de quem chama a função; o compilador e o teste não verificam esse contrato em runtime.",
+          "Implementação especializada para []int, sem comparador para tipos customizados.",
+          "O slice deve permanecer estável durante a busca; alterações concorrentes sem sincronização podem causar data races."
+        ],
+        "troubleshooting": [
+          {
+            "symptom": "A função retorna -1 mesmo que o valor pareça estar no slice.",
+            "cause": "O slice não está ordenado ou foi modificado durante a pesquisa.",
+            "fix": "Confirme a ordenação; quando necessário crie uma cópia e execute sort.Ints na cópia antes de buscar."
+          },
+          {
+            "symptom": "O resultado aponta para a primeira duplicata e não para a última.",
+            "cause": "O algoritmo deliberadamente mantém o intervalo à esquerda em comparações de igualdade.",
+            "fix": "Se precisar da última ocorrência, implemente busca de limite superior separadamente; não altere o contrato deste exemplo."
+          }
+        ],
+        "runtime": "Go 1.23+; biblioteca padrão; validação com Go race detector e go vet.",
+        "usage_language": "go",
+        "usage_example": "values := []int{1, 2, 2, 2, 9}\nindex, found := FirstIndex(values, 2) // index = 1; found = true\nmissing, ok := FirstIndex(values, 7) // missing = -1; ok = false",
+        "validation": {
+          "level": "automated-tests",
+          "scope": "go test -race -count=1 ./... e go vet ./...; testes de entrada vazia, única, duplicatas, negativos e alvos ausentes.",
+          "gaps": "Não há validação dinâmica da ordenação nem testes de acesso concorrente; esta função não fornece sincronização."
+        },
+        "files": [
+          {
+            "path": "binary_search.go",
+            "role": "source"
+          },
+          {
+            "path": "binary_search_test.go",
+            "role": "test"
+          }
+        ],
+        "provenance": "original"
+      }
     },
     {
       "id": "go.data-structures.stack",
@@ -96,7 +163,8 @@
         "generics",
         "stack",
         "lifo"
-      ]
+      ],
+      "catalog_status": "legacy_pending_review"
     },
     {
       "id": "go.errors.wrapped-errors",
@@ -112,7 +180,8 @@
         "errors",
         "wrapping",
         "sentinel"
-      ]
+      ],
+      "catalog_status": "legacy_pending_review"
     },
     {
       "id": "java.algorithms.binary-search",
@@ -128,7 +197,8 @@
         "binary-search",
         "array",
         "sorted"
-      ]
+      ],
+      "catalog_status": "legacy_pending_review"
     },
     {
       "id": "java.errors.safe-integer-parse",
@@ -144,7 +214,8 @@
         "number",
         "optional",
         "error-handling"
-      ]
+      ],
+      "catalog_status": "legacy_pending_review"
     },
     {
       "id": "javascript.algorithms.binary-search",
@@ -160,7 +231,8 @@
         "binary-search",
         "array",
         "sorted"
-      ]
+      ],
+      "catalog_status": "legacy_pending_review"
     },
     {
       "id": "javascript.security.safe-redirect",
@@ -176,7 +248,8 @@
         "redirect",
         "url",
         "origin"
-      ]
+      ],
+      "catalog_status": "legacy_pending_review"
     },
     {
       "id": "python.algorithms.binary-search",
@@ -192,7 +265,8 @@
         "binary-search",
         "sequence",
         "sorted"
-      ]
+      ],
+      "catalog_status": "legacy_pending_review"
     },
     {
       "id": "python.io.atomic-write",
@@ -208,7 +282,8 @@
         "atomic-write",
         "filesystem",
         "files"
-      ]
+      ],
+      "catalog_status": "legacy_pending_review"
     },
     {
       "id": "python.security.safe-filename",
@@ -224,7 +299,8 @@
         "validation",
         "path",
         "filesystem"
-      ]
+      ],
+      "catalog_status": "legacy_pending_review"
     },
     {
       "id": "rust.algorithms.binary-search",
@@ -240,7 +316,8 @@
         "binary-search",
         "slice",
         "sorted"
-      ]
+      ],
+      "catalog_status": "legacy_pending_review"
     },
     {
       "id": "rust.data-structures.stack",
@@ -256,7 +333,8 @@
         "stack",
         "lifo",
         "generics"
-      ]
+      ],
+      "catalog_status": "legacy_pending_review"
     },
     {
       "id": "typescript.algorithms.binary-search",
@@ -272,7 +350,8 @@
         "binary-search",
         "readonly",
         "strict"
-      ]
+      ],
+      "catalog_status": "legacy_pending_review"
     },
     {
       "id": "typescript.data-structures.bounded-queue",
@@ -288,7 +367,8 @@
         "queue",
         "fifo",
         "generics"
-      ]
+      ],
+      "catalog_status": "legacy_pending_review"
     }
   ]
 }

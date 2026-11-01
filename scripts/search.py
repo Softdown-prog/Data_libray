@@ -19,9 +19,15 @@ def main() -> None:
             continue
         if args.category and example["category"] != args.category:
             continue
-        haystack = " ".join(
-            [example["id"], example["title"], example["description"], *example["tags"]]
-        ).lower()
+        detail = example.get("spec", {})
+        terms = [example["id"], example["title"], example["description"], *example["tags"]]
+        if detail:
+            terms.extend([detail["when_to_use"], detail["when_not_to_use"], detail["purpose"]])
+            terms.extend(detail["error_handling"])
+            terms.extend(detail["limitations"])
+            for case in detail["troubleshooting"]:
+                terms.extend([case["symptom"], case["cause"], case["fix"]])
+        haystack = " ".join(terms).lower()
         if all(term.lower() in haystack for term in args.terms):
             results.append(example)
     for item in results:

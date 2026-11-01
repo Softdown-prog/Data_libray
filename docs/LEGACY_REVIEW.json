@@ -1,0 +1,153 @@
+{
+  "schema_version": 1,
+  "policy": "frozen-until-v2-reviewed",
+  "examples": [
+    {
+      "id": "angular.ui.accessible-toggle",
+      "frozen_files": {
+        "example.json": "de9b34cbd3771651011db7e2a6edd1fcbdbab91e",
+        "README.md": "c0e5d0aa9c5317954a6e4ef082ae41c0fa273e6a",
+        "toggle.component.ts": "291b77d1778575abc25be0dfa542bb3b1eb1270b"
+      }
+    },
+    {
+      "id": "angular.web.query-param-service",
+      "frozen_files": {
+        "example.json": "4f2080c774d2e22e7bd8bf4178bf8178f8ffd870",
+        "query-param.service.ts": "3459dfb583e60df8bfd7e235e4fbb8de6cbb8f66",
+        "README.md": "37458885d5f698abfe86b631aa90e07f763ce511"
+      }
+    },
+    {
+      "id": "cpp.algorithms.binary-search",
+      "frozen_files": {
+        "example.json": "29ee04ad6eb5ee2f065b7663fd5b248977ce26c5",
+        "main.cpp": "0cf985e741b33a6ce83bf594da75f77ad1cbb01c",
+        "README.md": "c231e57cbffa5fca157f2e7e212bcbd525a5e3cf"
+      }
+    },
+    {
+      "id": "cpp.data-structures.ring-buffer",
+      "frozen_files": {
+        "example.json": "bf31b38e8c5f46962bda2420923b0457afeafbe2",
+        "main.cpp": "9787aabc26433e386cd9d4c8bab905d930cd3af8",
+        "README.md": "3b1028291595c5c1232a4dd2cadb7743120a2779"
+      }
+    },
+    {
+      "id": "go.data-structures.stack",
+      "frozen_files": {
+        "example.json": "72c4e2476bb2c508c9ea8c57074131e42fc6aa88",
+        "README.md": "b5ba47ae999f28cf243cde6d7c676990304c9a49",
+        "stack_test.go": "ce12bda59a03ef720513101f1a4abd950e8081b7",
+        "stack.go": "1e52b64febcba2823492c4e38ab864ffe6f0c4ba"
+      }
+    },
+    {
+      "id": "go.errors.wrapped-errors",
+      "frozen_files": {
+        "example.json": "96e40dc05b5130959879e01a52abdd308579dc12",
+        "README.md": "2adeebcebb71c8db174f4713bcc8bcf612d572fb",
+        "wrapped_errors_test.go": "7b1751984276ab6def1412b96d63a9238fb331fe",
+        "wrapped_errors.go": "440e426d3ee9ae74b62d5294413cb9a79cdff0c8"
+      }
+    },
+    {
+      "id": "java.algorithms.binary-search",
+      "frozen_files": {
+        "example.json": "908a4e19e85be8205453d96256b4c364fb2f7107",
+        "Main.java": "183d02f7e29b4c36a4fae2a6d15d8d77a4de80e2",
+        "README.md": "9a8fd4ed78c1c6de5bd2d7be6c57932047068db5"
+      }
+    },
+    {
+      "id": "java.errors.safe-integer-parse",
+      "frozen_files": {
+        "example.json": "295acb9afa66f7ccd3422daa1b0ef7c8afb0f0c4",
+        "Main.java": "3dd53ce03e9c3fda4ec5df8345262ca3d19ec45d",
+        "README.md": "fba4075f69a6b2d57ea6ad3aa3ea6f96a5e099fe"
+      }
+    },
+    {
+      "id": "javascript.algorithms.binary-search",
+      "frozen_files": {
+        "example.json": "e815d9baf57e4ea1c9599ae3f3b72a5102c6d176",
+        "index.mjs": "2095f5317a5f598f8a9f78c091f1698fff7b0d5a",
+        "index.test.mjs": "100b85809f908c4e6a0c680f8281d169590d2bc4",
+        "README.md": "47ce391a43ca58ad5e771656bb7e20268445060f"
+      }
+    },
+    {
+      "id": "javascript.security.safe-redirect",
+      "frozen_files": {
+        "example.json": "31593d58846f108de71087acb88f95596226540d",
+        "index.mjs": "85a414e026219286f8a16cb9f42a35c32397b597",
+        "index.test.mjs": "388b811fed90fc1ac078d644f1ecb7ea4f6cd637",
+        "README.md": "a061dc3f7532644bf2b49c345188f50ff67acf84"
+      }
+    },
+    {
+      "id": "python.algorithms.binary-search",
+      "frozen_files": {
+        "example.json": "bf988660716e90c148a97162bfd8219c0bfdebb4",
+        "README.md": "8fbc606abacddcaf75b32ed6b6da2fe2137406eb",
+        "solution.py": "25773178eee505dc513c0edf22760db4897b127c",
+        "test_solution.py": "917f3b67ea4a69161198dea371ec8661599cf16f"
+      }
+    },
+    {
+      "id": "python.io.atomic-write",
+      "frozen_files": {
+        "example.json": "be6bafa2ecabf2f546620c516e0bff2bb5f328f7",
+        "README.md": "81e9c8c92db9cf37208f3eff69a2e3e4352fbe5a",
+        "solution.py": "6224825db086b783e1ed0296f16172fbdb719b8e",
+        "test_solution.py": "ae9b9f9979d1cd8e5ef357ed8f410b8725046d13"
+      }
+    },
+    {
+      "id": "python.security.safe-filename",
+      "frozen_files": {
+        "example.json": "d7ade0c5d625e668d0ce9855faed03631ac575a2",
+        "README.md": "69dfd040d81623c46e897dd620edfad5fd2b1a54",
+        "solution.py": "7376db5bd980a854c3c79f2baf2f4422b1d42a27",
+        "test_solution.py": "66b3f127f478f6f4d26b1c58e3a89989f0ab910c"
+      }
+    },
+    {
+      "id": "rust.algorithms.binary-search",
+      "frozen_files": {
+        "Cargo.toml": "860b212dcc8ec7bd87900b68d9742e454c45b535",
+        "example.json": "759b8ed343ecf5ff42cc2f089ba74dc95f75ac39",
+        "README.md": "de84d782cf5e2b18e058f65e8d9119c9e8ed4b33",
+        "src/main.rs": "911ffe8cf0c4a84f9c26e6bb386467de93b4901b"
+      }
+    },
+    {
+      "id": "rust.data-structures.stack",
+      "frozen_files": {
+        "Cargo.toml": "2e6304944665590d60f35763f99c3ddd1b3819c2",
+        "example.json": "86c69f31ce409988e315f2d2ebd8a136f50cc9f4",
+        "README.md": "11b9059b10545f6215a39f36304e4ede855ab3c4",
+        "src/main.rs": "f80c763400b09b8dd62885c0564bbd7ae6b46949"
+      }
+    },
+    {
+      "id": "typescript.algorithms.binary-search",
+      "frozen_files": {
+        "example.json": "3deaacd2b2f83d4e74ea0f53524fd683a93e35d6",
+        "index.test.ts": "4e42d00ab8df51822d464bdeb9152f696d7cdf7d",
+        "index.ts": "c541d823d9e75ae08b87d78992d444bf2a9ce196",
+        "README.md": "56f591a9fedb14717e0a6164d8a58699e5a8b996"
+      }
+    },
+    {
+      "id": "typescript.data-structures.bounded-queue",
+      "frozen_files": {
+        "example.json": "3a0364b2ffb05f6dd39381ce8e53049823593bcd",
+        "index.test.ts": "de69e828aa8198de753cb9310f0782505effdab5",
+        "index.ts": "3ad460ff06fe21c82ffc5edf7bf9d041372b71bb",
+        "README.md": "559b175b8ce9082195367dabc45a5a73ae5152eb"
+      }
+    }
+  ]
+}
