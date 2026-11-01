@@ -1,0 +1,25 @@
+// Trusted CI host, separate from read-only pipeline. Commands never come from JSON.
+import { spawnSync } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
+import { rm, readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import assert from 'node:assert/strict';
+import { prepareBuild, sealBuild, auditPipeline } from '../src/index.mjs';
+const workspace = fileURLToPath(new URL('../../angular-postcompiler/smoke/', import.meta.url));
+const sourceSha = process.env.GITHUB_SHA ?? '0'.repeat(40);
+const profile = { schema_version: 1, profile_id: 'official-ci', angular_version: '22.0.0', capabilities: ['angular', 'workspace', 'static-dist'], mode: 'angular-only', mount: '/smoke/', bundle_hints: { index: 'index.html', angular_host: 'sac-smoke', angular_entrypoints: ['main.js'], assets: ['styles.css'], legacy_react_entrypoints: [] }, rules: ['SAC-PRE001', 'SAC-P001'].map(rule_id => ({ rule_id, version: '1.0.0', required: true, enforcement: 'blocking' })) };
+const resources = { workspace, dist: 'dist/browser', sourceFiles: ['package.json', 'package-lock.json', 'angular.json', 'tsconfig.json', 'src/main.ts', 'src/index.html', 'src/styles.css'] };
+const key = randomBytes(32);
+const args = { profile, resources, sourceSha, key };
+const { session, report } = await prepareBuild(args);
+assert.ok(session, JSON.stringify(report));
+await rm(new URL('../../angular-postcompiler/smoke/dist/', import.meta.url), { recursive: true, force: true });
+const build = spawnSync(process.execPath, ['node_modules/@angular/cli/bin/ng.js', 'build', 'smoke'], { cwd: workspace, shell: false, timeout: 120000, stdio: ['ignore', 2, 2], env: { ...process.env, NG_CLI_ANALYTICS: 'false' } });
+const receipt = await sealBuild({ ...args, session, buildStatus: build.status === 0 ? 'pass' : 'fail' });
+const positive = await auditPipeline({ ...args, receipt });
+assert.equal(positive.static_pipeline_pass, true, JSON.stringify(positive));
+await rm(new URL('../../angular-postcompiler/smoke/dist/browser/main.js', import.meta.url));
+const tampered = await auditPipeline({ ...args, receipt });
+assert.equal(tampered.static_pipeline_pass, false);
+assert.equal(tampered.phases.post.executed, false);
+process.stdout.write(JSON.stringify({ schema_version: 1, positive, tampered }, null, 2) + '\n');

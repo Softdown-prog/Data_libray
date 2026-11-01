@@ -56,3 +56,7 @@ O primeiro verificador está implementado em [`packages/angular-postcompiler`](.
 ## SAC-003 — primeiro preflight executável
 
 [`packages/angular-precompiler`](../packages/angular-precompiler/README.md) registra `SAC-PRE001` no Core com phase pre e demonstração em observe. Valida declarações, lock npm e instalações reais via peers/engines locais; separa a resolução do app daquela usada por compiler-cli. A ordem é preflight → Angular oficial → postflight → Guardian posterior. Não modifica workspace ou supervisor, não instala dependências e não ativa gate de produção.
+
+## SAC-004 — auditor do pipeline estático
+
+[`packages/angular-pipeline`](../packages/angular-pipeline/README.md) liga PRE001 → comprovante autenticado do build oficial do host → P001, sem executar comandos do perfil. `--no-build` confere digests de perfil/fontes selecionadas/dist e separa `static_pipeline_pass` de autorização real de deploy. SHA e execução do build são declarações do CI confiável; cobertura é explicitamente limitada. Guardian/browser e deploy não são executados.
