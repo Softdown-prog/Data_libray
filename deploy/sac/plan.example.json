@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "mode": "review-only",
+  "catalog_worker": {
+    "user": "data-library",
+    "unit": "data-library-worker.service",
+    "build_flags_enabled": false,
+    "docker_socket_access": false
+  },
+  "builder": {
+    "user": "sac-builder",
+    "uid": 1002,
+    "separate_service": true,
+    "rootless": true,
+    "socket": "/run/user/1002/docker.sock",
+    "socket_owner_uid": 1002,
+    "docker_group_member": false,
+    "dedicated_workspace": true,
+    "source_revision_verified": true,
+    "pinned_image": true,
+    "no_project_secrets": true,
+    "network": "none",
+    "cpus": 1,
+    "memory_mb": 1024,
+    "pids_limit": 128,
+    "max_parallel": 1,
+    "build_timeout_seconds": 120
+  },
+  "capacity": {
+    "ram_total_mb": 4096,
+    "reserve_other_projects_mb": 2048
+  }
+}
