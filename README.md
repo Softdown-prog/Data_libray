@@ -38,3 +38,8 @@ Novos exemplos sem contexto de uso, falhas, tratamento, riscos, testes e documen
 Pull requests executam validações de estrutura, catálogo e verificações específicas para cada linguagem. **CI verde não equivale a prova de ausência de bugs**; indica apenas que as verificações automatizadas especificadas passaram.
 
 A branch principal deve receber apenas lotes aprovados. Não criar exemplos falsos, repetidos ou que não possam ser verificados. Consulte [CONTRIBUTING.md](CONTRIBUTING.md).
+
+
+## Kit poliglota de rigor e segurança
+
+Novas referências catalogadas para [asserções TypeScript](typescript/security/runtime-assertions), [despacho limitado em Rust](rust/concurrency/bounded-dispatcher) e [status HTTP com Signals no Angular](angular/web/cluster-status-polling). Cada registro descreve condições de aplicação, riscos, erros e soluções, com status explícito de validação. **Nenhum dos exemplos instala serviços na VPS.**

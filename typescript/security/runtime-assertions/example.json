@@ -1,0 +1,77 @@
+{
+  "schema_version": 2,
+  "id": "typescript.security.runtime-assertions",
+  "title": "Asserções de tipos e valores não nulos em TypeScript",
+  "description": "Type guards verificam valores unknown em tempo de execução e lançam erro específico para entradas inválidas.",
+  "entrypoint": "index.ts",
+  "run": "tsc -p typescript/security/runtime-assertions/tsconfig.strict.json",
+  "test": "tsc -p typescript/tsconfig.json && node --test typescript/dist",
+  "tags": [
+    "runtime-validation",
+    "assertions",
+    "strict-typescript",
+    "gateway"
+  ],
+  "spec": {
+    "purpose": "Fornece assertType<T> e assertNonNullable<T> para impedir que valores desconhecidos sejam usados como tipados sem uma verificação de runtime explícita.",
+    "when_to_use": "Use nas bordas do sistema: JSON de API, eventos de fila, arquivos de configuração, mensagens entre serviços e entrada de usuário antes de confiar no tipo.",
+    "when_not_to_use": "Não substitui validação de esquema profundo, regras de negócio, autorização ou saneamento; não confunda type guard mal escrito com dado confiável.",
+    "requirements": [
+      "TypeScript 6.0 em strict mode com noUncheckedIndexedAccess e demais opções do tsconfig.strict.json.",
+      "Um predicado real de validação (value is T), capaz de analisar propriedades e restrições sem fazer cast inseguro."
+    ],
+    "inputs": [
+      "assertType(value: unknown, validator: (value: unknown) => value is T, errorMessage: string).",
+      "assertNonNullable(value: T, fieldName: string) para valor que pode ser nulo ou indefinido."
+    ],
+    "outputs": [
+      "Quando válido, assertions estreitam o tipo estático para o código seguinte.",
+      "Quando inválido, lançam CodeRigidityError com contexto específico para tratamento no chamador."
+    ],
+    "error_handling": [
+      "Um validator que retorna false causa CodeRigidityError, que deve ser capturado na fronteira HTTP/queue e traduzido para erro de domínio.",
+      "null e undefined são rejeitados; string vazia, NaN, array vazio e dados semanticamente incorretos exigem outras validações.",
+      "Se o validator lançar exceção própria, ela é propagada: não é convertida automaticamente em CodeRigidityError."
+    ],
+    "limitations": [
+      "assertType depende inteiramente da qualidade do type guard; TypeScript não valida JSON em runtime sozinho.",
+      "Não registra logs, não autentica requisições e não sanitiza entradas.",
+      "assertNonNullable não verifica strings vazias, NaN nem estruturas profundas."
+    ],
+    "troubleshooting": [
+      {
+        "symptom": "Um objeto desconhecido passa pela asserção mesmo com campos incorretos.",
+        "cause": "O predicado foi escrito como retorno constante true ou usou cast sem inspeção de valores.",
+        "fix": "Implemente o type guard verificando cada propriedade obrigatória, tipos, limites e casos inválidos; adicione testes negativos."
+      },
+      {
+        "symptom": "Um valor string vazia passa por assertNonNullable apesar de ser proibido pela regra de negócio.",
+        "cause": "Esta asserção só elimina null e undefined, não impõe uma política de string.",
+        "fix": "Crie validator próprio para strings não vazias e chame assertType com a regra de domínio."
+      }
+    ],
+    "runtime": "TypeScript 6.0 / ECMAScript ES2022, Node.js 24 para teste; sem bibliotecas externas.",
+    "usage_language": "typescript",
+    "usage_example": "const payload: unknown = JSON.parse('{\"requestId\":\"abc\",\"retries\":0}');\nassertType(payload, isGatewayPayload, 'Payload inválido');\n// Só use payload.requestId após a validação real do predicado.",
+    "validation": {
+      "level": "automated-tests",
+      "scope": "tsc strict em dois tsconfigs e execução com node --test de entradas válidas, nullish, inteiros inválidos e mensagem do erro.",
+      "gaps": "Não cobre comportamento de gateway HTTP, autenticação, dados encadeados ou consumo via browser; exige revisão dos predicados criados pelo projeto."
+    },
+    "files": [
+      {
+        "path": "index.ts",
+        "role": "source"
+      },
+      {
+        "path": "index.test.ts",
+        "role": "test"
+      },
+      {
+        "path": "tsconfig.strict.json",
+        "role": "config"
+      }
+    ],
+    "provenance": "original"
+  }
+}

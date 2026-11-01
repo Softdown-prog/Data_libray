@@ -1,0 +1,73 @@
+{
+  "schema_version": 2,
+  "id": "angular.web.cluster-status-polling",
+  "title": "Painel Angular reativo para status remoto com validação runtime",
+  "description": "Exibe estado de workers obtido via HTTP com signals, validação de JSON, polling sem sobreposição e cancelamento automático.",
+  "entrypoint": "cluster-dashboard.component.ts",
+  "run": "Importe ClusterDashboardComponent em um host standalone; configure provideHttpClient() no bootstrap e uma API GET /api/cluster/status.",
+  "test": "cd angular && npx ngc -p tsconfig.json",
+  "tags": [
+    "angular-signals",
+    "http-client",
+    "polling",
+    "cluster"
+  ],
+  "spec": {
+    "purpose": "Componente Angular standalone que consulta uma API de status a cada 6 segundos, verifica os dados recebidos e atualiza signals sem produzir estado SECURE fictício.",
+    "when_to_use": "Use em dashboards internos Angular para exibir métricas já fornecidas por um backend autenticado e com contrato claro de resposta.",
+    "when_not_to_use": "Evite para métricas críticas de baixa latência, interfaces públicas sem endpoint confiável ou cenários que requerem streaming contínuo; prefira SSE ou WebSocket quando apropriado.",
+    "requirements": [
+      "Angular 22 e TypeScript 6.0 com strictTemplates habilitado.",
+      "provideHttpClient() configurado no bootstrap Angular.",
+      "Endpoint GET /api/cluster/status responde JSON com activeWorkers inteiro seguro >= 0 e memoryHealth SECURE|WARNING|CRITICAL."
+    ],
+    "inputs": [
+      "GET /api/cluster/status: resposta do servidor tipada inicialmente como unknown.",
+      "Nenhuma propriedade de componente é exigida; polling imediato e depois a cada seis segundos."
+    ],
+    "outputs": [
+      "status signal: ClusterStatus|null, começando em null até primeira resposta validada.",
+      "error signal: mensagem resumida de falha HTTP ou payload inválido; limpa quando resposta válida chega.",
+      "Template renderiza número de workers e saúde apenas quando há resposta válida."
+    ],
+    "error_handling": [
+      "Resposta malformada não atualiza status nem inventa saúde SECURE; mostra alerta de erro.",
+      "Erro HTTP é capturado dentro do exhaustMap, permitindo que consultas futuras continuem.",
+      "takeUntilDestroyed encerra a inscrição quando o componente é destruído.",
+      "exhaustMap evita múltiplos requests sobrepostos, descartando ticks enquanto uma requisição ainda está em andamento."
+    ],
+    "limitations": [
+      "Somente exibe números reportados pela API; não mede memória por conta própria.",
+      "É necessário garantir autenticação, autorização, limitação de taxa e CORS no backend real.",
+      "Em erro após sucesso o último estado fica preservado na tela, potencialmente desatualizado, acompanhado de alerta.",
+      "Não há backoff exponencial, testes DOM nem garantia de atualização instantânea."
+    ],
+    "troubleshooting": [
+      {
+        "symptom": "Angular lança NullInjectorError para HttpClient ao abrir o painel.",
+        "cause": "O aplicativo host esqueceu de registrar o provedor de HTTP no bootstrap.",
+        "fix": "Configure provideHttpClient() em app.config.ts ou providers do bootstrapApplication antes de usar o componente."
+      },
+      {
+        "symptom": "A interface informa que o gateway devolveu um estado inválido.",
+        "cause": "A API está enviando chaves diferentes, memoryHealth fora do enum ou activeWorkers não inteiro.",
+        "fix": "Alinhe o contrato JSON de resposta e valide o retorno real do gateway, sem usar cast de tipo que elimine a checagem."
+      }
+    ],
+    "runtime": "Angular 22, RxJS 7.x, TypeScript 6.0, navegador e endpoint GET configurado no host.",
+    "usage_language": "typescript",
+    "usage_example": "// app.config.ts\nexport const appConfig: ApplicationConfig = { providers: [provideHttpClient()] };\n// Host standalone: imports: [ClusterDashboardComponent]\n// Template host: <dl-cluster-dashboard />",
+    "validation": {
+      "level": "compile-only",
+      "scope": "ngc -p angular/tsconfig.json com strictTemplates, tipagem estrita do componente e checagem estrutural pelo catalogador v2.",
+      "gaps": "Não foram executados testes de DOM, timer virtual, HTTP mock, integração real com gateway nem verificação de acessibilidade no navegador."
+    },
+    "files": [
+      {
+        "path": "cluster-dashboard.component.ts",
+        "role": "source"
+      }
+    ],
+    "provenance": "original"
+  }
+}

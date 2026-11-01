@@ -1,3 +1,3 @@
 [workspace]
-members = ["algorithms/binary-search", "data-structures/stack"]
+members = ["algorithms/binary-search", "data-structures/stack", "concurrency/bounded-dispatcher"]
 resolver = "2"

@@ -1,0 +1,79 @@
+{
+  "schema_version": 2,
+  "id": "rust.concurrency.bounded-dispatcher",
+  "title": "Despachante concorrente com reserva atômica de capacidade em Rust",
+  "description": "Limita threads simultâneas com compare_exchange, rollback de spawn e guarda RAII para recuperação de panic.",
+  "entrypoint": "src/lib.rs",
+  "run": "cd rust && cargo test -p bounded-dispatcher-example",
+  "test": "cd rust && cargo fmt --all -- --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test -p bounded-dispatcher-example",
+  "tags": [
+    "atomic",
+    "concurrency",
+    "capacity",
+    "thread",
+    "raii"
+  ],
+  "spec": {
+    "purpose": "Permite executar tarefas independentes com limite de threads simultâneas usando reserva CAS e liberação do slot por Drop mesmo quando uma tarefa entra em panic.",
+    "when_to_use": "Use para lotes pequenos de tarefas CPU/bloqueantes cujas threads não precisam ser reaproveitadas, quando é necessário recusar novas tarefas durante a saturação.",
+    "when_not_to_use": "Não use para filas persistentes, milhões de conexões, executor async, pool com reuso de threads, tarefas de terceiros sem isolamento ou dimensionamento automático de cluster.",
+    "requirements": [
+      "Rust estável com edition 2021 e biblioteca padrão.",
+      "max_capacity > 0 para permitir iniciar qualquer tarefa.",
+      "Chamador deve reter JoinHandle se quiser observar panic e aguardar conclusão."
+    ],
+    "inputs": [
+      "new(max_capacity: u32) define limite simultâneo de tarefas.",
+      "dispatch(F) recebe closure FnOnce() + Send + 'static.",
+      "active_load() fornece leitura instantânea do contador."
+    ],
+    "outputs": [
+      "dispatch retorna JoinHandle em sucesso ou DispatchError::AtCapacity / Spawn(io::Error) em falha.",
+      "active_load retorna número de slots reservados ou ainda ativos, não telemetria global da VPS.",
+      "Após conclusão ou panic, ActiveWorkerGuard retorna o slot ao limite disponível."
+    ],
+    "error_handling": [
+      "CAS impede a corrida entre load e fetch_add presente no trecho original.",
+      "Se thread::Builder falhar, a reserva já feita é revertida antes de retornar erro.",
+      "Se task panicar, Drop decrementa o contador; JoinHandle::join retorna Err para o chamador.",
+      "Capacidade zero recusa sempre: sem overflow de AtomicU32."
+    ],
+    "limitations": [
+      "Cada tarefa cria thread de SO: há custo de criação e memória; não é thread pool.",
+      "O contador mede só este dispatcher e não saúde real da memória ou total de workers em outros processos.",
+      "panic=abort ou encerramento abrupto do processo impedem execução de Drop.",
+      "Não contém persistência, autenticação, cancelamento ou isolação entre clientes."
+    ],
+    "troubleshooting": [
+      {
+        "symptom": "O despacho retorna AtCapacity quando vários chamadores chegam ao mesmo tempo.",
+        "cause": "Todos os slots foram reservados por tarefas em andamento, e o método não implementa enfileiramento.",
+        "fix": "Aguarde os handles retornados ou implemente fila com backpressure; não incremente o limite sem medir recursos."
+      },
+      {
+        "symptom": "O worker entra em panic e o processo não recebe a causa ao chamar dispatch.",
+        "cause": "O erro da closure é observado no JoinHandle::join, não no retorno de dispatch.",
+        "fix": "Armazene o JoinHandle e verifique join(); use tratamento de panic dentro da tarefa quando necessário."
+      }
+    ],
+    "runtime": "Rust stable edition 2021, std::sync::atomic, std::thread e Cargo, sem dependências externas.",
+    "usage_language": "rust",
+    "usage_example": "let dispatcher = SystemDispatcher::new(2);\nlet worker = dispatcher.dispatch(|| println!(\"tarefa\")).expect(\"slot disponível\");\nworker.join().expect(\"worker sem panic\");\nassert_eq!(dispatcher.active_load(), 0);",
+    "validation": {
+      "level": "automated-tests",
+      "scope": "cargo fmt, clippy -D warnings e testes de capacidade zero, saturação, recuperação após panic e submissões simultâneas por 32 threads.",
+      "gaps": "Falha de criação de thread do sistema operacional não é simulada; não é benchmark de desempenho nem prova de operação em cluster distribuído."
+    },
+    "files": [
+      {
+        "path": "Cargo.toml",
+        "role": "config"
+      },
+      {
+        "path": "src/lib.rs",
+        "role": "source"
+      }
+    ],
+    "provenance": "original"
+  }
+}
