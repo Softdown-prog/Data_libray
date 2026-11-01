@@ -7,7 +7,7 @@ const fixture = { image, runtime: '/tmp/sac/runtime', dist: '/tmp/sac/dist',
 test('Docker runner enforces a private network, limits and read-only mounts', () => {
   const args = dockerArguments(fixture).join(' ');
   for (const expected of ['--network none', '--read-only', '--user 1000:1000',
-    '--cap-drop ALL', '--security-opt no-new-privileges', '--pids-limit 128',
+    '--cap-drop ALL', '--cap-add SYS_CHROOT', '--security-opt no-new-privileges', '--pids-limit 128',
     '--memory 768m', '--memory-swap 768m', '--cpus 1', 'seccomp=',
     'SAC_BROWSER_SANDBOX=required', 'readonly']) assert.ok(args.includes(expected), expected);
   assert.equal(args.includes('--privileged'), false);
