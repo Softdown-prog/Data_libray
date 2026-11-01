@@ -1,0 +1,47 @@
+name: SAC Angular Guardian Sandbox
+on:
+  pull_request:
+  push:
+    branches: ['research/angular-prepost-corpus']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  sandbox:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci --prefix packages/angular-core --ignore-scripts --no-audit --no-fund
+      - run: npm ci --prefix packages/angular-precompiler --ignore-scripts --no-audit --no-fund
+      - run: npm ci --prefix packages/angular-postcompiler --ignore-scripts --no-audit --no-fund
+      - run: npm install --prefix packages/angular-guardian --ignore-scripts --no-audit --no-fund
+      - run: node --test packages/angular-guardian/integration/*.test.mjs
+      - name: Prepare isolated Angular fixture
+        run: |
+          cp packages/angular-postcompiler/smoke/{package.json,package-lock.json,angular.json,tsconfig.json} packages/angular-guardian/smoke/
+          npm ci --prefix packages/angular-guardian/smoke --ignore-scripts --no-audit --no-fund
+      - name: Pin running container image to resolved digest
+        shell: bash
+        run: |
+          docker pull mcr.microsoft.com/playwright:v1.64.1-noble
+          IMAGE="$(docker image inspect mcr.microsoft.com/playwright:v1.64.1-noble --format '{{index .RepoDigests 0}}')"
+          [[ "$IMAGE" =~ ^mcr\.microsoft\.com/playwright@sha256:[a-f0-9]{64}$ ]]
+          echo "SAC_SANDBOX_IMAGE=$IMAGE" >> "$GITHUB_ENV"
+      - name: Prove container network has no external egress
+        shell: bash
+        run: |
+          docker run --rm --network none --user 1000:1000 --cap-drop ALL --security-opt no-new-privileges "$SAC_SANDBOX_IMAGE" node -e 'const net=require("node:net"); const targets=["1.1.1.1","169.254.169.254","10.0.0.1"]; Promise.all(targets.map(host=>new Promise((resolve,reject)=>{const s=net.connect({host,port:80,timeout:800});s.on("connect",()=>reject(new Error("network reachable")));s.on("error",()=>resolve());s.on("timeout",()=>{s.destroy();resolve()})}))).then(()=>console.log("external network blocked")).catch(()=>process.exit(1))'
+      - name: Angular AOT Chromium in Docker sandbox
+        env:
+          SAC_CONTAINER_MODE: '1'
+        run: node packages/angular-guardian/examples/pipeline-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sac-guardian-sandbox-evidence
+          path: packages/angular-guardian/smoke/reports/browser.json
+          if-no-files-found: ignore

@@ -121,3 +121,13 @@ popup e WebSocket, timeout, Chromium indisponível e mutação do dist. JSONs fi
 smoke/reports/browser.json e são anexados como sac-guardian-browser-evidence.
 A coexistência híbrida usa entry legado sintético; não afirma testar React real.
 Os 231 testes estáticos e smoke anterior permanecem nos workflows existentes.
+
+## SAC-006 — opt-in sandbox externo
+
+`src/sandbox.mjs` exporta `verifyPipelineBrowserSandbox({pipeline,guardian,timeoutMs,image})`. SAC-004 e Guardian v0.1 permanecem intactos. O host confere o recibo HMAC e os hashes de SAC-004 **antes e depois do browser**. O container **não** recebe chave, receipt, workspace, segredos ou Docker socket: somente snapshot de dist, quatro módulos confiáveis do worker, dependências de Playwright e contrato versionado. O worker confronta o digest antes de servir os bytes por loopback e executar Chromium.
+
+Docker usa `--network none`, root filesystem read-only, usuário sem root, `--cap-drop ALL`, `no-new-privileges`, seccomp de Playwright v1.64.1, CPU 1, RAM 768 MiB, 128 PIDs, shm/tmpfs limitados e bind mounts read-only. O Chromium exige `chromiumSandbox: true`; ausência de suporte no host resulta em infra-error, nunca fallback com `--no-sandbox`. O Docker CLI recebe args fixos com `shell:false`; o nome do container é único e ele é removido no finally. Não há portas publicadas nem redes compartilhadas com outros serviços.
+
+A imagem é selecionada pelo **host confiável** como `mcr.microsoft.com/playwright@sha256:<digest>`; tag mutável não é aceita pelo executor. O GitHub Actions obtém `v1.64.1-noble` e resolve a digest da imagem usada (a digest exata ainda não é fixada no repositório; registrá-la nos logs para reprodução). O workflow `SAC Angular Guardian Sandbox` comprova falta de egress para IP público, privado e metadata e testa Angular AOT em SPA raiz, subpath, híbrido e regressões. Esses testes não dependem de qualquer projeto Softdown. O resultado `browser_pass` **não autoriza deploy**: `deployment_authorized=false` permanece.
+
+Limitações: o kernel/Docker daemon do runner é a fronteira de isolamento; nem o routing Playwright nem o teste de rede isoladamente comprovam invulnerabilidade. O seccomp permite user namespaces necessários ao sandbox do Chromium; não assegura segurança contra falhas do kernel. TOCTOU e seleção incompleta de fontes do SAC-004 ainda exigem CI confiável e snapshot imutável. Esta etapa **não** instala nada na VPS, não conecta ao One Worker e não cria gate de produção.

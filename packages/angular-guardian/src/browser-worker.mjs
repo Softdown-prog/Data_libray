@@ -9,7 +9,7 @@ process.once('message', async input => {
   try {
     const contract = browserContract(input.contract);
     server = await serveArtifact(input);
-    browser = await chromium.launch({ headless: true, timeout: 15000, args: ['--disable-background-networking', '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1'] });
+    browser = await chromium.launch({ headless: true, timeout: 15000, chromiumSandbox: process.env.SAC_BROWSER_SANDBOX === 'required', args: ['--disable-background-networking', '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1'] });
     result = { status: 'pass', executed: true, code: 'chromium-contract-executed', cases: [] };
     for (const scenario of contract.cases) {
       const codes = new Set();

@@ -6,11 +6,14 @@ import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
 import { prepareBuild, sealBuild, auditPipeline } from '../../angular-pipeline/src/index.mjs';
 import { verifyPipelineBrowser } from '../src/pipeline.mjs';
+import { verifyPipelineBrowserSandbox } from '../src/sandbox.mjs';
+const containerMode = process.env.SAC_CONTAINER_MODE === '1';
+const verifyBrowser = containerMode ? verifyPipelineBrowserSandbox : verifyPipelineBrowser;
 const workspace = fileURLToPath(new URL('../smoke/', import.meta.url));
 const key = randomBytes(32), sourceSha = process.env.GITHUB_SHA ?? 'a'.repeat(40);
 const guardian = { schema_version: 1, timeout_ms: 2000, cases: [{ id: 'reactive-click', path: '/', expect_visible: ['h1'], actions: [{ click: 'button', expect_visible: '.done' }] }] };
 const reports = [];
-for (const [name, mount, mode, hybrid] of [['root', '/', 'positive', false], ['subpath', '/tools/', 'positive', false], ['hybrid', '/mixed/', 'positive', true], ['broken', '/', 'broken', false], ['runtime', '/', 'runtime', false], ['http', '/', 'http', false], ['external', '/', 'external', false], ['websocket', '/', 'websocket', false], ['popup', '/', 'popup', false], ['redirect', '/', 'redirect', false]]) {
+for (const [name, mount, mode, hybrid] of [['root', '/', 'positive', false], ['subpath', '/tools/', 'positive', false], ['hybrid', '/mixed/', 'positive', true], ['broken', '/', 'broken', false], ['runtime', '/', 'runtime', false], ['http', '/', 'http', false], ['external', '/', 'external', false], ['websocket', '/', 'websocket', false], ['popup', '/', 'popup', false], ['redirect', '/', 'redirect', false]].filter(([name]) => !containerMode || ['root', 'subpath', 'hybrid', 'broken', 'external'].includes(name))) {
   await writeFile(new URL('../smoke/src/mode.ts', import.meta.url), `export const mode: string = '${mode}';\n`);
   await writeFile(new URL('../smoke/src/index.html', import.meta.url), `<html><head><base href="${mount}"></head><body><sac-smoke></sac-smoke></body></html>`);
   const profile = { schema_version: 1, profile_id: name, angular_version: '22.0.0', capabilities: ['angular', 'workspace', 'static-dist'], mode: hybrid ? 'hybrid' : 'angular-only', mount, bundle_hints: { index: 'index.html', angular_host: 'sac-smoke', angular_entrypoints: ['main.js'], assets: ['styles.css'], legacy_react_entrypoints: ['react.js'] }, rules: ['SAC-PRE001', 'SAC-P001'].map(rule_id => ({ rule_id, version: '1.0.0', required: true, enforcement: 'blocking' })) };
@@ -27,7 +30,7 @@ for (const [name, mount, mode, hybrid] of [['root', '/', 'positive', false], ['s
   }
   pipeline.receipt = await sealBuild({ ...pipeline, session, buildStatus: 'pass' });
   assert.equal((await auditPipeline(pipeline)).static_pipeline_pass, true);
-  const result = await verifyPipelineBrowser({ pipeline, guardian });
+  const result = await verifyBrowser({ pipeline, guardian });
   reports.push({ name, result });
   assert.equal(result.static_pipeline_pass, true);
   assert.equal(result.browser_pass, mode === 'positive', JSON.stringify(result));
@@ -36,15 +39,17 @@ for (const [name, mount, mode, hybrid] of [['root', '/', 'positive', false], ['s
   const expectedCode = { external: 'network-policy-blocked', redirect: 'network-policy-blocked', websocket: 'websocket-blocked', popup: 'popup-blocked', http: 'http-error' }[mode];
   if (expectedCode) assert.ok(result.browser.cases[0].codes.includes(expectedCode), JSON.stringify(result));
   if (name === 'root') {
-    const missing = await verifyPipelineBrowser({ pipeline }); assert.equal(missing.browser.status, 'unverified'); reports.push({ name: 'missing-contract', result: missing });
-    const timeout = await verifyPipelineBrowser({ pipeline, guardian, timeoutMs: 1 }); assert.equal(timeout.browser.status, 'infra-error'); reports.push({ name: 'worker-timeout', result: timeout });
+    const missing = await verifyBrowser({ pipeline }); assert.equal(missing.browser.status, 'unverified'); reports.push({ name: 'missing-contract', result: missing });
+    const timeout = await verifyBrowser({ pipeline, guardian, timeoutMs: 1 }); assert.equal(timeout.browser.status, 'infra-error'); reports.push({ name: 'worker-timeout', result: timeout });
+    if (!containerMode) {
     const previous = process.env.PLAYWRIGHT_BROWSERS_PATH;
     process.env.PLAYWRIGHT_BROWSERS_PATH = '/nonexistent-sac-browser-fixture';
     try {
-      const unavailable = await verifyPipelineBrowser({ pipeline, guardian });
+      const unavailable = await verifyBrowser({ pipeline, guardian });
       assert.equal(unavailable.browser.status, 'infra-error'); reports.push({ name: 'chromium-unavailable', result: unavailable });
     } finally { if (previous === undefined) delete process.env.PLAYWRIGHT_BROWSERS_PATH; else process.env.PLAYWRIGHT_BROWSERS_PATH = previous; }
-    const slow = verifyPipelineBrowser({ pipeline, guardian: { ...guardian, cases: [{ ...guardian.cases[0], actions: [{ click: 'button', expect_visible: '.never' }] }] } });
+    }
+    const slow = verifyBrowser({ pipeline, guardian: { ...guardian, cases: [{ ...guardian.cases[0], actions: [{ click: 'button', expect_visible: '.never' }] }] } });
     const mutate = setTimeout(() => { void writeFile(new URL('../smoke/dist/browser/extra.js', import.meta.url), '// mutation'); }, 300);
     const changed = await slow; clearTimeout(mutate); assert.equal(changed.browser_pass, false); reports.push({ name: 'mutation', result: changed });
   }
