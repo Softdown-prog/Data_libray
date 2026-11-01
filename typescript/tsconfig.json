@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "useUnknownInCatchVariables": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "rootDir": ".",
+    "outDir": "dist",
+    "skipLibCheck": false
+  },
+  "include": ["algorithms/**/*.ts", "data-structures/**/*.ts", "io/**/*.ts", "errors/**/*.ts", "security/**/*.ts", "testing/**/*.ts", "web/**/*.ts", "ui/**/*.ts", "databases/**/*.ts", "tooling/**/*.ts", "concurrency/**/*.ts"],
+  "exclude": ["dist"]
+}

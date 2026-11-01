@@ -1,0 +1,3 @@
+[workspace]
+members = ["algorithms/binary-search", "data-structures/stack"]
+resolver = "2"

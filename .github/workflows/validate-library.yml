@@ -1,0 +1,131 @@
+name: Validate code library
+on:
+  pull_request:
+  push:
+    branches: [main, "feat/**"]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: validate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  catalog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python scripts/catalog.py --check
+      - run: python scripts/search.py --language go
+
+  go:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go/go.mod
+      - run: cd go && go test -race -count=1 ./... && go vet ./...
+
+  python:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install "ruff>=0.11,<1"
+      - run: ruff check python scripts
+      - run: python -m compileall -q python scripts
+      - run: python scripts/run_python_tests.py
+
+  cpp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and execute each C++20 example
+        shell: bash
+        run: |
+          set -euo pipefail
+          count=0
+          while IFS= read -r -d '' file; do
+            binary="$(mktemp)"
+            g++ -std=c++20 -O1 -g -Wall -Wextra -Wpedantic -Werror -fsanitize=undefined -fno-sanitize-recover=all "$file" -o "$binary"
+            "$binary"
+            rm -f "$binary"
+            count=$((count+1))
+          done < <(find cpp -name 'main.cpp' -print0)
+          test "$count" -gt 0
+
+  rust:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: cd rust && cargo fmt --all -- --check
+      - run: cd rust && cargo clippy --workspace --all-targets -- -D warnings
+      - run: cd rust && cargo test --workspace
+
+  javascript:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: find javascript -name '*.mjs' -print0 | xargs -0 -r -n1 node --check
+      - run: node --test javascript
+
+  typescript:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm install -g "typescript@~6.0.0"
+      - run: tsc -p typescript/tsconfig.json
+      - run: node --test typescript/dist
+
+  angular:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm install --prefix angular --no-audit --no-fund
+      - run: cd angular && npx ngc -p tsconfig.json
+
+  java:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Compile and execute isolated Java examples
+        shell: bash
+        run: |
+          set -euo pipefail
+          count=0
+          while IFS= read -r -d '' file; do
+            dir="$(mktemp -d)"
+            javac -Xlint:all -Werror -d "$dir" "$file"
+            java -ea -cp "$dir" Main
+            rm -rf "$dir"
+            count=$((count+1))
+          done < <(find java -name 'Main.java' -print0)
+          test "$count" -gt 0

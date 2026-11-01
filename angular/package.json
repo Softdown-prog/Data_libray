@@ -1,0 +1,15 @@
+{
+  "name": "@softdown/data-library-angular",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@angular/common": "^22.0.0",
+    "@angular/core": "^22.0.0",
+    "rxjs": "^7.4.0"
+  },
+  "devDependencies": {
+    "@angular/compiler": "^22.0.0",
+    "@angular/compiler-cli": "^22.0.0",
+    "typescript": "~6.0.0"
+  }
+}
