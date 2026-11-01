@@ -1,0 +1,37 @@
+name: SAC Angular Guardian Browser
+on:
+  pull_request:
+  push:
+    branches: ['research/angular-prepost-corpus']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci --prefix packages/angular-core --ignore-scripts --no-audit --no-fund
+      - run: npm ci --prefix packages/angular-precompiler --ignore-scripts --no-audit --no-fund
+      - run: npm ci --prefix packages/angular-postcompiler --ignore-scripts --no-audit --no-fund
+      - run: npm install --prefix packages/angular-guardian --ignore-scripts --no-audit --no-fund
+      - run: npm test --prefix packages/angular-guardian
+      - run: node --test packages/angular-guardian/integration/*.test.mjs
+      - name: Prepare isolated official fixture from locked toolchain
+        run: |
+          cp packages/angular-postcompiler/smoke/{package.json,package-lock.json,angular.json,tsconfig.json} packages/angular-guardian/smoke/
+          npm ci --prefix packages/angular-guardian/smoke --ignore-scripts --no-audit --no-fund
+      - name: Install ephemeral Chromium
+        run: cd packages/angular-guardian && npx playwright install --with-deps chromium
+      - name: Angular AOT positive, broken handler and network regressions
+        run: node packages/angular-guardian/examples/pipeline-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sac-guardian-browser-evidence
+          path: packages/angular-guardian/smoke/reports/*.json
+          if-no-files-found: ignore

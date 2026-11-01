@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "profile_id": "example-spa",
+  "angular_version": "22.0.0",
+  "capabilities": ["angular", "static-dist"],
+  "mode": "angular-only",
+  "mount": "/",
+  "bundle_hints": {
+    "index": "index.html",
+    "angular_host": "example-shell",
+    "angular_entrypoints": ["main.js"],
+    "assets": ["style.css"],
+    "legacy_react_entrypoints": []
+  },
+  "rules": [
+    { "rule_id": "SAC-P001", "version": "1.0.0", "required": true, "enforcement": "blocking" }
+  ]
+}

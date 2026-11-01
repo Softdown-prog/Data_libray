@@ -1,0 +1,152 @@
+{
+  "schema_version": 1,
+  "created_on": "2026-11-01",
+  "project": "Softdown Angular Pre/Post Compiler",
+  "scope": "Amostra inicial de incidentes extraídos de PRs, código e recuperação semântica de conversas. Não equivale a exportação completa de todo o histórico.",
+  "evidence_levels": {
+    "pr_documented": "Descrição do PR, sem execução repetida nesta análise",
+    "code_and_pr": "Teste/código e descrição do PR",
+    "code_and_docs": "Documentação e testes fonte",
+    "pr_and_commit": "PR e commit de correção rastreáveis",
+    "conversation_report": "Conversa antiga recuperada; requer confirmação no código"
+  },
+  "incidents": [
+    {
+      "id": "SAC-001",
+      "project": "Lan House Simulator",
+      "stage": "pre",
+      "evidence_level": "pr_documented",
+      "title": "Angular 22 exigiu toolchain TypeScript isolado",
+      "problem": "Migração Angular foi mantida em workspace próprio com TypeScript 6.0.2 enquanto motor LHS usava TypeScript 7.0.2. O build global não podia presumir um único TypeScript para todas as árvores.",
+      "sources": [
+        "https://github.com/Softdown-prog/A7-forge-2D-/pull/49",
+        "https://github.com/Softdown-prog/A7-forge-2D-/blob/main/games/lan_house_simulator/frontend-angular/package.json"
+      ],
+      "candidate_check": "pre: validar @angular/compiler-cli e seus peerDependencies de TypeScript por workspace, com npm ls e lockfile; falhar quando resolução real é incompatível.",
+      "reproduction": "historical_pr"
+    },
+    {
+      "id": "SAC-002",
+      "project": "Lan House Simulator",
+      "stage": "post",
+      "evidence_level": "code_and_pr",
+      "title": "Build Angular isolado sem cutover real do React",
+      "problem": "A prévia Angular compilava, mas o entrypoint React continuava ativo e hosts Angular opcionais não estavam integrados; testes de migração impunham estado not-ready até paridade e browser QA.",
+      "sources": [
+        "https://github.com/Softdown-prog/A7-forge-2D-/pull/49",
+        "https://github.com/Softdown-prog/A7-forge-2D-/blob/main/games/lan_house_simulator/tests/angular-migration-audit.test.mjs"
+      ],
+      "candidate_check": "post: comparar HTML de publicação com framework esperado, script entrypoint e hosts obrigatórios, sem confundir prévia compilada com migração publicada.",
+      "reproduction": "existing_static_test"
+    },
+    {
+      "id": "SAC-003",
+      "project": "Lan House Simulator",
+      "stage": "runtime",
+      "evidence_level": "conversation_report",
+      "title": "Controle de Finanças e aria-pressed em Angular",
+      "problem": "Registros de conversas apontam teste integrado falhando por aria-pressed desatualizado após ação reativa. Não foi identificada nesta amostra uma diff do commit que comprove a causa exata.",
+      "sources": [
+        "https://github.com/Softdown-prog/A7-forge-2D-/blob/main/games/lan_house_simulator/tests/angular-cutover-candidate.test.mjs"
+      ],
+      "candidate_check": "runtime: reproduzir interação real no Chromium, clicar navegação e comparar aria-pressed, painel visível e estado esperado. Manter caso como hipótese até reproduzir.",
+      "reproduction": "needs_replay"
+    },
+    {
+      "id": "SAC-004",
+      "project": "Painel da VPS",
+      "stage": "deploy",
+      "evidence_level": "pr_documented",
+      "title": "Frontend Angular não incluído no artefato Pages",
+      "problem": "PR #38 relata Pages publicando interface antiga apesar de build frontend; corrigiu empacotamento do Angular e verificação de revisão/bundle público.",
+      "sources": [
+        "https://github.com/Softdown-prog/Painel/pull/38"
+      ],
+      "candidate_check": "post/deploy: confirmar dist/Angular incluído no pacote, hash de assets e SHA público idênticos ao candidato, inclusive na URL publicada.",
+      "reproduction": "historical_pr"
+    },
+    {
+      "id": "SAC-005",
+      "project": "Terrania",
+      "stage": "post",
+      "evidence_level": "pr_and_commit",
+      "title": "Smoke legado marcou Angular correto como falha",
+      "problem": "Após a migração, o smoke ainda exigia texto de /jogar/ e ALFA 0.3 no HTML estático. O app passou a renderizar em app-root, exigindo checagem do shell e bundles.",
+      "sources": [
+        "https://github.com/Softdown-prog/Terrania/pull/35",
+        "https://github.com/Softdown-prog/Terrania/pull/36",
+        "https://github.com/Softdown-prog/Terrania/commit/618781c1b06517922391ca46d1616da7e6146a0d"
+      ],
+      "candidate_check": "post: reconhecer root Angular e tags script efetivas; não exigir conteúdo dinâmico no HTML de origem. Testar tanto app válido quanto shell incompleto.",
+      "reproduction": "existing_regression_test"
+    },
+    {
+      "id": "SAC-006",
+      "project": "Terrania",
+      "stage": "post",
+      "evidence_level": "pr_and_commit",
+      "title": "Configuração WSS presente em chunk ESM carregado sob demanda",
+      "problem": "Validação de frontend publicado passou a seguir imports estáticos e dinâmicos do bundle para conferir URL WSS, respeitando host, limite de tamanho e ciclo de dependências.",
+      "sources": [
+        "https://github.com/Softdown-prog/Terrania/pull/36",
+        "https://github.com/Softdown-prog/Terrania/commit/618781c1b06517922391ca46d1616da7e6146a0d"
+      ],
+      "candidate_check": "post: inspecionar grafo local de assets ESM publicados, checar chunks existentes e configuração pública esperada; não acessar domínios externos.",
+      "reproduction": "existing_regression_test"
+    },
+    {
+      "id": "SAC-007",
+      "project": "Lan House Simulator",
+      "stage": "runtime",
+      "evidence_level": "conversation_report",
+      "title": "Automação de captura ainda esperava bundle React",
+      "problem": "Conversas de 01/11 relatam worker de captura do jogo isolado esperando entrada React após build Angular. É necessário localizar a execução e o patch antes de declarar a causa comprovada.",
+      "sources": [
+        "https://github.com/Softdown-prog/A7-forge-2D-/pull/51"
+      ],
+      "candidate_check": "runtime: abrir o artefato gerado pela pipeline Angular no Chromium, garantir Canvas, bootstrap e módulo esperado carregados; não aceitar somente build verde.",
+      "reproduction": "needs_replay"
+    },
+    {
+      "id": "SAC-008",
+      "project": "Data Library",
+      "stage": "runtime",
+      "evidence_level": "code_and_docs",
+      "title": "Signals e HTTP mockado não comprovavam DOM",
+      "problem": "O worker Angular da biblioteca testa state/services em Node com HTTP simulado; a documentação explicita que isso não verifica renderização DOM nem API real.",
+      "sources": [
+        "https://github.com/Softdown-prog/Data_libray/blob/main/docs/WORKER_VPS.md",
+        "https://github.com/Softdown-prog/Data_libray/blob/main/tests/angular_behavior.test.mjs"
+      ],
+      "candidate_check": "runtime: promover estado de cobertura somente após testes Playwright com DOM, cliques e erros reais; compile-only nunca é browser-pass.",
+      "reproduction": "existing_static_test"
+    },
+    {
+      "id": "SAC-009",
+      "project": "Painel da VPS",
+      "stage": "runtime",
+      "evidence_level": "pr_documented",
+      "title": "Paridade Angular exigiu testes Chromium além do build",
+      "problem": "PR #68 registra 105/105 cenários Playwright e integrações; demonstra valor do gate de navegador independente do AOT.",
+      "sources": [
+        "https://github.com/Softdown-prog/Painel/pull/68",
+        "https://github.com/Softdown-prog/Painel/blob/main/angular/e2e/playwright.config.mjs"
+      ],
+      "candidate_check": "runtime: executar contratos de sessão, foco, operações, visual mobile e interação com API simulada sem dispensar verificação pós-deploy.",
+      "reproduction": "existing_browser_suite"
+    },
+    {
+      "id": "SAC-010",
+      "project": "Painel da VPS",
+      "stage": "runtime",
+      "evidence_level": "pr_documented",
+      "title": "Clipboard deve comprovar cópia e tratar permissão negada",
+      "problem": "PR #71 adicionou botão de copiar saída SSH e três testes Chromium cobrindo cópia parcial/final, permissão negada e saída vazia.",
+      "sources": [
+        "https://github.com/Softdown-prog/Painel/pull/71"
+      ],
+      "candidate_check": "runtime: interagir com clipboard simulado, testar permissão negada e nunca sinalizar sucesso antes de a escrita ocorrer.",
+      "reproduction": "existing_browser_suite"
+    }
+  ]
+}
