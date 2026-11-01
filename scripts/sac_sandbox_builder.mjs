@@ -80,6 +80,21 @@ async function inspectDist(dir, depth = 0, budget = { files: 0, bytes: 0 }) {
   return budget;
 }
 
+async function safeOutputParents(workspace, relative) {
+  let current = workspace;
+  const parts = relative.split('/');
+  for (const part of parts.slice(0, -1)) {
+    current = path.join(current, part);
+    try {
+      const st = await lstat(current);
+      if (!st.isDirectory() || st.isSymbolicLink()) throw issue('dist-parent-unsafe');
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+      // Later mkdir will create a directory under an already inspected parent.
+    }
+  }
+}
+
 async function publishTree(source, dest) {
   await mkdir(dest, { mode: 0o755 });
   for (const item of await readdir(source, { withFileTypes: true })) {
@@ -108,6 +123,7 @@ export async function isolatedAngularBuild({ resources, projectName, image,
     if (!(await lstat(dependencies)).isDirectory()) throw issue('dependencies-missing');
     const destination = path.join(workspace, resources.dist);
     if (!within(workspace, destination)) throw issue('dist-outside-workspace');
+    await safeOutputParents(workspace, resources.dist);
     // Never overwrite a previous output, even after a failed attempt.
     try { await lstat(destination); throw issue('dist-already-exists'); }
     catch (e) { if (e.code !== 'ENOENT') throw e; }
@@ -129,6 +145,7 @@ export async function isolatedAngularBuild({ resources, projectName, image,
     // Publish only to a previously empty output location.
     try { await lstat(destination); throw issue('dist-already-exists'); }
     catch (e) { if (e.code !== 'ENOENT') throw e; }
+    await safeOutputParents(workspace, resources.dist);
     await mkdir(path.dirname(destination), { recursive: true });
     await publishTree(output, destination);
     return { status: 'pass', code: 'isolated-angular-build', built: true,
@@ -136,7 +153,7 @@ export async function isolatedAngularBuild({ resources, projectName, image,
   } catch (error) {
     return failure(['source-symlink', 'source-budget', 'unsafe-source-list',
       'dist-already-exists', 'dist-symlink', 'dist-budget', 'dist-depth-limit',
-      'dependencies-missing'].includes(error?.code) ? error.code : 'build-infra-error');
+      'dependencies-missing', 'dist-parent-unsafe'].includes(error?.code) ? error.code : 'build-infra-error');
   } finally {
     if (name) spawnSync('docker', ['rm', '--force', name],
       { stdio: 'ignore', timeout: 10000,
