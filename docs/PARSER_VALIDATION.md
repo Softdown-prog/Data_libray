@@ -40,7 +40,7 @@ A falha de um parser reprova o job; não configurar `continue-on-error`. Os test
 - A etapa de parsing não executa diretamente os exemplos. Compiladores podem carregar configurações, build scripts e plugins de terceiros: isso não representa uma sandbox para código hostil.
 - Verificação C++ de headers só ocorre quando eles forem incluídos por unidades de tradução. Java compila exemplos isoladamente por causa das classes repetidas.
 - Parse de Go e JavaScript não garante correção de tipos ou lógica. TypeScript e Angular verificam os arquivos abrangidos pelos tsconfigs.
-- Angular continua classificado como `compile-only` no catálogo, porque ainda faltam testes DOM e HTTP simulado.
+- Para os três exemplos Angular atuais, a compilação AOT é seguida de testes de comportamento: signal, query params e HTTP simulado, em ambiente Node. Isso **não verifica templates renderizados no DOM** nem uma API real; exemplos futuros sem harness permanecem `compile-only`.
 - `cargo check` não executa testes de concorrência; `--offline` evita baixar novas dependências nessa etapa.
 - Este estágio acrescenta alguma duplicação de compilação aos jobs existentes. Podemos medi-la e otimizar o tempo posteriormente.
 

@@ -10,3 +10,6 @@
 .DS_Store
 
 .worker-results/
+
+# Angular AOT test output (emitted only during verification)
+**/.behavior-dist/

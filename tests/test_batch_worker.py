@@ -69,9 +69,29 @@ class WorkerContractTests(unittest.TestCase):
         self.assertTrue(tasks)
         with patch.object(worker, "checks_for", return_value=[ParserCheck("angular", "ngc", worker.ROOT)]), patch.object(
             worker, "run_check", return_value=(True, "", None),
-        ):
+        ), patch.object(worker, "run_behavior", return_value=("compile-only", "sem DOM")):
             result = worker.validate_task(tasks[0], "both")
         self.assertEqual(result["status"], "compile-only")
+
+    def test_angular_behavior_runs_compiler_and_real_test_command(self) -> None:
+        tasks = worker.select_tasks(self.catalog, status="all", language="angular",
+                                    max_items=1)
+        self.assertTrue(tasks)
+        with patch.object(worker, "execute", return_value=(True, "ok")) as execute:
+            status, _ = worker.run_behavior(tasks[0])
+        self.assertEqual(status, "pass")
+        self.assertEqual(execute.call_count, 2)
+        self.assertEqual(execute.call_args_list[0].args[0][0], "./node_modules/.bin/ngc")
+        self.assertEqual(execute.call_args_list[1].args[0][0], "node")
+        self.assertIn(tasks[0]["example_id"], execute.call_args_list[1].args[0])
+
+    def test_angular_unknown_id_never_receives_behavioral_pass(self) -> None:
+        task = {"language": "angular", "path": "angular/ui/other",
+                "example_id": "angular.ui.other"}
+        with patch.object(worker, "execute") as execute:
+            status, _ = worker.run_behavior(task)
+        self.assertEqual(status, "compile-only")
+        execute.assert_not_called()
 
     def test_json_commands_cannot_override_fixed_runtime(self) -> None:
         tasks = worker.select_tasks(self.catalog, status="all", language="python", max_items=1)

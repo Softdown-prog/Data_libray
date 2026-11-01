@@ -126,6 +126,10 @@ jobs:
       - name: Parser Angular (ngc strictTemplates)
         run: python3 scripts/parser_audit.py --language angular
       - run: cd angular && npx ngc -p tsconfig.json
+      - name: Build do Angular para testes de comportamento (AOT)
+        run: cd angular && ./node_modules/.bin/ngc -p tsconfig.behavior.json
+      - name: Testar Signals, URLs e HttpClient mockado (sem navegador)
+        run: node tests/angular_behavior.test.mjs all
 
   java:
     runs-on: ubuntu-latest

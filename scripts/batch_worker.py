@@ -107,7 +107,25 @@ def run_behavior(entry: dict[str, str]) -> tuple[str, str]:
                 return "fail", f"Teste compilado ausente: {compiled.relative_to(ROOT)}"
             passed, detail = execute(["node", "--test", str(compiled)], ROOT)
     elif lang == "angular":
-        return "compile-only", "Compilação Angular verificada no parser; testes DOM/HTTP não disponíveis"
+        # Somente IDs com testes funcionais explícitos podem receber "pass".
+        # Os testes cobrem signals e HTTP mockado, NÃO renderização de DOM.
+        verified = {
+            "angular.ui.accessible-toggle",
+            "angular.web.cluster-status-polling",
+            "angular.web.query-param-service",
+        }
+        harness = ROOT / "tests" / "angular_behavior.test.mjs"
+        if entry["example_id"] not in verified or not harness.is_file():
+            return "compile-only", "Sem teste funcional Angular registrado"
+        passed, detail = execute(
+            ["./node_modules/.bin/ngc", "-p", "tsconfig.behavior.json"],
+            ROOT / "angular", timeout=240,
+        )
+        if passed:
+            passed, detail = execute(
+                ["node", str(harness), entry["example_id"]],
+                ROOT, timeout=180,
+            )
     elif lang == "cpp":
         source = folder / "main.cpp"
         if not source.is_file():

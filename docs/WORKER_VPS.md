@@ -60,3 +60,7 @@ Uma revisão nova cria outro lote, preservando o histórico dos anteriores. Uma 
 - Um item sem teste de comportamento permanece `compile-only`; `pass` não significa ausência total de erros.
 - A unidade aplica limites e privilégios restritos, mas não é uma sandbox completa contra código malicioso. Não execute contribuições não revisadas diretamente no host.
 - O primeiro start real precisa ocorrer na VPS: publicar um commit não significa instalar um serviço no Ubuntu.
+
+## Testes Angular sem navegador
+
+Os três IDs Angular inicialmente disponíveis possuem testes de comportamento em `tests/angular_behavior.test.mjs`. O worker compila uma saída isolada com `angular/tsconfig.behavior.json` e executa o caso associado a cada ID. O relatório `pass` demonstra apenas o comportamento verificado por signals, URL ou HTTP simulado; não comprova o DOM ou integração com backend real. O serviço precisa receber o novo commit por atualização autorizada do checkout, não automática.

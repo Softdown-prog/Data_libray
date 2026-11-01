@@ -21,7 +21,7 @@ ROOT_FILES = {"README.md", "CONTRIBUTING.md", ".gitignore", "catalog.json"}
 ROOT_DIRECTORIES = LANGUAGES | {"docs", "scripts", "tests", ".github", "deploy"}
 ROOT_LOCAL_IGNORES = {".git", ".venv", ".ruff_cache", ".pytest_cache", ".mypy_cache", "__pycache__", "node_modules", ".worker-results"}
 # Dependências e saídas geradas não são código catalogável.
-GENERATED_DIRECTORIES = ROOT_LOCAL_IGNORES | {"dist", "build", "target", ".angular"}
+GENERATED_DIRECTORIES = ROOT_LOCAL_IGNORES | {"dist", "build", "target", ".angular", ".behavior-dist"}
 SPEC_FIELDS = {
     "purpose", "when_to_use", "when_not_to_use", "requirements", "inputs",
     "outputs", "error_handling", "limitations", "troubleshooting", "runtime",
