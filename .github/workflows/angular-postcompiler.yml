@@ -18,6 +18,8 @@ jobs:
       - run: npm ci --prefix packages/angular-postcompiler --ignore-scripts --no-audit --no-fund
       - run: npm ci --prefix packages/angular-core --ignore-scripts --no-audit --no-fund
       - run: npm test --prefix packages/angular-core
+      - run: npm ci --prefix packages/angular-precompiler --ignore-scripts --no-audit --no-fund
+      - run: npm test --prefix packages/angular-precompiler
       - name: Matriz sintética do core (JSON)
         run: node packages/angular-core/examples/matrix.mjs > "${{ runner.temp }}/sac-core-matrix.json"
       - uses: actions/upload-artifact@v4
@@ -26,6 +28,14 @@ jobs:
           path: ${{ runner.temp }}/sac-core-matrix.json
       - run: npm test --prefix packages/angular-postcompiler
       - run: npm ci --prefix packages/angular-postcompiler/smoke --ignore-scripts --no-audit --no-fund
+      - name: SAC-PRE001 no Angular oficial instalado (observe)
+        run: node packages/angular-precompiler/examples/official.mjs > "${{ runner.temp }}/sac-pre001-official.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sac-pre001-official
+          path: ${{ runner.temp }}/sac-pre001-official.json
+          if-no-files-found: ignore
       - run: npm run test:smoke --prefix packages/angular-postcompiler
       - uses: actions/upload-artifact@v4
         if: always()
