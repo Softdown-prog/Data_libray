@@ -22,6 +22,8 @@ jobs:
       - run: python scripts/catalog.py --check
       - run: python -m unittest discover -s tests -p 'test_*.py'
       - run: python scripts/search.py --language go
+      - name: Worker smoke test (Python, um exemplo)
+        run: python scripts/batch_worker.py --language python --status documented --max-items 1 --mode both --output "$RUNNER_TEMP/dl-worker-smoke"
 
   go:
     runs-on: ubuntu-latest

@@ -8,3 +8,5 @@
 **/.angular/
 **/.venv/
 .DS_Store
+
+.worker-results/

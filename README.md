@@ -55,3 +55,9 @@ A branch principal deve receber apenas lotes aprovados. Não criar exemplos fals
 ## Kit poliglota de rigor e segurança
 
 Novas referências catalogadas para [asserções TypeScript](typescript/security/runtime-assertions), [despacho limitado em Rust](rust/concurrency/bounded-dispatcher) e [status HTTP com Signals no Angular](angular/web/cluster-status-polling). Cada registro descreve condições de aplicação, riscos, erros e soluções, com status explícito de validação. **Nenhum dos exemplos instala serviços na VPS.**
+
+## Worker de validação em lote (Actions + VPS)
+
+O script [batch_worker.py](scripts/batch_worker.py) monta uma fila determinística a partir de `catalog.json` e registra resultados JSON por exemplo, prosseguindo mesmo após falhas. O [workflow opcional de VPS](.github/workflows/worker-vps.yml) exige um runner dedicado com label `data-library-worker` e só é acionado manualmente. **Não instala nada na VPS sozinho.** Consulte [operação e segurança](docs/WORKER_VPS.md).
+
+A classificação `compile-only` permanece explícita quando não há teste de comportamento; nenhuma aprovação automática promove exemplos ao contrato v2.
