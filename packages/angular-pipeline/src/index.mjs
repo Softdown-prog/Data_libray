@@ -98,6 +98,7 @@ export async function prepareBuild({ profile, resources, sourceSha, limits }) {
   try {
     const p = validate(profile);
     report.profile_id = p.profile_id;
+    report.profile_schema_version = p.schema_version;
     if (p.mode === 'non-angular') { report.status = 'not-applicable'; report.phases.pre = { status: 'not-applicable', executed: false, code: 'non-angular' }; return { report, session: null }; }
     if (typeof sourceSha !== 'string' || !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(sourceSha)) stop('fail', 'source-sha-claim-invalid');
     report.phases.pre = { ...await preflight(p, resources, limits), executed: true };

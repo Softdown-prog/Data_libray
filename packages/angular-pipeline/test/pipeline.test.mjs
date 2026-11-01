@@ -87,3 +87,27 @@ test('no process or network code in pipeline implementation', async () => {
   const source = await readFile(new URL('../src/index.mjs', import.meta.url), 'utf8');
   assert.doesNotMatch(source, /node:(child_process|http|net)|\b(eval|fetch|spawn|writeFile)\s*\(/);
 });
+test('sealing rejects source changes between preflight and official build', async t => {
+  const a = await setup(t);
+  await writeFile(path.join(a.resources.workspace, 'app.ts'), '// changed during build');
+  await assert.rejects(() => sealBuild({ ...a, buildStatus: 'pass' }), /sources-changed/);
+});
+for (const dist of ['../outside', '/outside', '.']) test(`unsafe dist ${dist} fails closed`, async t => {
+  const a = await setup(t); a.resources.dist = dist;
+  assert.equal((await auditPipeline(a)).static_pipeline_pass, false);
+});
+test('two subapps share one root while preserving independent preflight and evidence', async t => {
+  const a = await setup(t, { project: 'apps/a' });
+  const root = a.resources.workspace;
+  await writeProject(path.join(root, 'apps/b'), metadata({ angular: '20.0.0', ts: '6.1.0', tsRange: '^6.1.0' }));
+  await writeFile(path.join(root, 'apps/b/app.ts'), '// independent app');
+  const b = { ...a, profile: { ...a.profile, profile_id: 'app-b', angular_version: '20.0.0' }, resources: { workspace: root, project: 'apps/b', dist: 'apps/b/output', sourceFiles: ['apps/b/package.json', 'apps/b/package-lock.json', 'apps/b/app.ts'] } };
+  const { session } = await prepareBuild(b); assert.ok(session);
+  await mkdir(path.join(root, b.resources.dist));
+  await writeFile(path.join(root, b.resources.dist, 'index.html'), '<sample-shell></sample-shell><script src="main.js"></script>');
+  await writeFile(path.join(root, b.resources.dist, 'main.js'), '// app b');
+  b.receipt = await sealBuild({ ...b, session, buildStatus: 'pass' });
+  assert.equal((await auditPipeline(a)).static_pipeline_pass, true);
+  assert.equal((await auditPipeline(b)).static_pipeline_pass, true);
+  assert.equal((await auditPipeline({ ...b, receipt: a.receipt })).static_pipeline_pass, false);
+});
