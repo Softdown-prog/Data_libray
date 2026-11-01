@@ -57,17 +57,17 @@ class ReadinessTests(unittest.TestCase):
     def test_rootful_or_shared_worker_rejected(self):
         for changes in (
             {"rootless": False}, {"docker_group_member": True},
-            {"user": "data-library"}, {"user": "root"},
-            {"socket": "/var/run/docker.sock"},
-            {"socket": "/run/user/1003/docker.sock"},
-            {"socket_owner_uid": 1}, {"separate_service": False},
+            {"socket": "/var/run/docker.sock"}, {"socket": "/run/user/1003/docker.sock"},
+            {"socket_owner_uid": 1},
         ):
             candidate = copy.deepcopy(BASE)
             candidate["builder"].update(changes)
-            self.assertIn("rootless-docker-socket-not-isolated", self.check(candidate)["blockers"]
-                if changes.get("rootless") is False or "socket" in changes or
-                   "socket_owner_uid" in changes or "docker_group_member" in changes
-                else self.check(candidate)["blockers"] + ["rootless-docker-socket-not-isolated"])
+            self.assertIn("rootless-docker-socket-not-isolated", self.check(candidate)["blockers"])
+        for changes in ({"user": "data-library"}, {"user": "root"},
+                        {"separate_service": False}):
+            candidate = copy.deepcopy(BASE)
+            candidate["builder"].update(changes)
+            self.assertIn("builder-service-not-independent", self.check(candidate)["blockers"])
 
     def test_build_budget_and_shared_ram_reserve(self):
         for field, value in (("cpus", 2), ("memory_mb", 1536), ("pids_limit", 200),
