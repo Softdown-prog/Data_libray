@@ -13,7 +13,7 @@
       "path": "angular/ui/accessible-toggle",
       "entrypoint": "toggle.component.ts",
       "run": "Importe AccessibleToggleComponent em outro componente standalone.",
-      "test": "cd angular && ./node_modules/.bin/ngc -p tsconfig.behavior.json && cd .. && node --test --test-force-exit --test-name-pattern=angular.web.cluster-status-polling tests/angular_behavior.test.mjs",
+      "test": "cd angular && npx ngc -p tsconfig.json",
       "tags": [
         "standalone",
         "signals",
@@ -108,7 +108,7 @@
       "path": "angular/web/query-param-service",
       "entrypoint": "query-param.service.ts",
       "run": "Injete QueryParamService e chame read('https://site.test/?q=ok', 'q').",
-      "test": "cd angular && ./node_modules/.bin/ngc -p tsconfig.behavior.json && cd .. && node --test --test-force-exit --test-name-pattern=angular.web.cluster-status-polling tests/angular_behavior.test.mjs",
+      "test": "cd angular && npx ngc -p tsconfig.json",
       "tags": [
         "query-params",
         "url",
