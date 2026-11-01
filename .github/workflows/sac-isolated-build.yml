@@ -17,3 +17,26 @@ jobs:
           node-version: '24'
       - run: node --check scripts/sac_sandbox_builder.mjs
       - run: node --test tests/sac_sandbox_builder.test.mjs
+  integration:
+    name: Official Angular AOT in isolated Docker + Guardian
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci --prefix packages/angular-core --ignore-scripts --no-audit --no-fund
+      - run: npm ci --prefix packages/angular-precompiler --ignore-scripts --no-audit --no-fund
+      - run: npm ci --prefix packages/angular-postcompiler --ignore-scripts --no-audit --no-fund
+      - run: npm install --prefix packages/angular-guardian --ignore-scripts --no-audit --no-fund
+      - name: Install Angular fixture dependencies in disposable CI
+        run: |
+          cp packages/angular-postcompiler/smoke/{package.json,package-lock.json,angular.json,tsconfig.json} packages/angular-guardian/smoke/
+          npm ci --prefix packages/angular-guardian/smoke --ignore-scripts --no-audit --no-fund
+      - name: Pull immutable Docker image
+        run: docker pull mcr.microsoft.com/playwright@sha256:47b510dd9230bf0b9bfc9b20102241e577ea7a99334ab4c3ca19f19770e9b8ea
+      - name: Build only inside Docker and verify SAC/Chromium
+        env:
+          SAC_SANDBOX_IMAGE: mcr.microsoft.com/playwright@sha256:47b510dd9230bf0b9bfc9b20102241e577ea7a99334ab4c3ca19f19770e9b8ea
+        run: node scripts/sac_isolated_build_integration.mjs
