@@ -60,3 +60,7 @@ O primeiro verificador está implementado em [`packages/angular-postcompiler`](.
 ## SAC-004 — auditor do pipeline estático
 
 [`packages/angular-pipeline`](../packages/angular-pipeline/README.md) liga PRE001 → comprovante autenticado do build oficial do host → P001, sem executar comandos do perfil. `--no-build` confere digests de perfil/fontes selecionadas/dist e separa `static_pipeline_pass` de autorização real de deploy. SHA e execução do build são declarações do CI confiável; cobertura é explicitamente limitada. Guardian/browser e deploy não são executados.
+
+## SAC-005 — Guardian opt-in após pipeline estático
+
+O adaptador [`angular-guardian/src/pipeline.mjs`](../packages/angular-guardian/src/pipeline.mjs) aciona Chromium temporário somente após SAC-004 aprovado, vincula perfil/revisão/digest autenticada ao browser e serve snapshot verificado do próprio dist em loopback efêmero. Mantém static_result intacto e deployment_authorized=false. Contratos limitados exigem clique e mudança DOM observável. Routing do navegador não é firewall: isolamento externo sem credenciais/rede interna continua obrigatório antes de produção; ver limites no README Guardian. Nenhuma integração One Worker/VPS foi ativada.

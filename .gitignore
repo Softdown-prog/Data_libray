@@ -16,3 +16,10 @@
 
 # Generated SAC Angular smoke evidence (uploaded by CI)
 packages/angular-postcompiler/smoke/reports/
+
+# Guardian official fixture uses the locked Angular toolchain from P001 in CI
+packages/angular-guardian/smoke/package*.json
+packages/angular-guardian/smoke/angular.json
+packages/angular-guardian/smoke/tsconfig.json
+packages/angular-guardian/smoke/src/mode.ts
+packages/angular-guardian/smoke/reports/
