@@ -78,4 +78,56 @@ try {
   await rm(path.join(workspace,'linked-dist'),{force:true});
   await rm(temp,{force:true,recursive:true});
 }
+// Execute a second, fresh build through the actual One Worker inbox and gated
+// Python supervisor, rather than invoking the isolated helper directly.
+await rm(path.join(workspace,'dist'),{recursive:true,force:true});
+const hostState = await mkdtemp(path.join(os.tmpdir(),'sac-008d-worker-'));
+try {
+  const write = async (name, content) => {
+    const filename = path.join(hostState,name);
+    await writeFile(filename, Buffer.isBuffer(content) || typeof content === 'string'
+      ? content : JSON.stringify(content));
+    return filename;
+  };
+  const manifestFile = await write('manifest.json',{
+    schema_version:1,project_id:'synthetic-app',profile_id:'isolated-builder-ci',
+    workspace,profile_file:await write('profile.json',profile),
+    resources_file:await write('resources.json',resources),
+    receipt_file:path.join(hostState,'receipt-not-used.json'),
+    guardian_file:await write('guardian.json',guardian),
+    trust_key_file:await write('hmac-secret',key),
+    sandbox_image:image, build:{project_name:'smoke'}
+  });
+  const python = `
+import json,sys
+from pathlib import Path
+from scripts import sac_job_queue as queue
+from scripts import sac_execution as execution
+state=Path(sys.argv[1])/"worker"
+job={"schema_version":1,"job_id":"gha-456-1","project_id":"synthetic-app",
+     "profile_id":"isolated-builder-ci","source_sha":sys.argv[3],"kind":"angular-validate"}
+policy={"schema_version":1,"projects":[{"project_id":"synthetic-app","profile_id":"isolated-builder-ci"}]}
+registry={"schema_version":1,"projects":[{"project_id":"synthetic-app",
+   "profile_id":"isolated-builder-ci","manifest":sys.argv[2]}]}
+queue.enqueue(state,job,policy)
+assert queue.receive_pending(state,policy)["received"]==1
+result=execution.execute_received(state,policy,registry,executor=sys.argv[4],
+                                  enable_build=True,timeout=150)
+assert result["processed"]==1,result
+stored=json.loads((state/"sac-results"/"gha-456-1.json").read_text())
+assert stored["status"]=="pass" and stored["execution"]=="sac-build-audit",stored
+assert stored["code"]=="isolated-build-browser-pass" and stored["browser_pass"]==True,stored
+assert stored["deployment_authorized"]==False,stored
+assert execution.execute_received(state,policy,registry,enable_build=True)["processed"]==0
+print("SAC_WORKER_ISOLATED_BUILD_PASS")
+`;
+  const worker = spawnSync('python3',['-c',python,hostState,manifestFile,sourceSha,process.execPath],{
+    cwd:root,encoding:'utf8',timeout:190000,maxBuffer:20000,
+    env:{PATH:process.env.PATH,HOME:os.tmpdir()}
+  });
+  assert.equal(worker.status,0,worker.stderr?.slice(0,3000));
+  assert.match(worker.stdout,/SAC_WORKER_ISOLATED_BUILD_PASS/);
+} finally {
+  await rm(hostState,{recursive:true,force:true});
+}
 console.log('SAC-008D real Angular AOT isolated Docker build + authenticated SAC + Chromium PASS');
