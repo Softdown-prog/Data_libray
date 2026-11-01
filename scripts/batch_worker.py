@@ -224,7 +224,7 @@ def run_batch(
             print(f"::group::Worker [{i}/{len(tasks)}] {ident}", flush=True)
             try:
                 result = validate_task(task, mode)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - isola qualquer falha por tarefa
                 result = {
                     "example_id": ident, "language": task["language"],
                     "catalog_status": task["catalog_status"], "status": "fail",
