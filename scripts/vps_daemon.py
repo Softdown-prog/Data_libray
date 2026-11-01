@@ -66,9 +66,12 @@ def run_cycle(
         old = json.loads(checkpoint.read_text(encoding="utf-8"))
         if not isinstance(old, dict) or old.get("schema_version") != 1:
             raise ValueError("checkpoint inválido; investigar antes de reiniciar")
-    if old and old.get("signature") == signature and old.get("finished_at") is not None:
-        if moment - float(old["finished_at"]) < config.recheck_seconds:
-            return {"action": "idle", "checkpoint": old}
+    if (
+        old and old.get("signature") == signature
+        and old.get("finished_at") is not None
+        and moment - float(old["finished_at"]) < config.recheck_seconds
+    ):
+        return {"action": "idle", "checkpoint": old}
     if old and old.get("signature") == signature and old.get("finished_at") is None:
         run_id = old["run_id"]
         if not isinstance(run_id, str) or not run_id.replace("-", "").isalnum():
