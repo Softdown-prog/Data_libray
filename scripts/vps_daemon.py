@@ -17,8 +17,8 @@ if __package__:
     from . import batch_worker, sac_execution, sac_job_queue
 else:
     import batch_worker
-    import sac_job_queue
     import sac_execution
+    import sac_job_queue
 
 ROOT = Path(__file__).resolve().parents[1]
 
