@@ -1,0 +1,37 @@
+name: SAC-008E VPS readiness offline
+on:
+  pull_request:
+  push:
+    branches: ['feat/sac-008e-vps-readiness']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Syntax and fail-closed offline tests
+        run: |
+          python -m py_compile scripts/sac_vps_readiness.py
+          python -m unittest discover -s tests -p 'test_sac_vps_readiness.py' -v
+      - name: Confirm plan is only review, never deploy
+        run: |
+          python - <<'PY'
+          import json
+          import subprocess
+          output = subprocess.check_output([
+              "python3", "scripts/sac_vps_readiness.py", "--plan",
+              "deploy/sac/plan.example.json", "--catalog-unit",
+              "deploy/systemd/data-library-worker.service"
+          ], text=True)
+          result = json.loads(output)
+          assert result["status"] == "plan-review-pass", result
+          assert result["runtime_verified"] is False, result
+          assert result["deployment_authorized"] is False, result
+          assert result["vps_contacted"] is False, result
+          PY
