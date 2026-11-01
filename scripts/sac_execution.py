@@ -96,6 +96,7 @@ def _invoke(job, manifest, *, executor, timeout, enable_build=False, docker_host
             raise ValueError("invalid-rootless-docker-host")
         environ["DOCKER_HOST"] = docker_host
         environ["SAC_ROOTLESS_REQUIRED"] = "1"
+        environ["TMPDIR"] = "/var/lib/sac-builder/tmp"
     proc = subprocess.Popen(
         command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
         text=True, start_new_session=True, env=environ,

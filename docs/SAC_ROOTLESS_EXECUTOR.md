@@ -47,3 +47,5 @@ workflow diagnóstico read-only autorizado via GitHub Actions/SSH OIDC e
 avaliar capacidade real de CPU, RAM, disco, sem iniciar containers.
 Só com aprovação explícita serão feitos provisionamento, instalação,
 ajustes de broker ou alterações no `systemd`.
+
+O supervisor encaminha `TMPDIR=/var/lib/sac-builder/tmp` ao Node no modo rootless. O diretório deve existir sob o mesmo UID/GID, com permissão privada 0700. A validação ocorre antes do job, para evitar staging em `/tmp` global ou falhas com `ProtectSystem=strict`. A unit template não provisiona esse caminho.

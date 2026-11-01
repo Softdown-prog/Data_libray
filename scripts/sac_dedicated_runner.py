@@ -44,6 +44,9 @@ def run_once(*, state_dir: Path, projects: dict, auditors: dict,
     if node != "/usr/bin/node":
         raise ValueError("unapproved-node-executable")
     _private_directory(state_dir)
+    # The Node/Docker staging directory must be private and visible to the
+    # separate rootless daemon. ProtectSystem=strict denies arbitrary /tmp writes.
+    _private_directory(Path("/var/lib/sac-builder/tmp"))
     # Isolated queue: no access to /var/lib/data-library-worker/state.
     if state_dir != Path("/var/lib/sac-builder/state"):
         raise ValueError("shared-or-unknown-state")
