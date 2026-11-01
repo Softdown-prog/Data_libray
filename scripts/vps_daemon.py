@@ -124,6 +124,8 @@ def main(argv: list[str] | None = None) -> int:
     cli.add_argument("--poll-seconds", type=int, default=60)
     cli.add_argument("--recheck-seconds", type=int, default=86400)
     cli.add_argument("--once", action="store_true")
+    cli.add_argument("--sac-build", action="store_true",
+                     help="Opt-in: build approved Angular snapshot in isolated Docker before SAC audit")
     cli.add_argument("--sac-audit", action="store_true",
                      help="Opt-in: audit already-built Angular artefacts with isolated Guardian; no build")
     cli.add_argument("--sac-audit-policy", type=Path,
@@ -137,6 +139,8 @@ def main(argv: list[str] | None = None) -> int:
     args = cli.parse_args(argv)
     if args.sac_audit and not args.sac_inbox:
         cli.error('--sac-audit requires --sac-inbox')
+    if args.sac_build and not args.sac_audit:
+        cli.error('--sac-build requires --sac-audit and --sac-inbox')
     if not 1 <= args.max_items <= 1000 or args.poll_seconds < 10:
         cli.error("max-items: 1..1000; poll-seconds: >= 10")
     config = Settings(args.status, args.language, args.max_items, args.mode,
@@ -162,6 +166,7 @@ def main(argv: list[str] | None = None) -> int:
                         executed = sac_execution.execute_received(
                             args.state_dir, project_policy, auditor_policy,
                             executor=str(args.sac_audit_node), limit=1,
+                            enable_build=args.sac_build,
                         )
                         if executed["skipped"]:
                             print("SAC AUDIT: some jobs were not eligible", file=sys.stderr, flush=True)
