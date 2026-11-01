@@ -22,8 +22,8 @@ BUILDER = {
     "build_timeout_seconds",
 }
 CAPACITY = {"ram_total_mb", "reserve_other_projects_mb"}
-USER = re.compile(r"[a-z_][a-z0-9_-]{0,31}\\Z")
-ROOTLESS_SOCKET = re.compile(r"/run/user/([1-9][0-9]{0,9})/docker\\.sock\\Z")
+USER = re.compile(r"[a-z_][a-z0-9_-]{0,31}\Z")
+ROOTLESS_SOCKET = re.compile(r"/run/user/([1-9][0-9]{0,9})/docker\.sock\Z")
 
 
 def _exact(value: Any, fields: set[str]) -> dict:
@@ -108,11 +108,10 @@ def check_plan(plan: Any, unit_text: str) -> dict[str, Any]:
         issues.append("catalog-not-isolated")
     if not builder["separate_service"] or builder["user"] in ("root", catalog["user"]):
         issues.append("builder-service-not-independent")
+    socket_match = ROOTLESS_SOCKET.fullmatch(builder["socket"])
     if (not builder["rootless"] or builder["docker_group_member"] or
             builder["socket_owner_uid"] != builder["uid"] or
-            not ROOTLESS_SOCKET.fullmatch(builder["socket"]) or
-            int(ROOTLESS_SOCKET.fullmatch(builder["socket"]).group(1))
-            != builder["uid"] if ROOTLESS_SOCKET.fullmatch(builder["socket"]) else True):
+            socket_match is None or int(socket_match.group(1)) != builder["uid"]):
         issues.append("rootless-docker-socket-not-isolated")
     if (not builder["dedicated_workspace"] or not builder["source_revision_verified"] or
             not builder["pinned_image"] or not builder["no_project_secrets"] or
