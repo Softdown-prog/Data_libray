@@ -1,0 +1,10 @@
+{
+  "name": "@softdown/angular-postcompiler",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "bin": { "sac-postcompile": "bin/postcompile.mjs" },
+  "scripts": { "test": "node --test", "test:smoke": "node smoke/build.mjs" },
+  "dependencies": { "parse5": "8.0.0" }
+}

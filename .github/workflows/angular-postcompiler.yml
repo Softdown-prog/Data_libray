@@ -1,0 +1,27 @@
+name: Angular Postcompiler SAC-P001
+on:
+  pull_request:
+  push:
+    branches: ['research/angular-prepost-corpus']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  postcompiler:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci --prefix packages/angular-postcompiler --ignore-scripts --no-audit --no-fund
+      - run: npm test --prefix packages/angular-postcompiler
+      - run: npm ci --prefix packages/angular-postcompiler/smoke --ignore-scripts --no-audit --no-fund
+      - run: npm run test:smoke --prefix packages/angular-postcompiler
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sac-p001-reports
+          path: packages/angular-postcompiler/smoke/reports/*.json
+          if-no-files-found: ignore

@@ -51,4 +51,4 @@ python3 scripts/validate_angular_incidents.py
 python3 -m unittest tests.test_angular_incidents -v
 ```
 
-Não ativar bloqueio em produção com base apenas neste catálogo: a próxima etapa é implementar as fixtures e o verificador `SAC-P001`.
+O primeiro verificador está implementado em [`packages/angular-postcompiler`](../packages/angular-postcompiler/README.md), com fixtures Node e smoke de build Angular oficial. O resultado é estático; integração ao Guardian/One Worker e promoção em produção continuam fora deste marco. Não ativar bloqueio em produção com base apenas neste catálogo.

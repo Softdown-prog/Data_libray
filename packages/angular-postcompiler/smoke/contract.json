@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "index": "index.html",
+  "angular_host": "sac-smoke",
+  "mode": "angular-only",
+  "angular_entrypoints": ["main.js"],
+  "assets": ["styles.css"],
+  "legacy_react_entrypoints": ["react.js"]
+}

@@ -1,0 +1,18 @@
+{
+  "name": "sac-angular-official-smoke",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@angular/core": "22.0.0",
+    "@angular/common": "22.0.0",
+    "@angular/compiler": "22.0.0",
+    "@angular/platform-browser": "22.0.0",
+    "rxjs": "7.8.2"
+  },
+  "devDependencies": {
+    "@angular/build": "22.0.0",
+    "@angular/cli": "22.0.0",
+    "@angular/compiler-cli": "22.0.0",
+    "typescript": "~6.0.0"
+  }
+}

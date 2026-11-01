@@ -13,3 +13,6 @@
 
 # Angular AOT test output (emitted only during verification)
 **/.behavior-dist/
+
+# Generated SAC Angular smoke evidence (uploaded by CI)
+packages/angular-postcompiler/smoke/reports/
