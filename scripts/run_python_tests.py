@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Executa cada arquivo test_*.py isoladamente, sem depender de __init__.py."""
 from __future__ import annotations
 

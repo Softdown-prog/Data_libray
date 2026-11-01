@@ -9,9 +9,8 @@ class TestFilename(unittest.TestCase):
 
     def test_invalid(self) -> None:
         for value in ("../secrets", "..", "", "folder/file", "folder\\file", "a" * 65):
-            with self.subTest(value=value):
-                with self.assertRaises(ValueError):
-                    validate_filename(value)
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                validate_filename(value)
 
 
 if __name__ == "__main__":

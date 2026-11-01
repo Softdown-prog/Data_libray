@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Valida a taxonomia e produz um índice determinístico, sem dependências externas."""
 from __future__ import annotations
 
@@ -42,7 +41,7 @@ def build() -> dict[str, object]:
             try:
                 meta = json.loads(metadata_path.read_text(encoding="utf-8"))
                 if not isinstance(meta, dict):
-                    raise ValueError("metadata deve ser objeto JSON")
+                    raise TypeError("metadata deve ser objeto JSON")
                 required = {"id", "title", "description", "entrypoint", "run", "test", "tags"}
                 if set(meta) != required:
                     raise ValueError(f"campos devem ser exatamente {sorted(required)}")

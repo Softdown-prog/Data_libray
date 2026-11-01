@@ -82,7 +82,7 @@ jobs:
         with:
           node-version: '24'
       - run: find javascript -name '*.mjs' -print0 | xargs -0 -r -n1 node --check
-      - run: node --test javascript
+      - run: find javascript -name '*.test.mjs' -print0 | xargs -0 -r node --test
 
   typescript:
     runs-on: ubuntu-latest
@@ -94,7 +94,7 @@ jobs:
           node-version: '24'
       - run: npm install -g "typescript@~6.0.0"
       - run: tsc -p typescript/tsconfig.json
-      - run: node --test typescript/dist
+      - run: find typescript/dist -name '*.test.js' -print0 | xargs -0 -r node --test
 
   angular:
     runs-on: ubuntu-latest

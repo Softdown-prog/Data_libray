@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Busca determinística no catálogo; não exige rede ou serviços externos."""
 import argparse
 import json
