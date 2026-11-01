@@ -135,3 +135,7 @@ Limitações: o kernel/Docker daemon do runner é a fronteira de isolamento; nem
 ### SAC-006: exceção de capacidade mínima (Chromium)
 
 O Chromium com `chromiumSandbox:true` precisa do syscall `chroot` na fase de inicialização (`sys_chroot("/proc/self/fdinfo/")`). O primeiro CI mostrou SIGTRAP sem `CAP_SYS_CHROOT`, apesar do seccomp permitir `chroot`. O container continua com `--cap-drop ALL`, mas recebe **somente** `--cap-add SYS_CHROOT`, sem `SYS_ADMIN`, sem modo privileged, sem egress e sem rede compartilhada. Este é um privilégio de sistema de arquivos limitado, não uma garantia de segurança absoluta. Os testes de CI devem provar a inicialização e a ausência de egress; qualquer falha continua bloqueando browser-pass.
+
+### Imagem reprodutível e diagnóstico no SAC-006
+
+O CI fixa a imagem Playwright v1.64.1-noble por digest `mcr.microsoft.com/playwright@sha256:47b510dd9230bf0b9bfc9b20102241e577ea7a99334ab4c3ca19f19770e9b8ea`, conforme o primeiro workflow isolado aprovado. A tag mutável deixou de ser a referência efetiva. Diagnóstico temporário de stderr do Chromium foi desativado após encontrar a exigência de `CAP_SYS_CHROOT`; o relatório continua com códigos seguros, não logs do navegador.
