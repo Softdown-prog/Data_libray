@@ -1,4 +1,3 @@
-
 /*
 Data Library ID: rust.concurrency.bounded-dispatcher
 Propósito: limitar atomicamente tarefas executadas em threads próprias.
@@ -92,7 +91,10 @@ mod tests {
     #[test]
     fn rejects_zero_capacity() {
         let dispatcher = SystemDispatcher::new(0);
-        assert!(matches!(dispatcher.dispatch(|| {}), Err(DispatchError::AtCapacity)));
+        assert!(matches!(
+            dispatcher.dispatch(|| {}),
+            Err(DispatchError::AtCapacity)
+        ));
         assert_eq!(dispatcher.active_load(), 0);
     }
 
@@ -102,8 +104,16 @@ mod tests {
         let barrier = Arc::new(Barrier::new(3));
         let b1 = Arc::clone(&barrier);
         let b2 = Arc::clone(&barrier);
-        let first = dispatcher.dispatch(move || { b1.wait(); }).unwrap();
-        let second = dispatcher.dispatch(move || { b2.wait(); }).unwrap();
+        let first = dispatcher
+            .dispatch(move || {
+                b1.wait();
+            })
+            .unwrap();
+        let second = dispatcher
+            .dispatch(move || {
+                b2.wait();
+            })
+            .unwrap();
         assert_eq!(dispatcher.active_load(), 2);
         assert!(matches!(dispatcher.dispatch(|| {}), Err(DispatchError::AtCapacity)));
         barrier.wait();
@@ -115,7 +125,9 @@ mod tests {
     #[test]
     fn panic_does_not_leak_capacity() {
         let dispatcher = SystemDispatcher::new(1);
-        let handle = dispatcher.dispatch(|| panic!("intentional failure")).unwrap();
+        let handle = dispatcher
+            .dispatch(|| panic!("intentional failure"))
+            .unwrap();
         assert!(handle.join().is_err());
         assert_eq!(dispatcher.active_load(), 0);
         dispatcher.dispatch(|| {}).unwrap().join().unwrap();

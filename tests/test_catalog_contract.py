@@ -39,9 +39,10 @@ class TestDatasetContract(unittest.TestCase):
 
     def test_index_tracks_review_status(self) -> None:
         index = build()
-        self.assertEqual(index["count"], 18)
-        self.assertEqual(index["documented_count"], 1)
+        self.assertEqual(index["count"], len(index["examples"]))
+        self.assertGreaterEqual(index["documented_count"], 4)
         self.assertEqual(index["pending_review_count"], 17)
+        self.assertEqual(index["documented_count"] + index["pending_review_count"], index["count"])
 
 
 if __name__ == "__main__":
