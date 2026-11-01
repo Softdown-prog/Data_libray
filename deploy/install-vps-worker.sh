@@ -112,7 +112,8 @@ if [[ ! -d "$repo/.git" ]]; then
   fi
   runuser -u data-library -- git clone --depth 1 --branch main "$origin" "$repo"
 fi
-installed_origin="$(git -C "$repo" remote get-url origin)"
+# O checkout pertence a data-library: não consultá-lo como root (Git safe.directory).
+installed_origin="$(runuser -u data-library -- env "HOME=$base" git -C "$repo" remote get-url origin)"
 if [[ "$installed_origin" != "$origin" && "$installed_origin" != "https://github.com/Softdown-prog/Data_libray" ]]; then
   echo "Remote inesperado: não alterar outros projetos." >&2
   exit 1

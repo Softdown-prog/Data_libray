@@ -25,6 +25,8 @@ git pull --ff-only
 sudo bash deploy/install-vps-worker.sh
 ```
 
+Se uma tentativa anterior parou com `fatal: detected dubious ownership`, atualize o instalador e execute novamente: o checkout já clonado será consultado pelo próprio usuário `data-library`, sem desabilitar a proteção `safe.directory` do Git.
+
 A instalação é idempotente para um Node local completo e da mesma versão. Se o servidor não conseguir acessar `nodejs.org`, o instalador para sem substituir binários globais; verifique conectividade HTTPS antes de tentar novamente.
 
 O serviço estabelece limite de **1 vCPU, 1,5 GB RAM, 128 tarefas**, usuário não administrador, escrita apenas nos dados do próprio worker. Como a VPS é multiprojetos, ajuste quotas somente após medir o consumo real.
