@@ -14,10 +14,11 @@ from pathlib import Path
 from typing import Any
 
 if __package__:
-    from . import batch_worker, sac_job_queue
+    from . import batch_worker, sac_execution, sac_job_queue
 else:
     import batch_worker
     import sac_job_queue
+    import sac_execution
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -123,12 +124,19 @@ def main(argv: list[str] | None = None) -> int:
     cli.add_argument("--poll-seconds", type=int, default=60)
     cli.add_argument("--recheck-seconds", type=int, default=86400)
     cli.add_argument("--once", action="store_true")
+    cli.add_argument("--sac-audit", action="store_true",
+                     help="Opt-in: audit already-built Angular artefacts with isolated Guardian; no build")
+    cli.add_argument("--sac-audit-policy", type=Path,
+                     default=Path("/etc/data-library-worker/sac-auditors.json"))
+    cli.add_argument("--sac-audit-node", type=Path, default=Path("/usr/bin/node"))
     cli.add_argument("--sac-inbox", action="store_true",
                      help="Opt-in: acknowledge authenticated SAC jobs; does not execute them")
     cli.add_argument("--sac-policy", type=Path,
                      default=Path("/etc/data-library-worker/sac-projects.json"),
                      help="Trusted operator-owned project/profile allowlist")
     args = cli.parse_args(argv)
+    if args.sac_audit and not args.sac_inbox:
+        cli.error('--sac-audit requires --sac-inbox')
     if not 1 <= args.max_items <= 1000 or args.poll_seconds < 10:
         cli.error("max-items: 1..1000; poll-seconds: >= 10")
     config = Settings(args.status, args.language, args.max_items, args.mode,
@@ -149,6 +157,14 @@ def main(argv: list[str] | None = None) -> int:
                     receipt = sac_job_queue.receive_pending(args.state_dir, project_policy)
                     if receipt["rejected"]:
                         print("SAC INBOX: invalid or unauthorized requests rejected", file=sys.stderr, flush=True)
+                    if args.sac_audit:
+                        auditor_policy = json.loads(args.sac_audit_policy.read_text(encoding="utf-8"))
+                        executed = sac_execution.execute_received(
+                            args.state_dir, project_policy, auditor_policy,
+                            executor=str(args.sac_audit_node), limit=1,
+                        )
+                        if executed["skipped"]:
+                            print("SAC AUDIT: some jobs were not eligible", file=sys.stderr, flush=True)
                 catalog = json.loads((ROOT / "catalog.json").read_text(encoding="utf-8"))
                 outcome = run_cycle(
                     catalog=catalog, revision=revision_of(), config=config,
