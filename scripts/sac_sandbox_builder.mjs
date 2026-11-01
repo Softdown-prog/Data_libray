@@ -16,13 +16,15 @@ const safe = value => typeof value === 'string' && value.length > 0 && value.len
 const within = (root, candidate) => candidate.startsWith(root + path.sep);
 const issue = code => Object.assign(new Error(code), { code });
 
-export function dockerBuildArgs({ image, work, dependencies, name, projectName }) {
+export function dockerBuildArgs({ image, work, dependencies, name, projectName, uid, gid }) {
   if (!pinned.test(image) || !path.isAbsolute(work) || !path.isAbsolute(dependencies) ||
     !/^sac-build-[0-9a-f]{20}$/.test(name) || !angularName.test(projectName) ||
-    work.includes(',') || dependencies.includes(',')) throw issue('invalid-build-config');
+    work.includes(',') || dependencies.includes(',') ||
+    !Number.isInteger(uid) || !Number.isInteger(gid) || uid < 1 || gid < 1 ||
+    uid > 1000000000 || gid > 1000000000) throw issue('invalid-build-config');
   return [
     'run', '--rm', '--init', '--pull', 'never', '--name', name,
-    '--network', 'none', '--read-only', '--user', '1000:1000',
+    '--network', 'none', '--read-only', '--user', uid + ':' + gid,
     '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges',
     '--pids-limit', '128', '--cpus', '1', '--memory', '1024m', '--memory-swap', '1024m',
     '--shm-size', '128m', '--tmpfs', '/tmp:rw,nosuid,nodev,size=128m,mode=1777',
@@ -127,14 +129,15 @@ export async function isolatedAngularBuild({ resources, projectName, image,
     // Never overwrite a previous output, even after a failed attempt.
     try { await lstat(destination); throw issue('dist-already-exists'); }
     catch (e) { if (e.code !== 'ENOENT') throw e; }
+    const uid = typeof process.getuid === 'function' ? process.getuid() : 0;
+    const gid = typeof process.getgid === 'function' ? process.getgid() : 0;
+    if (uid === 0 || gid === 0) throw issue('build-host-user-root');
     stage = await mkdtemp(path.join(os.tmpdir(), 'sac-build-'));
     const work = path.join(stage, 'work');
-    await mkdir(work, { mode: 0o777 });
-    await chmod(stage, 0o755);
-    await chmod(work, 0o777);
+    await mkdir(work, { mode: 0o700 });
     await stageSelected(workspace, work, resources.sourceFiles);
     name = 'sac-build-' + randomUUID().replaceAll('-', '').slice(0, 20);
-    const args = dockerBuildArgs({ image, work, dependencies, name, projectName });
+    const args = dockerBuildArgs({ image, work, dependencies, name, projectName, uid, gid });
     const result = spawnSync(docker, args, { shell: false, encoding: 'utf8',
       timeout: timeoutMs, maxBuffer: 16384,
       env: { PATH: process.env.PATH ?? '/usr/bin:/bin', HOME: os.tmpdir() } });
@@ -153,7 +156,7 @@ export async function isolatedAngularBuild({ resources, projectName, image,
   } catch (error) {
     return failure(['source-symlink', 'source-budget', 'unsafe-source-list',
       'dist-already-exists', 'dist-symlink', 'dist-budget', 'dist-depth-limit',
-      'dependencies-missing', 'dist-parent-unsafe'].includes(error?.code) ? error.code : 'build-infra-error');
+      'dependencies-missing', 'dist-parent-unsafe', 'build-host-user-root'].includes(error?.code) ? error.code : 'build-infra-error');
   } finally {
     if (name) spawnSync('docker', ['rm', '--force', name],
       { stdio: 'ignore', timeout: 10000,
