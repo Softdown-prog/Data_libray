@@ -29,6 +29,7 @@ export function dockerArguments({ image, runtime, dist, input, containerName }) 
     '--mount', 'type=bind,src=' + dist + ',dst=/opt/sac-dist,readonly',
     '--mount', 'type=bind,src=' + input + ',dst=/opt/sac-input.json,readonly',
     '--env', 'HOME=/tmp', '--env', 'SAC_BROWSER_SANDBOX=required',
+    ...(process.env.SAC_SANDBOX_DIAGNOSTICS === '1' ? ['--env', 'SAC_BROWSER_DIAGNOSTICS=1'] : []),
     '--env', 'PLAYWRIGHT_BROWSERS_PATH=/ms-playwright',
     image, 'node', '/opt/sac-runtime/src/sandbox-entry.mjs'
   ];
@@ -79,6 +80,7 @@ export async function runSandbox({ contract, binding, dist, mount, host, timeout
     const args = dockerArguments({ image, runtime, dist: snapshot, input, containerName: name });
     const proc = spawnSync('docker', args, { encoding: 'utf8', shell: false, timeout: timeoutMs,
       maxBuffer: 131072, env: { PATH: process.env.PATH ?? '/usr/bin:/bin', HOME: os.tmpdir() } });
+    if (process.env.SAC_SANDBOX_DIAGNOSTICS === '1') process.stderr.write('SAC_SANDBOX_DIAGNOSTICS ' + String(proc.stderr ?? '').slice(0, 1800) + '\n');
     if (proc.error?.code === 'ETIMEDOUT') return failure('sandbox-timeout');
     if (proc.error || proc.status !== 0 || proc.signal) return failure('sandbox-runtime-error');
     return parseReport(proc.stdout, contract);
