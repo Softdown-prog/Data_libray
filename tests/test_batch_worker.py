@@ -84,7 +84,7 @@ class WorkerContractTests(unittest.TestCase):
         self.assertEqual(execute.call_args_list[0].args[0][0], "./node_modules/.bin/ngc")
         self.assertEqual(execute.call_args_list[1].args[0][0], "node")
         self.assertIn("--test-force-exit", execute.call_args_list[1].args[0])
-        self.assertIn(tasks[0]["example_id"], execute.call_args_list[1].args[0])
+        self.assertIn(tasks[0]["example_id"].replace(".", r"\."), execute.call_args_list[1].args[0][3])
 
     def test_angular_unknown_id_never_receives_behavioral_pass(self) -> None:
         task = {"language": "angular", "path": "angular/ui/other",
