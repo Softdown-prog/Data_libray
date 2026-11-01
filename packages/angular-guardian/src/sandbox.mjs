@@ -49,7 +49,7 @@ function parseReport(output, contract) {
         c.codes.some(code => typeof code !== 'string' || !/^[a-z][a-z0-9-]{0,63}$/.test(code))) ||
       (raw.status === 'pass' && (!raw.executed || raw.cases.length !== contract.cases.length || raw.cases.some(c => c.status !== 'pass'))) ||
       (raw.status === 'fail' && (raw.cases.length !== contract.cases.length || raw.cases.every(c => c.status === 'pass')))) return failure('sandbox-report-invalid');
-  return { status: raw.status, executed: raw.executed, code: raw.status === 'pass' ? 'isolated-chromium-pass' : 'isolated-chromium-result',
+  return { status: raw.status, executed: raw.executed, code: raw.status === 'pass' ? 'isolated-chromium-pass' : (raw.status === 'infra-error' && /^[a-z][a-z0-9-]{0,63}$/.test(raw.code) ? raw.code : 'isolated-chromium-result'),
     cases: raw.cases.map(c => ({ id: c.id, status: c.status, codes: c.codes })), sandbox: 'docker-network-none' };
 }
 
