@@ -233,6 +233,7 @@ def run_batch(
                 }
             stream.write(json.dumps(result, ensure_ascii=False) + "\n")
             stream.flush()
+            os.fsync(stream.fileno())  # persistir item concluído antes do próximo
             completed[ident] = result
             print(f"RESULT {ident}: {result['status']}", flush=True)
             for phase in result["phases"]:

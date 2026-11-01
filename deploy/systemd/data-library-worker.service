@@ -1,0 +1,34 @@
+[Unit]
+Description=Data Library - validador local 24/7 (sem GitHub Actions)
+After=local-fs.target
+
+[Service]
+Type=simple
+User=data-library
+Group=data-library
+WorkingDirectory=/var/lib/data-library-worker/repo
+Environment=HOME=/var/lib/data-library-worker
+Environment=PATH=/var/lib/data-library-worker/tools/node_modules/.bin:/var/lib/data-library-worker/.cargo/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 /var/lib/data-library-worker/repo/scripts/vps_daemon.py --state-dir /var/lib/data-library-worker/state --status all --max-items 1000 --mode both --poll-seconds 60 --recheck-seconds 86400
+Restart=always
+RestartSec=15
+CPUQuota=100%
+MemoryMax=1536M
+TasksMax=128
+Nice=10
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+IPAddressDeny=any
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+ReadWritePaths=/var/lib/data-library-worker
+
+[Install]
+WantedBy=multi-user.target

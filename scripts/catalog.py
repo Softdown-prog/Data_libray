@@ -17,7 +17,7 @@ OUTPUT = ROOT / "catalog.json"
 BASELINE = ROOT / "docs" / "LEGACY_REVIEW.json"
 BASE_FIELDS = {"id", "title", "description", "entrypoint", "run", "test", "tags"}
 ROOT_FILES = {"README.md", "CONTRIBUTING.md", ".gitignore", "catalog.json"}
-ROOT_DIRECTORIES = LANGUAGES | {"docs", "scripts", "tests", ".github"}
+ROOT_DIRECTORIES = LANGUAGES | {"docs", "scripts", "tests", ".github", "deploy"}
 ROOT_LOCAL_IGNORES = {".git", ".venv", ".ruff_cache", ".pytest_cache", ".mypy_cache", "__pycache__", "node_modules", ".worker-results"}
 SPEC_FIELDS = {
     "purpose", "when_to_use", "when_not_to_use", "requirements", "inputs",

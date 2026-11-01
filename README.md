@@ -56,8 +56,10 @@ A branch principal deve receber apenas lotes aprovados. Não criar exemplos fals
 
 Novas referências catalogadas para [asserções TypeScript](typescript/security/runtime-assertions), [despacho limitado em Rust](rust/concurrency/bounded-dispatcher) e [status HTTP com Signals no Angular](angular/web/cluster-status-polling). Cada registro descreve condições de aplicação, riscos, erros e soluções, com status explícito de validação. **Nenhum dos exemplos instala serviços na VPS.**
 
-## Worker de validação em lote (Actions + VPS)
+## Worker autônomo 24/7 na VPS (padrão)
 
-O script [batch_worker.py](scripts/batch_worker.py) monta uma fila determinística a partir de `catalog.json` e registra resultados JSON por exemplo, prosseguindo mesmo após falhas. O [workflow opcional de VPS](.github/workflows/worker-vps.yml) exige um runner dedicado com label `data-library-worker` e só é acionado manualmente. **Não instala nada na VPS sozinho.** Consulte [operação e segurança](docs/WORKER_VPS.md).
+A VPS executa `scripts/vps_daemon.py` como serviço `systemd`, sem GitHub Actions runner. O supervisor mantém fila persistente, retoma lotes interrompidos, registra resultados JSON por exemplo, verifica novos trabalhos no checkout local e revalida uma vez por dia. O serviço tem cotas de CPU/RAM para proteger os outros projetos.
 
-A classificação `compile-only` permanece explícita quando não há teste de comportamento; nenhuma aprovação automática promove exemplos ao contrato v2.
+A instalação única está em [deploy/install-vps-worker.sh](deploy/install-vps-worker.sh), o serviço em [deploy/systemd/data-library-worker.service](deploy/systemd/data-library-worker.service) e os comandos de operação em [docs/WORKER_VPS.md](docs/WORKER_VPS.md). Publicar estes arquivos no GitHub não instala o serviço na VPS. GitHub continua como repositório e CI complementar, sem controlar a fila local.
+
+A fila suporta até 1.000 IDs existentes, mas não fabrica exemplos novos. Nenhuma aprovação promove legados automaticamente à especificação v2.

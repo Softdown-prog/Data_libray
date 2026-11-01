@@ -4,9 +4,12 @@ Além dos exemplos indexados, o repositório contém ferramentas operacionais pr
 
 | Arquivo | Responsabilidade | Quando usar | Falhas e correções |
 | --- | --- | --- | --- |
-| `scripts/batch_worker.py` | Montar tarefas a partir do catálogo, executar verificações sequenciais e registrar JSONL com retomada | Execução manual via workflow de worker e smoke test | Falha do item não interrompe o lote; consultar results.jsonl e summary.json |
+| `scripts/batch_worker.py` | Montar tarefas a partir do catálogo, executar verificações sequenciais e registrar JSONL com retomada | Serviço VPS (e smoke test de CI) | Falha do item não interrompe o lote; consultar results.jsonl e summary.json |
 | `tests/test_batch_worker.py` | Validar fila, limites, prevenção de comandos JSON arbitrários e retomada | CI catalog | Regressão bloqueia a publicação |
-| `.github/workflows/worker-vps.yml` | Despachar um lote manual para runner dedicado da VPS e publicar relatórios | Ativar após registrar um runner com label data-library-worker | Fila ficará aguardando se runner não estiver conectado |
+| `scripts/vps_daemon.py` | Supervisão local contínua, checkpoints, retomada e revalidação periódica | Serviço da VPS | Ver journalctl e checkpoint |
+| `tests/test_vps_daemon.py` | Testar revalidação e retomada sem Actions | CI catalog | Regressões devem bloquear publicação |
+| `deploy/install-vps-worker.sh` | Instalação restrita à pasta/serviço Data Library | Shell administrativo uma vez | Preflight de ferramentas e status systemd |
+| `deploy/systemd/data-library-worker.service` | Inicialização automática com limites de recursos | Ubuntu systemd | systemctl status e journalctl |
 | `scripts/parser_audit.py` | Executar parsers nativos sem rodar os exemplos, anotando falhas no Actions e oferecendo JSON opcional | Primeiro estágio de cada job de linguagem | Sintaxe: abrir anotação; ferramenta ausente: conferir setup do job |
 | `tests/test_parser_audit.py` | Validar seleção dos oito parsers e AST Python sem execução | CI catalog | Falha indica regressão no orquestrador |
 | `scripts/catalog.py` | Validar o contrato, inventários e hashes dos legados; regenerar catálogo | Toda alteração de exemplo ou documentação | Índice divergente: executar `--write`; exemplo rejeitado: corrigir campos ou migrar legado |
