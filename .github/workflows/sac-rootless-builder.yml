@@ -1,0 +1,30 @@
+name: SAC-008F dedicated rootless builder offline
+on:
+  pull_request:
+  push:
+    branches: ['feat/sac-008f-rootless-dedicated-service']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: |
+          python -m py_compile scripts/sac_rootless_runtime.py scripts/sac_dedicated_runner.py scripts/sac_execution.py
+          python -m unittest discover -s tests -p 'test_sac_rootless_runtime.py' -v
+          python -m unittest discover -s tests -p 'test_sac_execution.py' -v
+          node --test tests/sac_rootless_docker.test.mjs
+          node --test tests/sac_sandbox_builder.test.mjs
+          node --check packages/angular-guardian/src/sandbox.mjs
+          node --check scripts/sac_sandbox_builder.mjs
