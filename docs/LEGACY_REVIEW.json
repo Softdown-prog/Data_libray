@@ -78,15 +78,6 @@
       }
     },
     {
-      "id": "javascript.security.safe-redirect",
-      "frozen_files": {
-        "example.json": "31593d58846f108de71087acb88f95596226540d",
-        "index.mjs": "85a414e026219286f8a16cb9f42a35c32397b597",
-        "index.test.mjs": "388b811fed90fc1ac078d644f1ecb7ea4f6cd637",
-        "README.md": "a061dc3f7532644bf2b49c345188f50ff67acf84"
-      }
-    },
-    {
       "id": "python.algorithms.binary-search",
       "frozen_files": {
         "example.json": "bf988660716e90c148a97162bfd8219c0bfdebb4",

@@ -54,6 +54,9 @@ class TestDatasetContract(unittest.TestCase):
         migrated = [entry for entry in index["examples"]
                     if entry["id"] == "python.security.safe-filename"]
         self.assertEqual(migrated[0]["catalog_status"], "documented")
+        migrated_redirect = [entry for entry in index["examples"]
+                             if entry["id"] == "javascript.security.safe-redirect"]
+        self.assertEqual(migrated_redirect[0]["catalog_status"], "documented")
         self.assertEqual(index["documented_count"] + index["pending_review_count"], index["count"])
 
 

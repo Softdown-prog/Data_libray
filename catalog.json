@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
   "count": 21,
-  "documented_count": 5,
-  "pending_review_count": 16,
+  "documented_count": 6,
+  "pending_review_count": 15,
   "examples": [
     {
       "id": "angular.ui.accessible-toggle",
@@ -327,7 +327,73 @@
         "url",
         "origin"
       ],
-      "catalog_status": "legacy_pending_review"
+      "catalog_status": "documented",
+      "spec": {
+        "purpose": "Converte um caminho ou URL de entrada em endereço canônico absoluto somente quando seu destino pertence exatamente à origem HTTP(S) confiável configurada para a aplicação, sem realizar navegação.",
+        "when_to_use": "Use quando gerar destinos para links ou redirecionamentos que devem ficar na mesma origem confiável, antes de passar a URL validada para a camada de navegação do aplicativo.",
+        "when_not_to_use": "Não use como substituto de autenticação, autorização, allowlist de rotas, proteção contra um endpoint da mesma origem que redireciona novamente ou para aceitar uma origem fornecida pelo visitante.",
+        "requirements": [
+          "Node.js 24 para os testes, suporte a ES Modules e API nativa WHATWG URL; nenhum pacote npm é necessário.",
+          "A origem vem de configuração confiável e contém apenas esquema http(s), host e porta opcional, sem caminho, query, hash ou credenciais.",
+          "Em produção com dados sensíveis utilize HTTPS; HTTP é aceito para cenários explícitos como desenvolvimento local."
+        ],
+        "inputs": [
+          "candidate deve ser string não vazia sem caracteres de controle, barras invertidas, espaços nas extremidades ou prefixo de duas barras.",
+          "origin deve ser origem HTTP(S) absoluta e confiável; o resultado é comparado pela propriedade URL.origin, que inclui protocolo, host e porta."
+        ],
+        "outputs": [
+          "Retorna a URL canônica absoluta no formato string quando a origem do destino coincide exatamente e não existem credenciais incorporadas.",
+          "Não faz chamadas HTTP, não navega e não autoriza recursos ou rotas; a execução do redirecionamento depende do chamador."
+        ],
+        "error_handling": [
+          "TypeError ao receber origem ausente, de tipo inválido, não HTTP(S), com credenciais, caminho, query, fragmento ou URL malformada.",
+          "TypeError para destinos externos, protocolos diferentes, URL com userinfo ou string ambígua contendo controles, backslash ou barras duplas iniciais.",
+          "A exceção nativa TypeError do construtor URL também é propagada; rejeite a solicitação em vez de adotar destino externo como fallback."
+        ],
+        "limitations": [
+          "Ser da mesma origem não garante que o usuário esteja autorizado a acessar determinada rota nem que os parâmetros da rota sejam seguros.",
+          "Um endpoint da mesma origem pode responder com redirecionamento HTTP para outro site; esta função não segue respostas nem valida um parâmetro next.",
+          "URLs com sequências percent-encoded podem receber diferentes decodificações em proxies e backends; isso não constitui validação de caminho de arquivo.",
+          "HTTP permanece permitido para desenvolvimento local, mas uma implantação de produção deve usar HTTPS de confiança.",
+          "A origem base deve ser apenas a origem; URL base com caminho, hash ou query é rejeitada intencionalmente para eliminar resolução ambígua."
+        ],
+        "troubleshooting": [
+          {
+            "symptom": "Um subdomínio, porta diferente ou mudança de http para https foi rejeitada mesmo parecendo ser o mesmo site.",
+            "cause": "A política compara protocolo, host e porta efetiva usando URL.origin, e cada combinação é uma origem distinta.",
+            "fix": "Forneça a origem exata da aplicação; caso múltiplas origens sejam realmente necessárias, implemente uma allowlist explícita e auditada."
+          },
+          {
+            "symptom": "A chamada com origin https://example.com/app é rejeitada com erro de origem base inválida.",
+            "cause": "A função aceita somente uma origem pura, sem caminho ou parâmetros que alterem a resolução do destino relativo.",
+            "fix": "Passe https://example.com como origem e informe /app ou a rota pretendida como candidate após verificar a autorização."
+          },
+          {
+            "symptom": "Uma URL de /redirect contendo next com domínio externo foi permitida apesar de poder levar para fora.",
+            "cause": "A verificação valida a primeira URL, mas não avalia parâmetros da rota nem redirecionamentos emitidos pelo servidor.",
+            "fix": "Valide separadamente a rota e parâmetros como next, e evite redirecionamentos encadeados sem verificação em cada etapa."
+          }
+        ],
+        "runtime": "JavaScript ECMAScript Modules em Node.js 24 ou navegador moderno com URL nativa; sem dependências externas e sem acesso a rede durante os testes.",
+        "usage_language": "javascript",
+        "usage_example": "import { sameOriginUrl } from './index.mjs';\nconst link = sameOriginUrl('/account', 'https://example.com');\n// link === 'https://example.com/account'; a navegação deve exigir política de rota.",
+        "validation": {
+          "level": "automated-tests",
+          "scope": "node --check no parser e node --test no GitHub Actions; testes de sucesso, normalização, origens parecidas, credenciais, esquemas perigosos, controles e limites de redirecionamento.",
+          "gaps": "Não inspeciona respostas HTTP, não tem testes de navegador ou proxies com dupla decodificação, nem oferece certificação formal de segurança."
+        },
+        "files": [
+          {
+            "path": "index.mjs",
+            "role": "source"
+          },
+          {
+            "path": "index.test.mjs",
+            "role": "test"
+          }
+        ],
+        "provenance": "original"
+      }
     },
     {
       "id": "python.algorithms.binary-search",
