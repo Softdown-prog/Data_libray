@@ -1,0 +1,10 @@
+{
+  "name": "@softdown/angular-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "exports": { ".": "./src/index.mjs", "./sac-p001": "./src/sac-p001.mjs" },
+  "scripts": { "test": "node --test test/*.test.mjs" },
+  "dependencies": { "ajv": "8.17.1" }
+}

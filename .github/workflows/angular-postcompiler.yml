@@ -16,6 +16,14 @@ jobs:
         with:
           node-version: '24'
       - run: npm ci --prefix packages/angular-postcompiler --ignore-scripts --no-audit --no-fund
+      - run: npm ci --prefix packages/angular-core --ignore-scripts --no-audit --no-fund
+      - run: npm test --prefix packages/angular-core
+      - name: Matriz sintética do core (JSON)
+        run: node packages/angular-core/examples/matrix.mjs > "${{ runner.temp }}/sac-core-matrix.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sac-core-matrix
+          path: ${{ runner.temp }}/sac-core-matrix.json
       - run: npm test --prefix packages/angular-postcompiler
       - run: npm ci --prefix packages/angular-postcompiler/smoke --ignore-scripts --no-audit --no-fund
       - run: npm run test:smoke --prefix packages/angular-postcompiler
