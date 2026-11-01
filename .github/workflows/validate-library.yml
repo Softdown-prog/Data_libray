@@ -95,6 +95,7 @@ jobs:
           node-version: '24'
       - run: npm install -g "typescript@~6.0.0"
       - run: tsc -p typescript/tsconfig.json
+      - run: tsc -p typescript/security/runtime-assertions/tsconfig.strict.json
       - run: find typescript/dist -name '*.test.js' -print0 | xargs -0 -r node --test
 
   angular:

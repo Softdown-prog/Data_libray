@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.catalog import ROOT, build, validate_current
+from scripts.catalog import ROOT, build, validate_current, validate_root_layout
 
 EXAMPLE = ROOT / "go" / "algorithms" / "binary-search"
 
@@ -36,6 +36,14 @@ class TestDatasetContract(unittest.TestCase):
             (copy / "uncataloged.go").write_text("package binarysearch", encoding="utf-8")
             with self.assertRaises(ValueError):
                 validate_current(self.meta, copy, self.readme)
+
+    def test_root_layout_rejects_uncataloged_artifact(self) -> None:
+        with tempfile.TemporaryDirectory() as root:
+            folder = Path(root)
+            validate_root_layout(folder)
+            (folder / "H").write_text("n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "raiz sem registro"):
+                validate_root_layout(folder)
 
     def test_index_tracks_review_status(self) -> None:
         index = build()

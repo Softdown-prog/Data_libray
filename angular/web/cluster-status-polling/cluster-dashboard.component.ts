@@ -10,7 +10,7 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { HttpClient } from '@angular/common/http';
-import { EMPTY, timer } from 'rxjs';
+import { EMPTY, timer, timeout } from 'rxjs';
 import { catchError, exhaustMap } from 'rxjs/operators';
 
 type MemoryHealth = 'SECURE' | 'WARNING' | 'CRITICAL';
@@ -65,6 +65,7 @@ export class ClusterDashboardComponent {
   constructor() {
     timer(0, 6000).pipe(
       exhaustMap(() => this.http.get<unknown>('/api/cluster/status').pipe(
+        timeout({ first: 5000 }), // Libera o próximo ciclo se a rede ficar suspensa.
         catchError(() => {
           this.error.set('Não foi possível consultar o estado do cluster.');
           return EMPTY;

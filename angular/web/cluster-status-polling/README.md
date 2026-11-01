@@ -54,6 +54,7 @@ cd angular && npx ngc -p tsconfig.json
 
 - Resposta malformada não atualiza status nem inventa saúde SECURE; mostra alerta de erro.
 - Erro HTTP é capturado dentro do exhaustMap, permitindo que consultas futuras continuem.
+- O timeout de cinco segundos encerra consultas travadas e permite que o próximo ciclo de polling retome normalmente.
 - takeUntilDestroyed encerra a inscrição quando o componente é destruído.
 - exhaustMap evita múltiplos requests sobrepostos, descartando ticks enquanto uma requisição ainda está em andamento.
 
@@ -63,6 +64,7 @@ cd angular && npx ngc -p tsconfig.json
 - É necessário garantir autenticação, autorização, limitação de taxa e CORS no backend real.
 - Em erro após sucesso o último estado fica preservado na tela, potencialmente desatualizado, acompanhado de alerta.
 - Não há backoff exponencial, testes DOM nem garantia de atualização instantânea.
+- O timeout de cinco segundos é configurável conforme os requisitos de latência; este exemplo não implementa backoff exponencial.
 
 ## Diagnóstico e correção
 

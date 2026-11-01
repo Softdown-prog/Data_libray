@@ -16,6 +16,9 @@ CODE_EXTENSIONS = {".go", ".py", ".cpp", ".cc", ".c", ".h", ".hpp", ".rs", ".js"
 OUTPUT = ROOT / "catalog.json"
 BASELINE = ROOT / "docs" / "LEGACY_REVIEW.json"
 BASE_FIELDS = {"id", "title", "description", "entrypoint", "run", "test", "tags"}
+ROOT_FILES = {"README.md", "CONTRIBUTING.md", ".gitignore", "catalog.json"}
+ROOT_DIRECTORIES = LANGUAGES | {"docs", "scripts", "tests", ".github"}
+ROOT_LOCAL_IGNORES = {".git", ".venv", ".ruff_cache", ".pytest_cache", ".mypy_cache", "__pycache__", "node_modules"}
 SPEC_FIELDS = {
     "purpose", "when_to_use", "when_not_to_use", "requirements", "inputs",
     "outputs", "error_handling", "limitations", "troubleshooting", "runtime",
@@ -29,6 +32,14 @@ SECTIONS = (
     "## Verificação automatizada", "## Arquivos catalogados",
     "## Origem e manutenção",
 )
+
+
+def validate_root_layout(root: Path) -> None:
+    """Rejeita arquivos soltos na raiz que não pertencem à biblioteca."""
+    allowed = ROOT_FILES | ROOT_DIRECTORIES | ROOT_LOCAL_IGNORES
+    for item in root.iterdir():
+        if item.name not in allowed:
+            raise ValueError(f"arquivo ou diretório raiz sem registro: {item.name}")
 
 
 def git_blob_sha(path: Path) -> str:
@@ -117,6 +128,7 @@ def validate_legacy(meta: dict, directory: Path, frozen: dict[str, str]) -> None
 
 def build() -> dict:
     """Reconstrói o índice com status real, detectando código solto."""
+    validate_root_layout(ROOT)
     baseline = json.loads(BASELINE.read_text(encoding="utf-8"))
     frozen = {item["id"]: item["frozen_files"] for item in baseline["examples"]}
     if len(frozen) != len(baseline["examples"]):

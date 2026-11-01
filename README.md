@@ -2,7 +2,7 @@
 
 Biblioteca **multilinguagem** de exemplos pequenos, independentes, pesquisáveis e reproduzíveis.
 
-> **Objetivo:** alcançar entre **10.000 e 12.000 exemplos de qualidade**. Esse é um objetivo de longo prazo, não uma contagem já entregue. Exemplos só são adicionados quando têm uma finalidade real, documentação e uma checagem automática.
+> **Prioridade atual:** revisar os exemplos existentes e construir até **500 exemplos realmente úteis e bem documentados** como primeiro marco. As metas de 10.000–12.000 não estão ativas; exemplos só entram com finalidade real, contexto e evidência de validação.
 
 ## Linguagens iniciais
 
