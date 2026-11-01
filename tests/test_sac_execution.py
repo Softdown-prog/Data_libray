@@ -26,9 +26,9 @@ class ExecutionTests(unittest.TestCase):
         return obj
 
     def call(self, handler=None, **kw):
+        kw.setdefault("executor", "/usr/bin/node")
         return se.execute_received(self.root,self.policy,self.registry,
-                                   executor="/usr/bin/node",invoke=handler or
-                                   (lambda job, manifest, **_ : self.result()),**kw)
+                                   invoke=handler or (lambda job, manifest, **_: self.result()), **kw)
 
     def test_admission_and_binding_with_idempotent_result(self):
         self.assertEqual(self.call()["processed"],1)
