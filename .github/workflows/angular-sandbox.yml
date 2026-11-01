@@ -38,6 +38,7 @@ jobs:
       - name: Angular AOT Chromium in Docker sandbox
         env:
           SAC_CONTAINER_MODE: '1'
+          SAC_SANDBOX_DIAGNOSTICS: '1'
         run: node packages/angular-guardian/examples/pipeline-browser.mjs
       - uses: actions/upload-artifact@v4
         if: always()
