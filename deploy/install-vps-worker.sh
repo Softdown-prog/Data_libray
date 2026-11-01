@@ -119,6 +119,11 @@ if [[ "$installed_origin" != "$origin" && "$installed_origin" != "https://github
   exit 1
 fi
 
+# A tentativa anterior pode ter criado o clone. Atualizar apenas com fast-forward,
+# sempre como proprietário, após validar a identidade do remote.
+runuser -u data-library -- env "HOME=$base" \
+  git -C "$repo" pull --ff-only origin main
+
 runuser -u data-library -- env "HOME=$base" "PATH=$PATH" \
   npm install --prefix "$base/tools" --no-save --ignore-scripts \
   --no-audit --no-fund 'typescript@~6.0.0'

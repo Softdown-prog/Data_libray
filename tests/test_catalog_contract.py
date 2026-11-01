@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.catalog import ROOT, build, validate_current, validate_root_layout
+from scripts.catalog import ROOT, build, source_files, validate_current, validate_root_layout
 
 EXAMPLE = ROOT / "go" / "algorithms" / "binary-search"
 
@@ -44,6 +44,28 @@ class TestDatasetContract(unittest.TestCase):
             (folder / "H").write_text("n", encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "raiz sem registro"):
                 validate_root_layout(folder)
+
+    def test_generated_directories_are_not_catalogued_as_source(self) -> None:
+        with tempfile.TemporaryDirectory() as root:
+            folder = Path(root) / "angular"
+            (folder / "node_modules" / "gensync").mkdir(parents=True)
+            (folder / "node_modules" / "gensync" / "index.js").write_text("generated")
+            (folder / ".angular" / "cache").mkdir(parents=True)
+            (folder / ".angular" / "cache" / "output.js").write_text("generated")
+            (folder / "dist").mkdir()
+            (folder / "dist" / "output.js").write_text("generated")
+            (folder / "web" / "actual").mkdir(parents=True)
+            actual = folder / "web" / "actual" / "main.ts"
+            actual.write_text("export const value = 1;", encoding="utf-8")
+            self.assertEqual(source_files(folder), [actual])
+
+    def test_regular_uncatalogued_sources_are_still_discovered(self) -> None:
+        with tempfile.TemporaryDirectory() as root:
+            folder = Path(root) / "angular"
+            (folder / "web" / "untracked").mkdir(parents=True)
+            source = folder / "web" / "untracked" / "main.ts"
+            source.write_text("export const x = 42;", encoding="utf-8")
+            self.assertIn(source, source_files(folder))
 
     def test_index_tracks_review_status(self) -> None:
         index = build()

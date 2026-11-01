@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -19,6 +20,8 @@ BASE_FIELDS = {"id", "title", "description", "entrypoint", "run", "test", "tags"
 ROOT_FILES = {"README.md", "CONTRIBUTING.md", ".gitignore", "catalog.json"}
 ROOT_DIRECTORIES = LANGUAGES | {"docs", "scripts", "tests", ".github", "deploy"}
 ROOT_LOCAL_IGNORES = {".git", ".venv", ".ruff_cache", ".pytest_cache", ".mypy_cache", "__pycache__", "node_modules", ".worker-results"}
+# Dependências e saídas geradas não são código catalogável.
+GENERATED_DIRECTORIES = ROOT_LOCAL_IGNORES | {"dist", "build", "target", ".angular"}
 SPEC_FIELDS = {
     "purpose", "when_to_use", "when_not_to_use", "requirements", "inputs",
     "outputs", "error_handling", "limitations", "troubleshooting", "runtime",
@@ -40,6 +43,19 @@ def validate_root_layout(root: Path) -> None:
     for item in root.iterdir():
         if item.name not in allowed:
             raise ValueError(f"arquivo ou diretório raiz sem registro: {item.name}")
+
+
+def source_files(folder: Path) -> list[Path]:
+    """Seleciona fontes, podando dependências e saídas geradas."""
+    found: list[Path] = []
+    for current, directories, files in os.walk(folder, followlinks=False):
+        directories[:] = sorted(
+            name for name in directories
+            if name not in GENERATED_DIRECTORIES
+            and not (Path(current) / name).is_symlink()
+        )
+        found.extend(Path(current) / name for name in sorted(files))
+    return found
 
 
 def git_blob_sha(path: Path) -> str:
@@ -141,7 +157,8 @@ def build() -> dict:
         folder = ROOT / language
         if not folder.is_dir():
             raise ValueError(f"pasta da linguagem ausente: {language}")
-        for metadata_path in sorted(folder.rglob("example.json")):
+        scanned_files = source_files(folder)
+        for metadata_path in (p for p in scanned_files if p.name == "example.json"):
             directory = metadata_path.parent
             parts = directory.relative_to(ROOT).parts
             if len(parts) != 3 or parts[0] != language:
@@ -184,7 +201,7 @@ def build() -> dict:
                 entry["spec"] = meta["spec"]
             entries.append(entry)
             indexed_dirs.add(directory)
-        for item in folder.rglob("*"):
+        for item in scanned_files:
             if (item.is_file() and item.suffix in CODE_EXTENSIONS
                     and not any(item.is_relative_to(d) for d in indexed_dirs)):
                 raise ValueError(f"código sem registro: {item.relative_to(ROOT)}")
