@@ -14,9 +14,10 @@ from pathlib import Path
 from typing import Any
 
 if __package__:
-    from . import batch_worker
+    from . import batch_worker, sac_job_queue
 else:
     import batch_worker
+    import sac_job_queue
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -122,6 +123,11 @@ def main(argv: list[str] | None = None) -> int:
     cli.add_argument("--poll-seconds", type=int, default=60)
     cli.add_argument("--recheck-seconds", type=int, default=86400)
     cli.add_argument("--once", action="store_true")
+    cli.add_argument("--sac-inbox", action="store_true",
+                     help="Opt-in: acknowledge authenticated SAC jobs; does not execute them")
+    cli.add_argument("--sac-policy", type=Path,
+                     default=Path("/etc/data-library-worker/sac-projects.json"),
+                     help="Trusted operator-owned project/profile allowlist")
     args = cli.parse_args(argv)
     if not 1 <= args.max_items <= 1000 or args.poll_seconds < 10:
         cli.error("max-items: 1..1000; poll-seconds: >= 10")
@@ -138,6 +144,11 @@ def main(argv: list[str] | None = None) -> int:
         last_heartbeat = 0.0
         while True:
             try:
+                if args.sac_inbox:
+                    project_policy = json.loads(args.sac_policy.read_text(encoding="utf-8"))
+                    receipt = sac_job_queue.receive_pending(args.state_dir, project_policy)
+                    if receipt["rejected"]:
+                        print("SAC INBOX: invalid or unauthorized requests rejected", file=sys.stderr, flush=True)
                 catalog = json.loads((ROOT / "catalog.json").read_text(encoding="utf-8"))
                 outcome = run_cycle(
                     catalog=catalog, revision=revision_of(), config=config,

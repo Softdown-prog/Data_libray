@@ -1,0 +1,22 @@
+name: SAC-008B Worker inbox contract
+on:
+  pull_request:
+  push:
+    branches: ['feat/sac-008b-worker-inbox']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  queue:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Static syntax and queue protocol checks
+        run: |
+          python -m py_compile scripts/sac_job_queue.py scripts/vps_daemon.py
+          python -m unittest discover -s tests -p 'test_sac_job_queue.py' -v
+          python -m unittest discover -s tests -p 'test_vps_daemon.py' -v
