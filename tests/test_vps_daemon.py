@@ -52,6 +52,20 @@ class TestVpsDaemon(unittest.TestCase):
             self.assertFalse(worker.call_args.kwargs["resume"])
             self.assertEqual(worker.call_count, 2)
 
+    def test_finished_at_is_recorded_after_batch_execution(self) -> None:
+        with tempfile.TemporaryDirectory() as folder, patch.object(
+            vps_daemon.batch_worker, "run_batch",
+            return_value={"counts": {"pass": 1, "fail": 0}, "total_queued": 1},
+        ), patch.object(vps_daemon.time, "monotonic", side_effect=[25.0, 29.25]):
+            result = vps_daemon.run_cycle(
+                catalog=self.catalog, revision="a" * 40,
+                config=self.config, state_dir=Path(folder), now=100.0,
+            )
+            checkpoint = result["checkpoint"]
+            self.assertEqual(checkpoint["started_at"], 100.0)
+            self.assertEqual(checkpoint["finished_at"], 104.25)
+            self.assertEqual(checkpoint["last_cycle_elapsed_seconds"], 4.25)
+
     def test_reject_corrupt_checkpoint(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

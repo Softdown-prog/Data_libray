@@ -88,6 +88,7 @@ def run_cycle(
                "counts": None}
         batch_worker.write_json(checkpoint, old)
         resume = False
+    execution_started = time.monotonic()
     previous_sha = os.environ.get("GITHUB_SHA")
     os.environ["GITHUB_SHA"] = revision
     try:
@@ -100,7 +101,11 @@ def run_cycle(
             os.environ.pop("GITHUB_SHA", None)
         else:
             os.environ["GITHUB_SHA"] = previous_sha
-    completed = {**old, "finished_at": moment, "counts": report["counts"],
+    elapsed = max(0.0, time.monotonic() - execution_started)
+    finished = (time.time() if now is None else moment + elapsed)
+    completed = {**old, "finished_at": finished,
+                 "last_cycle_elapsed_seconds": round(elapsed, 3),
+                 "counts": report["counts"],
                  "total_queued": report["total_queued"]}
     batch_worker.write_json(checkpoint, completed)
     return {"action": "processed", "checkpoint": completed}
