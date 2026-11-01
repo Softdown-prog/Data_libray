@@ -1,0 +1,13 @@
+{
+  "id": "cpp.data-structures.ring-buffer",
+  "title": "Buffer circular C++20",
+  "description": "Fila de capacidade fixa, com inserção e remoção seguras e sem alocação dinâmica.",
+  "entrypoint": "main.cpp",
+  "run": "g++ -std=c++20 cpp/data-structures/ring-buffer/main.cpp -o /tmp/ring_buffer && /tmp/ring_buffer",
+  "test": "CI: g++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -fsanitize=undefined",
+  "tags": [
+    "ring-buffer",
+    "queue",
+    "fixed-capacity"
+  ]
+}

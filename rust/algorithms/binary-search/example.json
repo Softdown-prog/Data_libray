@@ -1,0 +1,13 @@
+{
+  "id": "rust.algorithms.binary-search",
+  "title": "Busca binária Rust",
+  "description": "Retorna a primeira posição de um i32 em fatia ordenada sem alocação adicional.",
+  "entrypoint": "src/main.rs",
+  "run": "cd rust && cargo run -p binary-search-example",
+  "test": "cd rust && cargo test -p binary-search-example",
+  "tags": [
+    "binary-search",
+    "slice",
+    "sorted"
+  ]
+}

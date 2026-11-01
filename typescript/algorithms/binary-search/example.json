@@ -1,0 +1,13 @@
+{
+  "id": "typescript.algorithms.binary-search",
+  "title": "Busca binária TypeScript strict",
+  "description": "Pesquisa a primeira ocorrência em array readonly ordenado com tipos estritos.",
+  "entrypoint": "index.ts",
+  "run": "node --test typescript/dist/algorithms/binary-search/index.test.js",
+  "test": "tsc -p typescript/tsconfig.json && node --test typescript/dist",
+  "tags": [
+    "binary-search",
+    "readonly",
+    "strict"
+  ]
+}

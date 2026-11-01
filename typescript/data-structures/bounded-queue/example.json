@@ -1,0 +1,13 @@
+{
+  "id": "typescript.data-structures.bounded-queue",
+  "title": "Fila limitada TypeScript",
+  "description": "Fila FIFO com limite de capacidade positivo e tipos rigorosos.",
+  "entrypoint": "index.ts",
+  "run": "node --test typescript/dist/data-structures/bounded-queue/index.test.js",
+  "test": "tsc -p typescript/tsconfig.json && node --test typescript/dist",
+  "tags": [
+    "queue",
+    "fifo",
+    "generics"
+  ]
+}

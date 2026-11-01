@@ -1,0 +1,13 @@
+{
+  "id": "rust.data-structures.stack",
+  "title": "Pilha genérica Rust",
+  "description": "Implementa estrutura LIFO com Vec, usando Option para evitar remoção de pilha vazia.",
+  "entrypoint": "src/main.rs",
+  "run": "cd rust && cargo run -p stack-example",
+  "test": "cd rust && cargo test -p stack-example",
+  "tags": [
+    "stack",
+    "lifo",
+    "generics"
+  ]
+}

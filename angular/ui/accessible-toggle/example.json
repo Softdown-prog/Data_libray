@@ -1,0 +1,13 @@
+{
+  "id": "angular.ui.accessible-toggle",
+  "title": "Botão alternável acessível Angular",
+  "description": "Componente standalone com signal e aria-pressed, validado pelo Angular compiler strictTemplates.",
+  "entrypoint": "toggle.component.ts",
+  "run": "Importe AccessibleToggleComponent em outro componente standalone.",
+  "test": "cd angular && npx ngc -p tsconfig.json",
+  "tags": [
+    "standalone",
+    "signals",
+    "accessibility"
+  ]
+}

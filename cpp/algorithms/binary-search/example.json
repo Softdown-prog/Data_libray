@@ -1,0 +1,13 @@
+{
+  "id": "cpp.algorithms.binary-search",
+  "title": "Busca binária C++20",
+  "description": "Localiza a primeira ocorrência de um valor em vector ordenado usando limites semiabertos.",
+  "entrypoint": "main.cpp",
+  "run": "g++ -std=c++20 cpp/algorithms/binary-search/main.cpp -o /tmp/binary_search && /tmp/binary_search",
+  "test": "CI: g++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -fsanitize=undefined",
+  "tags": [
+    "binary-search",
+    "vector",
+    "optional"
+  ]
+}

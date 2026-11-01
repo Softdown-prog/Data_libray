@@ -1,0 +1,13 @@
+{
+  "id": "javascript.algorithms.binary-search",
+  "title": "Busca binária JavaScript",
+  "description": "Função JavaScript que devolve o primeiro índice de um número em array ordenado.",
+  "entrypoint": "index.mjs",
+  "run": "node javascript/algorithms/binary-search/index.test.mjs",
+  "test": "node --test javascript/algorithms/binary-search/index.test.mjs",
+  "tags": [
+    "binary-search",
+    "array",
+    "sorted"
+  ]
+}

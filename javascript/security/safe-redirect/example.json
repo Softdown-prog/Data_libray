@@ -1,0 +1,13 @@
+{
+  "id": "javascript.security.safe-redirect",
+  "title": "Redirecionamento de mesma origem",
+  "description": "Valida URLs de destino contra uma origem fixa antes de navegar, bloqueando URLs externas.",
+  "entrypoint": "index.mjs",
+  "run": "node javascript/security/safe-redirect/index.test.mjs",
+  "test": "node --test javascript/security/safe-redirect/index.test.mjs",
+  "tags": [
+    "redirect",
+    "url",
+    "origin"
+  ]
+}

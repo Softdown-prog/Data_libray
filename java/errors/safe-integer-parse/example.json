@@ -1,0 +1,13 @@
+{
+  "id": "java.errors.safe-integer-parse",
+  "title": "Conversão segura de inteiro Java",
+  "description": "Trata entrada nula, vazia e inválida retornando OptionalInt, sem ocultar NumberFormatException.",
+  "entrypoint": "Main.java",
+  "run": "javac java/errors/safe-integer-parse/Main.java && java -cp java/errors/safe-integer-parse Main",
+  "test": "CI: javac -Xlint:all -Werror && java -ea Main",
+  "tags": [
+    "number",
+    "optional",
+    "error-handling"
+  ]
+}

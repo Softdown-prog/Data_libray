@@ -1,0 +1,13 @@
+{
+  "id": "go.algorithms.binary-search",
+  "title": "Busca binária: primeira ocorrência",
+  "description": "Encontra a primeira ocorrência em uma sequência crescente; devolve (-1, false) quando ausente.",
+  "entrypoint": "binary_search.go",
+  "run": "cd go && go test ./algorithms/binary-search",
+  "test": "cd go && go test -race ./algorithms/binary-search",
+  "tags": [
+    "binary-search",
+    "search",
+    "sorted"
+  ]
+}

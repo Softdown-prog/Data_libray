@@ -1,0 +1,13 @@
+{
+  "id": "python.security.safe-filename",
+  "title": "Nome de arquivo restrito",
+  "description": "Valida nomes simples de arquivos e bloqueia separadores e sequências de caminho.",
+  "entrypoint": "solution.py",
+  "run": "python python/security/safe-filename/solution.py",
+  "test": "python python/security/safe-filename/test_solution.py",
+  "tags": [
+    "validation",
+    "path",
+    "filesystem"
+  ]
+}

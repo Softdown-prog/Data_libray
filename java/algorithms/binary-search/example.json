@@ -1,0 +1,13 @@
+{
+  "id": "java.algorithms.binary-search",
+  "title": "Busca binária Java 21",
+  "description": "Busca primeira ocorrência em array ordenado, com verificações executadas na classe Main.",
+  "entrypoint": "Main.java",
+  "run": "javac java/algorithms/binary-search/Main.java && java -cp java/algorithms/binary-search Main",
+  "test": "CI: javac -Xlint:all -Werror && java -ea Main",
+  "tags": [
+    "binary-search",
+    "array",
+    "sorted"
+  ]
+}

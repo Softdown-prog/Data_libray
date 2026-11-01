@@ -1,0 +1,13 @@
+{
+  "id": "angular.web.query-param-service",
+  "title": "Leitura segura de query params Angular",
+  "description": "Serviço injetável que lê um parâmetro de uma URL absoluta e normaliza o resultado.",
+  "entrypoint": "query-param.service.ts",
+  "run": "Injete QueryParamService e chame read('https://site.test/?q=ok', 'q').",
+  "test": "cd angular && npx ngc -p tsconfig.json",
+  "tags": [
+    "query-params",
+    "url",
+    "injectable"
+  ]
+}

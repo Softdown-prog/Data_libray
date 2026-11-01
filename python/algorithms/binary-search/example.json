@@ -1,0 +1,13 @@
+{
+  "id": "python.algorithms.binary-search",
+  "title": "Busca binária Python",
+  "description": "Busca a primeira posição de um inteiro em lista ordenada, inclusive com valores repetidos.",
+  "entrypoint": "solution.py",
+  "run": "python python/algorithms/binary-search/solution.py",
+  "test": "python python/algorithms/binary-search/test_solution.py",
+  "tags": [
+    "binary-search",
+    "sequence",
+    "sorted"
+  ]
+}

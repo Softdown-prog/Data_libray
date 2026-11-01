@@ -1,0 +1,13 @@
+{
+  "id": "go.data-structures.stack",
+  "title": "Pilha genérica Go",
+  "description": "Pilha LIFO parametrizada por tipo com operação de remoção segura.",
+  "entrypoint": "stack.go",
+  "run": "cd go && go test ./data-structures/stack",
+  "test": "cd go && go test -race ./data-structures/stack",
+  "tags": [
+    "generics",
+    "stack",
+    "lifo"
+  ]
+}

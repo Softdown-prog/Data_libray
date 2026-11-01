@@ -1,0 +1,13 @@
+{
+  "id": "python.io.atomic-write",
+  "title": "Escrita atômica em arquivo",
+  "description": "Substitui arquivo de texto com os.replace sem deixar arquivo temporário após erros.",
+  "entrypoint": "solution.py",
+  "run": "python python/io/atomic-write/solution.py",
+  "test": "python python/io/atomic-write/test_solution.py",
+  "tags": [
+    "atomic-write",
+    "filesystem",
+    "files"
+  ]
+}

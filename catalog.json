@@ -1,0 +1,294 @@
+{
+  "schema_version": 1,
+  "count": 18,
+  "examples": [
+    {
+      "id": "angular.ui.accessible-toggle",
+      "language": "angular",
+      "category": "ui",
+      "title": "Botão alternável acessível Angular",
+      "description": "Componente standalone com signal e aria-pressed, validado pelo Angular compiler strictTemplates.",
+      "path": "angular/ui/accessible-toggle",
+      "entrypoint": "toggle.component.ts",
+      "run": "Importe AccessibleToggleComponent em outro componente standalone.",
+      "test": "cd angular && npx ngc -p tsconfig.json",
+      "tags": [
+        "standalone",
+        "signals",
+        "accessibility"
+      ]
+    },
+    {
+      "id": "angular.web.query-param-service",
+      "language": "angular",
+      "category": "web",
+      "title": "Leitura segura de query params Angular",
+      "description": "Serviço injetável que lê um parâmetro de uma URL absoluta e normaliza o resultado.",
+      "path": "angular/web/query-param-service",
+      "entrypoint": "query-param.service.ts",
+      "run": "Injete QueryParamService e chame read('https://site.test/?q=ok', 'q').",
+      "test": "cd angular && npx ngc -p tsconfig.json",
+      "tags": [
+        "query-params",
+        "url",
+        "injectable"
+      ]
+    },
+    {
+      "id": "cpp.algorithms.binary-search",
+      "language": "cpp",
+      "category": "algorithms",
+      "title": "Busca binária C++20",
+      "description": "Localiza a primeira ocorrência de um valor em vector ordenado usando limites semiabertos.",
+      "path": "cpp/algorithms/binary-search",
+      "entrypoint": "main.cpp",
+      "run": "g++ -std=c++20 cpp/algorithms/binary-search/main.cpp -o /tmp/binary_search && /tmp/binary_search",
+      "test": "CI: g++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -fsanitize=undefined",
+      "tags": [
+        "binary-search",
+        "vector",
+        "optional"
+      ]
+    },
+    {
+      "id": "cpp.data-structures.ring-buffer",
+      "language": "cpp",
+      "category": "data-structures",
+      "title": "Buffer circular C++20",
+      "description": "Fila de capacidade fixa, com inserção e remoção seguras e sem alocação dinâmica.",
+      "path": "cpp/data-structures/ring-buffer",
+      "entrypoint": "main.cpp",
+      "run": "g++ -std=c++20 cpp/data-structures/ring-buffer/main.cpp -o /tmp/ring_buffer && /tmp/ring_buffer",
+      "test": "CI: g++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -fsanitize=undefined",
+      "tags": [
+        "ring-buffer",
+        "queue",
+        "fixed-capacity"
+      ]
+    },
+    {
+      "id": "go.algorithms.binary-search",
+      "language": "go",
+      "category": "algorithms",
+      "title": "Busca binária: primeira ocorrência",
+      "description": "Encontra a primeira ocorrência em uma sequência crescente; devolve (-1, false) quando ausente.",
+      "path": "go/algorithms/binary-search",
+      "entrypoint": "binary_search.go",
+      "run": "cd go && go test ./algorithms/binary-search",
+      "test": "cd go && go test -race ./algorithms/binary-search",
+      "tags": [
+        "binary-search",
+        "search",
+        "sorted"
+      ]
+    },
+    {
+      "id": "go.data-structures.stack",
+      "language": "go",
+      "category": "data-structures",
+      "title": "Pilha genérica Go",
+      "description": "Pilha LIFO parametrizada por tipo com operação de remoção segura.",
+      "path": "go/data-structures/stack",
+      "entrypoint": "stack.go",
+      "run": "cd go && go test ./data-structures/stack",
+      "test": "cd go && go test -race ./data-structures/stack",
+      "tags": [
+        "generics",
+        "stack",
+        "lifo"
+      ]
+    },
+    {
+      "id": "go.errors.wrapped-errors",
+      "language": "go",
+      "category": "errors",
+      "title": "Erros Go encadeados",
+      "description": "Encadeia falhas usando fmt.Errorf com %w e identifica a causa por errors.Is.",
+      "path": "go/errors/wrapped-errors",
+      "entrypoint": "wrapped_errors.go",
+      "run": "cd go && go test ./errors/wrapped-errors",
+      "test": "cd go && go test -race ./errors/wrapped-errors",
+      "tags": [
+        "errors",
+        "wrapping",
+        "sentinel"
+      ]
+    },
+    {
+      "id": "java.algorithms.binary-search",
+      "language": "java",
+      "category": "algorithms",
+      "title": "Busca binária Java 21",
+      "description": "Busca primeira ocorrência em array ordenado, com verificações executadas na classe Main.",
+      "path": "java/algorithms/binary-search",
+      "entrypoint": "Main.java",
+      "run": "javac java/algorithms/binary-search/Main.java && java -cp java/algorithms/binary-search Main",
+      "test": "CI: javac -Xlint:all -Werror && java -ea Main",
+      "tags": [
+        "binary-search",
+        "array",
+        "sorted"
+      ]
+    },
+    {
+      "id": "java.errors.safe-integer-parse",
+      "language": "java",
+      "category": "errors",
+      "title": "Conversão segura de inteiro Java",
+      "description": "Trata entrada nula, vazia e inválida retornando OptionalInt, sem ocultar NumberFormatException.",
+      "path": "java/errors/safe-integer-parse",
+      "entrypoint": "Main.java",
+      "run": "javac java/errors/safe-integer-parse/Main.java && java -cp java/errors/safe-integer-parse Main",
+      "test": "CI: javac -Xlint:all -Werror && java -ea Main",
+      "tags": [
+        "number",
+        "optional",
+        "error-handling"
+      ]
+    },
+    {
+      "id": "javascript.algorithms.binary-search",
+      "language": "javascript",
+      "category": "algorithms",
+      "title": "Busca binária JavaScript",
+      "description": "Função JavaScript que devolve o primeiro índice de um número em array ordenado.",
+      "path": "javascript/algorithms/binary-search",
+      "entrypoint": "index.mjs",
+      "run": "node javascript/algorithms/binary-search/index.test.mjs",
+      "test": "node --test javascript/algorithms/binary-search/index.test.mjs",
+      "tags": [
+        "binary-search",
+        "array",
+        "sorted"
+      ]
+    },
+    {
+      "id": "javascript.security.safe-redirect",
+      "language": "javascript",
+      "category": "security",
+      "title": "Redirecionamento de mesma origem",
+      "description": "Valida URLs de destino contra uma origem fixa antes de navegar, bloqueando URLs externas.",
+      "path": "javascript/security/safe-redirect",
+      "entrypoint": "index.mjs",
+      "run": "node javascript/security/safe-redirect/index.test.mjs",
+      "test": "node --test javascript/security/safe-redirect/index.test.mjs",
+      "tags": [
+        "redirect",
+        "url",
+        "origin"
+      ]
+    },
+    {
+      "id": "python.algorithms.binary-search",
+      "language": "python",
+      "category": "algorithms",
+      "title": "Busca binária Python",
+      "description": "Busca a primeira posição de um inteiro em lista ordenada, inclusive com valores repetidos.",
+      "path": "python/algorithms/binary-search",
+      "entrypoint": "solution.py",
+      "run": "python python/algorithms/binary-search/solution.py",
+      "test": "python python/algorithms/binary-search/test_solution.py",
+      "tags": [
+        "binary-search",
+        "sequence",
+        "sorted"
+      ]
+    },
+    {
+      "id": "python.io.atomic-write",
+      "language": "python",
+      "category": "io",
+      "title": "Escrita atômica em arquivo",
+      "description": "Substitui arquivo de texto com os.replace sem deixar arquivo temporário após erros.",
+      "path": "python/io/atomic-write",
+      "entrypoint": "solution.py",
+      "run": "python python/io/atomic-write/solution.py",
+      "test": "python python/io/atomic-write/test_solution.py",
+      "tags": [
+        "atomic-write",
+        "filesystem",
+        "files"
+      ]
+    },
+    {
+      "id": "python.security.safe-filename",
+      "language": "python",
+      "category": "security",
+      "title": "Nome de arquivo restrito",
+      "description": "Valida nomes simples de arquivos e bloqueia separadores e sequências de caminho.",
+      "path": "python/security/safe-filename",
+      "entrypoint": "solution.py",
+      "run": "python python/security/safe-filename/solution.py",
+      "test": "python python/security/safe-filename/test_solution.py",
+      "tags": [
+        "validation",
+        "path",
+        "filesystem"
+      ]
+    },
+    {
+      "id": "rust.algorithms.binary-search",
+      "language": "rust",
+      "category": "algorithms",
+      "title": "Busca binária Rust",
+      "description": "Retorna a primeira posição de um i32 em fatia ordenada sem alocação adicional.",
+      "path": "rust/algorithms/binary-search",
+      "entrypoint": "src/main.rs",
+      "run": "cd rust && cargo run -p binary-search-example",
+      "test": "cd rust && cargo test -p binary-search-example",
+      "tags": [
+        "binary-search",
+        "slice",
+        "sorted"
+      ]
+    },
+    {
+      "id": "rust.data-structures.stack",
+      "language": "rust",
+      "category": "data-structures",
+      "title": "Pilha genérica Rust",
+      "description": "Implementa estrutura LIFO com Vec, usando Option para evitar remoção de pilha vazia.",
+      "path": "rust/data-structures/stack",
+      "entrypoint": "src/main.rs",
+      "run": "cd rust && cargo run -p stack-example",
+      "test": "cd rust && cargo test -p stack-example",
+      "tags": [
+        "stack",
+        "lifo",
+        "generics"
+      ]
+    },
+    {
+      "id": "typescript.algorithms.binary-search",
+      "language": "typescript",
+      "category": "algorithms",
+      "title": "Busca binária TypeScript strict",
+      "description": "Pesquisa a primeira ocorrência em array readonly ordenado com tipos estritos.",
+      "path": "typescript/algorithms/binary-search",
+      "entrypoint": "index.ts",
+      "run": "node --test typescript/dist/algorithms/binary-search/index.test.js",
+      "test": "tsc -p typescript/tsconfig.json && node --test typescript/dist",
+      "tags": [
+        "binary-search",
+        "readonly",
+        "strict"
+      ]
+    },
+    {
+      "id": "typescript.data-structures.bounded-queue",
+      "language": "typescript",
+      "category": "data-structures",
+      "title": "Fila limitada TypeScript",
+      "description": "Fila FIFO com limite de capacidade positivo e tipos rigorosos.",
+      "path": "typescript/data-structures/bounded-queue",
+      "entrypoint": "index.ts",
+      "run": "node --test typescript/dist/data-structures/bounded-queue/index.test.js",
+      "test": "tsc -p typescript/tsconfig.json && node --test typescript/dist",
+      "tags": [
+        "queue",
+        "fifo",
+        "generics"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "go.errors.wrapped-errors",
+  "title": "Erros Go encadeados",
+  "description": "Encadeia falhas usando fmt.Errorf com %w e identifica a causa por errors.Is.",
+  "entrypoint": "wrapped_errors.go",
+  "run": "cd go && go test ./errors/wrapped-errors",
+  "test": "cd go && go test -race ./errors/wrapped-errors",
+  "tags": [
+    "errors",
+    "wrapping",
+    "sentinel"
+  ]
+}
