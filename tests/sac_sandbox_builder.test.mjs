@@ -12,8 +12,7 @@ test('docker controls are fixed and no network or privileges', () => {
     '128','--memory','1024m','--memory-swap','1024m','--cpus','1','--pull','never',
     '--security-opt','no-new-privileges','--user','1001:1001']) assert.ok(a.includes(value), value);
   assert.ok(a.includes('node_modules/@angular/cli/bin/ng.js'));
-  assert.deepEqual(a.slice(-4), [image, 'node', 'node_modules/@angular/cli/bin/ng.js', 'build'].slice(0,0).concat(
-    [image,'node','node_modules/@angular/cli/bin/ng.js','build','smoke']).slice(-4));
+  assert.deepEqual(a.slice(-5), [image, 'node', 'node_modules/@angular/cli/bin/ng.js', 'build', 'smoke']);
   assert.ok(!a.includes('--privileged'));
   assert.ok(!a.includes('--cap-add'));
   assert.ok(!a.includes('--no-sandbox'));
