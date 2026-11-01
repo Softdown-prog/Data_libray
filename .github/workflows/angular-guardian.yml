@@ -1,0 +1,63 @@
+name: Angular Guardian Foundation
+on:
+  pull_request:
+    paths:
+      - 'packages/angular-guardian/**'
+      - 'docs/ANGULAR_GUARDIAN.md'
+      - '.github/workflows/angular-guardian.yml'
+  push:
+    branches: [main, 'feat/**']
+    paths:
+      - 'packages/angular-guardian/**'
+      - 'docs/ANGULAR_GUARDIAN.md'
+      - '.github/workflows/angular-guardian.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  guardian:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Instalar dependências isoladas
+        run: npm install --prefix packages/angular-guardian --ignore-scripts --no-audit --no-fund
+      - name: Testes da política (sem navegador)
+        run: npm test --prefix packages/angular-guardian
+      - name: Instalar Chromium do Playwright no runner
+        run: cd packages/angular-guardian && npx playwright install --with-deps chromium
+      - name: Browser real — positivo e negativo obrigatórios
+        shell: bash
+        run: |
+          set -euo pipefail
+          node packages/angular-guardian/test/fixture-server.mjs &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for i in {1..30}; do
+            if curl --silent --fail http://127.0.0.1:4783/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl --fail http://127.0.0.1:4783/ >/dev/null
+          node packages/angular-guardian/bin/guardian.mjs verify \
+            --url http://127.0.0.1:4783 \
+            --config packages/angular-guardian/test/fixture-contract.json \
+            --report "$RUNNER_TEMP/guardian-positive.json"
+          if node packages/angular-guardian/bin/guardian.mjs verify \
+            --url http://127.0.0.1:4783 \
+            --config packages/angular-guardian/test/broken-contract.json \
+            --report "$RUNNER_TEMP/guardian-negative.json"; then
+            echo 'ERRO: Guardian aprovou deliberadamente interface quebrada' >&2
+            exit 1
+          fi
+          node -e 'const fs = require("node:fs"); const ok = JSON.parse(fs.readFileSync(process.argv[1])); const fail = JSON.parse(fs.readFileSync(process.argv[2])); if (ok.status !== "pass" || fail.status !== "fail") process.exit(1)' \
+            "$RUNNER_TEMP/guardian-positive.json" "$RUNNER_TEMP/guardian-negative.json"
+      - name: Publicar relatórios no workflow (inclusive falhas)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: angular-guardian-reports
+          path: ${{ runner.temp }}/guardian-*.json
+          if-no-files-found: ignore

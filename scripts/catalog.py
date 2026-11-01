@@ -18,7 +18,7 @@ OUTPUT = ROOT / "catalog.json"
 BASELINE = ROOT / "docs" / "LEGACY_REVIEW.json"
 BASE_FIELDS = {"id", "title", "description", "entrypoint", "run", "test", "tags"}
 ROOT_FILES = {"README.md", "CONTRIBUTING.md", ".gitignore", "catalog.json"}
-ROOT_DIRECTORIES = LANGUAGES | {"docs", "scripts", "tests", ".github", "deploy"}
+ROOT_DIRECTORIES = LANGUAGES | {"docs", "scripts", "tests", ".github", "deploy", "packages"}
 ROOT_LOCAL_IGNORES = {".git", ".venv", ".ruff_cache", ".pytest_cache", ".mypy_cache", "__pycache__", "node_modules", ".worker-results"}
 # Dependências e saídas geradas não são código catalogável.
 GENERATED_DIRECTORIES = ROOT_LOCAL_IGNORES | {"dist", "build", "target", ".angular", ".behavior-dist"}
