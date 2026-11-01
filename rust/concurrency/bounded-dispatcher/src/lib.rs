@@ -115,7 +115,10 @@ mod tests {
             })
             .unwrap();
         assert_eq!(dispatcher.active_load(), 2);
-        assert!(matches!(dispatcher.dispatch(|| {}), Err(DispatchError::AtCapacity)));
+        assert!(matches!(
+            dispatcher.dispatch(|| {}),
+            Err(DispatchError::AtCapacity)
+        ));
         barrier.wait();
         first.join().unwrap();
         second.join().unwrap();
