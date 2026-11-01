@@ -53,6 +53,7 @@ process.once('message', async input => {
     if (result.cases.some(c => c.status !== 'pass')) result.status = 'fail';
   } catch (error) {
     const detail = String(error?.message ?? '');
+    if (process.env.SAC_BROWSER_DIAGNOSTICS === '1') process.stderr.write('SAC_BROWSER_DIAGNOSTIC ' + detail.slice(0, 1200) + '\n');
     const reason = stage === 'chromium-launch' && /No usable sandbox|namespace|Operation not permitted|unshare|apparmor/i.test(detail)
       ? 'user-namespace-unavailable'
       : stage === 'chromium-launch' && /Executable doesn't exist|not installed|ENOENT/i.test(detail)
