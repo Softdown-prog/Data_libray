@@ -16,3 +16,7 @@ Critérios mínimos para cada entrada — conforme [contrato v2](DATASET_SCHEMA.
 Os registros congelados da versão inicial permanecem identificados como `legacy_pending_review` e não podem ser alterados sem migração.
 
 **Importante:** essas ferramentas só cobrem o que executam. Ainda são necessárias revisão humana, acompanhamento de dependências e testes extras em cenários críticos.
+
+## Parsers por linguagem
+
+A etapa inicial dos oito jobs de linguagem usa `scripts/parser_audit.py` para análise nativa, com grupos de logs e anotações de erro, além do resumo do job. As verificações anteriores (compilação, lint e testes) continuam obrigatórias. Consulte [a matriz de parsers](PARSER_VALIDATION.md) para limites e modos de execução.

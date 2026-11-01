@@ -15,7 +15,7 @@ Cada exemplo segue `<linguagem>/<categoria>/<nome>/` com três componentes: `exa
 - [Catálogo JSON pesquisável](catalog.json) — consumível por scripts, IDEs, agentes e servidores MCP futuros.
 - [Categorias e organização](docs/TAXONOMY.md).
 - [Política de validação](docs/QUALITY_POLICY.md).
-- [Plano para 12 mil exemplos](docs/ROADMAP.md).
+- [Plano de curadoria para 500 exemplos](docs/ROADMAP.md).
 
 Para buscar no catálogo localmente:
 
@@ -32,6 +32,18 @@ Este catálogo distingue a documentação completa (`documented`) de itens antig
 Veja o [contrato de catalogação v2](docs/DATASET_SCHEMA.md), o [inventário das ferramentas internas](docs/INTERNAL_TOOLS.md) e as entradas pendentes em `docs/LEGACY_REVIEW.json`.
 
 Novos exemplos sem contexto de uso, falhas, tratamento, riscos, testes e documentação no próprio código serão rejeitados automaticamente. O volume da biblioteca não é prioridade sobre sua rastreabilidade.
+
+## Parsers nativos por linguagem
+
+Cada job de linguagem executa também um parser nativo com grupos de logs, anotações de erro e resumo no GitHub Actions. A análise de sintaxe ocorre sem executar os exemplos; os testes comportamentais existentes continuam obrigatórios.
+
+```bash
+python3 scripts/parser_audit.py --language python
+python3 scripts/parser_audit.py --language go
+python3 scripts/parser_audit.py --language typescript
+```
+
+Consulte [a matriz, os diagnósticos e as limitações dos parsers](docs/PARSER_VALIDATION.md).
 
 ## Qualidade
 

@@ -31,6 +31,8 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go/go.mod
+      - name: Parser Go (gofmt)
+        run: python3 scripts/parser_audit.py --language go
       - run: cd go && go test -race -count=1 ./... && go vet ./...
 
   python:
@@ -42,6 +44,8 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install "ruff>=0.11,<1"
+      - name: Parser Python (AST, sem executar)
+        run: python3 scripts/parser_audit.py --language python
       - run: ruff check python scripts
       - run: python -m compileall -q python scripts
       - run: python scripts/run_python_tests.py
@@ -51,6 +55,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - name: Parser C++20 (G++ syntax-only)
+        run: python3 scripts/parser_audit.py --language cpp
       - name: Build and execute each C++20 example
         shell: bash
         run: |
@@ -70,6 +76,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - name: Parser Rust (cargo check)
+        run: python3 scripts/parser_audit.py --language rust
       - run: cd rust && cargo fmt --all -- --check
       - run: cd rust && cargo clippy --workspace --all-targets -- -D warnings
       - run: cd rust && cargo test --workspace
@@ -82,6 +90,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Parser JavaScript (Node --check)
+        run: python3 scripts/parser_audit.py --language javascript
       - run: find javascript -name '*.mjs' -print0 | xargs -0 -r -n1 node --check
       - run: find javascript -name '*.test.mjs' -print0 | xargs -0 -r node --test
 
@@ -94,6 +104,8 @@ jobs:
         with:
           node-version: '24'
       - run: npm install -g "typescript@~6.0.0"
+      - name: Parser TypeScript (tsc strict)
+        run: python3 scripts/parser_audit.py --language typescript
       - run: tsc -p typescript/tsconfig.json
       - run: tsc -p typescript/security/runtime-assertions/tsconfig.strict.json
       - run: find typescript/dist -name '*.test.js' -print0 | xargs -0 -r node --test
@@ -107,6 +119,8 @@ jobs:
         with:
           node-version: '24'
       - run: npm install --prefix angular --no-audit --no-fund
+      - name: Parser Angular (ngc strictTemplates)
+        run: python3 scripts/parser_audit.py --language angular
       - run: cd angular && npx ngc -p tsconfig.json
 
   java:
@@ -118,6 +132,8 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      - name: Parser Java 21 (javac isolado)
+        run: python3 scripts/parser_audit.py --language java
       - name: Compile and execute isolated Java examples
         shell: bash
         run: |
