@@ -58,7 +58,7 @@ if (selected === 'all' || selected === ids[1]) {
     // o JIT precisa estar registrado antes de carregá-los sem o linker bundler.
     await external('@angular/compiler');
     const [{ Injector, PendingTasks, createEnvironmentInjector, runInInjectionContext },
-      { provideHttpClient },
+      { provideHttpClient, withNoXsrfProtection },
       { provideHttpClientTesting, HttpTestingController },
       { ClusterDashboardComponent }] = await Promise.all([
       external('@angular/core'),
@@ -73,7 +73,7 @@ if (selected === 'all' || selected === ids[1]) {
           // Teste sem ApplicationRef: fornece apenas a estabilidade exigida
           // pelo interceptor HTTP; não altera o serviço testado.
           { provide: PendingTasks, useValue: { add: () => () => {} } },
-          provideHttpClient(),
+          provideHttpClient(withNoXsrfProtection()),
           provideHttpClientTesting(),
         ],
         Injector.NULL,
@@ -88,7 +88,7 @@ if (selected === 'all' || selected === ids[1]) {
           if (matches.length > 0) {
             resolveRequest(matches[0]);
           } else if (++tries > 40) {
-            reject(new Error('Polling inicial não abriu a requisição HTTP'));
+            reject(new Error('Polling inicial não abriu a requisição HTTP; alerta: ' + component.error()));
           } else {
             setTimeout(check, 10);
           }
