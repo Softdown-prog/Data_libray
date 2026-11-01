@@ -123,7 +123,9 @@ def run_behavior(entry: dict[str, str]) -> tuple[str, str]:
         )
         if passed:
             passed, detail = execute(
-                ["node", str(harness), entry["example_id"]],
+                ["node", "--test", "--test-force-exit",
+                 "--test-name-pattern=^" + entry["example_id"].replace(".", r"\."),
+                 str(harness)],
                 ROOT, timeout=180,
             )
     elif lang == "cpp":
