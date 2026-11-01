@@ -17,13 +17,15 @@ A fila suporta até 1.000 IDs existentes, mas hoje há apenas 21. Não cria cód
 
 Use o Shell administrativo do painel da VPS. Este instalador **não toca em Docker, PostgreSQL, outros serviços, tokens ou senhas**. Cria apenas usuário `data-library`, a pasta `/var/lib/data-library-worker` e uma unidade de serviço.
 
-Pré-requisitos no host: git, Python 3.12+, Node.js 24+, npm, Go 1.23+, G++ C++20, Rust/Cargo e Java 21. O instalador não atualiza toolchains globais; se faltarem, ele para. Dependências Angular e TypeScript são instaladas somente na pasta do projeto, com `--ignore-scripts`.
+Pré-requisitos no host: git, Python 3.12+, curl, tar/xz, Go 1.23+, G++ C++20, Rust/Cargo e Java 21. **Node.js 24.22.2 e npm são baixados para `/var/lib/data-library-worker/tools/node`**, com SHA-256 validado contra o manifesto oficial do Node.js; nenhum pacote global de Node é substituído. O instalador informa de uma vez os demais compiladores ausentes. Dependências Angular e TypeScript são instaladas somente na pasta do projeto, com `--ignore-scripts`.
 
 ```bash
-cd /tmp
-git clone --depth 1 https://github.com/Softdown-prog/Data_libray.git data-library-setup
-sudo bash /tmp/data-library-setup/deploy/install-vps-worker.sh
+cd /tmp/data-library-setup
+git pull --ff-only
+sudo bash deploy/install-vps-worker.sh
 ```
+
+A instalação é idempotente para um Node local completo e da mesma versão. Se o servidor não conseguir acessar `nodejs.org`, o instalador para sem substituir binários globais; verifique conectividade HTTPS antes de tentar novamente.
 
 O serviço estabelece limite de **1 vCPU, 1,5 GB RAM, 128 tarefas**, usuário não administrador, escrita apenas nos dados do próprio worker. Como a VPS é multiprojetos, ajuste quotas somente após medir o consumo real.
 

@@ -20,6 +20,8 @@ jobs:
         with:
           python-version: '3.12'
       - run: python scripts/catalog.py --check
+      - name: Validar sintaxe do instalador VPS
+        run: bash -n deploy/install-vps-worker.sh
       - run: python -m unittest discover -s tests -p 'test_*.py'
       - run: python scripts/search.py --language go
       - name: Worker smoke test (Python, um exemplo)

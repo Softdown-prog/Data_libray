@@ -1,54 +1,119 @@
 #!/usr/bin/env bash
-# Instala somente o serviço Data Library; nenhum GitHub runner ou Docker.
+# Instala Data Library sem modificar Node, npm, Docker ou serviços globais.
 set -euo pipefail
+
 if [[ "$EUID" -ne 0 ]]; then
-  echo "Execute como root: sudo bash deploy/install-vps-worker.sh" >&2
+  echo "Execute: sudo bash deploy/install-vps-worker.sh" >&2
   exit 2
 fi
+
 base="/var/lib/data-library-worker"
 repo="$base/repo"
 origin="https://github.com/Softdown-prog/Data_libray.git"
 source_dir="$(cd "$(dirname "$0")/.." && pwd)"
-for tool in git python3 node npm go g++ cargo javac runuser systemctl; do
+node_version="v24.22.2"
+node_dir="$base/tools/node"
+node_bin="$node_dir/bin"
+
+# Pré-requisitos básicos para instalar Node de maneira privada.
+missing=""
+for tool in git python3 curl tar xz sha256sum runuser systemctl getent useradd install uname awk; do
   if ! command -v "$tool" >/dev/null 2>&1; then
-    echo "Toolchain ausente: $tool; instale antes de iniciar." >&2
-    exit 1
+    missing="$missing $tool"
   fi
 done
-node -e 'if (Number(process.versions.node.split(".")[0]) < 24) process.exit(1)' || {
-  echo "Node.js >= 24 é necessário" >&2
+if [[ -n "$missing" ]]; then
+  echo "Ferramentas de instalação ausentes:$missing" >&2
   exit 1
-}
+fi
+
 if id data-library >/dev/null 2>&1; then
   if [[ "$(getent passwd data-library | cut -d: -f6)" != "$base" ]]; then
-    echo "Usuário data-library usa HOME inesperado; abortando." >&2
+    echo "Usuário data-library existe com HOME inesperado: abortando." >&2
     exit 1
   fi
 else
   useradd --system --user-group --home-dir "$base" --shell /usr/sbin/nologin data-library
 fi
+
 install -d -m 0750 -o data-library -g data-library "$base" "$base/state" "$base/tools"
+
+if [[ ! -x "$node_bin/node" ]]; then
+  if [[ -e "$node_dir" ]]; then
+    echo "Instalação privada Node incompleta em $node_dir; investigar sem sobrescrever." >&2
+    exit 1
+  fi
+  case "$(uname -m)" in
+    x86_64) arch="x64" ;;
+    aarch64|arm64) arch="arm64" ;;
+    *) echo "Arquitetura Node não suportada: $(uname -m)" >&2; exit 1 ;;
+  esac
+  archive="node-$node_version-linux-$arch.tar.xz"
+  address="https://nodejs.org/dist/$node_version"
+  temporary="$(mktemp -d)"
+  trap 'rm -rf "$temporary"' EXIT
+  echo "Instalando Node.js $node_version localmente, sem apt global."
+  curl --fail --silent --show-error --location --retry 3 \
+    "$address/$archive" -o "$temporary/$archive"
+  curl --fail --silent --show-error --location --retry 3 \
+    "$address/SHASUMS256.txt" -o "$temporary/SHASUMS256.txt"
+  awk -v file="$archive" '$2 == file {print; n++} END {if (n != 1) exit 1}' \
+    "$temporary/SHASUMS256.txt" > "$temporary/checksums"
+  (cd "$temporary" && sha256sum --check checksums)
+  install -d -m 0750 -o data-library -g data-library "$node_dir"
+  tar -xJf "$temporary/$archive" -C "$node_dir" --strip-components=1
+  chown -R data-library:data-library "$node_dir"
+fi
+
+if [[ "$("$node_bin/node" --version)" != "$node_version" ]]; then
+  echo "Node privado tem versão diferente de $node_version: abortando." >&2
+  exit 1
+fi
+if [[ ! -x "$node_bin/npm" ]]; then
+  echo "npm ausente na instalação privada do Node: abortando." >&2
+  exit 1
+fi
+echo "Node privado: $("$node_bin/node" --version)"
+export PATH="$node_bin:$PATH"
+
+# Reporte TODOS os outros compiladores ausentes, em vez de falhar um por vez.
+missing=""
+for tool in go g++ cargo javac; do
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    missing="$missing $tool"
+  fi
+done
+if [[ -n "$missing" ]]; then
+  echo "Node foi instalado, mas ainda faltam compiladores:$missing" >&2
+  echo "Nenhum serviço foi ativado; instale esses toolchains e repita o comando." >&2
+  exit 1
+fi
+
 if [[ ! -d "$repo/.git" ]]; then
   if [[ -e "$repo" ]]; then
-    echo "O destino existe sem checkout Git; abortando." >&2
+    echo "Destino $repo já existe sem Git. Abortando." >&2
     exit 1
   fi
   runuser -u data-library -- git clone --depth 1 --branch main "$origin" "$repo"
 fi
 installed_origin="$(git -C "$repo" remote get-url origin)"
 if [[ "$installed_origin" != "$origin" && "$installed_origin" != "https://github.com/Softdown-prog/Data_libray" ]]; then
-  echo "Remote inesperado. Abortando para proteger outros projetos." >&2
+  echo "Remote inesperado: não alterar outros projetos." >&2
   exit 1
 fi
-runuser -u data-library -- env HOME="$base" npm install --prefix "$base/tools" \
-  --no-save --ignore-scripts --no-audit --no-fund 'typescript@~6.0.0'
-runuser -u data-library -- env HOME="$base" npm install --prefix "$repo/angular" \
-  --ignore-scripts --no-audit --no-fund
-runuser -u data-library -- env HOME="$base" python3 "$repo/scripts/catalog.py" --check
+
+runuser -u data-library -- env "HOME=$base" "PATH=$PATH" \
+  npm install --prefix "$base/tools" --no-save --ignore-scripts \
+  --no-audit --no-fund 'typescript@~6.0.0'
+runuser -u data-library -- env "HOME=$base" "PATH=$PATH" \
+  npm install --prefix "$repo/angular" --ignore-scripts --no-audit --no-fund
+runuser -u data-library -- env "HOME=$base" "PATH=$PATH" \
+  python3 "$repo/scripts/catalog.py" --check
+
 install -m 0644 -o root -g root \
   "$source_dir/deploy/systemd/data-library-worker.service" \
   /etc/systemd/system/data-library-worker.service
 systemctl daemon-reload
 systemctl enable --now data-library-worker.service
 systemctl --no-pager --full status data-library-worker.service || true
-echo "Veja os logs: journalctl -u data-library-worker -n 80 --no-pager"
+echo "Logs: journalctl -u data-library-worker -n 80 --no-pager"
