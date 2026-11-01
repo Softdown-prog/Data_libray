@@ -35,14 +35,15 @@ def validate(data: object) -> int:
         if case["stage"] not in STAGES or case["evidence_level"] not in EVIDENCE or case["reproduction"] not in REPRO:
             raise ValueError(f"{ident}: classificação não reconhecida")
         for name in ("project", "title", "problem", "candidate_check"):
-            if not isinstance(case[name], str) or len(case[name].strip()) < 15:
+            minimum = 3 if name == "project" else 15
+            if not isinstance(case[name], str) or len(case[name].strip()) < minimum:
                 raise ValueError(f"{ident}: {name} insuficiente")
         links = case["sources"]
         if not isinstance(links, list) or not links or len(links) > 8 or len(set(links)) != len(links):
             raise ValueError(f"{ident}: links ausentes/duplicados")
         for link in links:
             if not isinstance(link, str):
-                raise ValueError(f"{ident}: URL não textual")
+                raise TypeError(f"{ident}: URL não textual")
             uri = urlparse(link)
             if uri.scheme != "https" or uri.netloc != "github.com" or not uri.path.startswith("/Softdown-prog/"):
                 raise ValueError(f"{ident}: evidência fora dos repositórios autorizados")
