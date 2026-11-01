@@ -54,6 +54,9 @@ if (selected === 'all' || selected === ids[2]) {
 
 if (selected === 'all' || selected === ids[1]) {
   test('angular.web.cluster-status-polling testa HTTP válido, inválido e falha', async (t) => {
+    // Pacotes @angular/common são publicados com compilação parcial. Em Node,
+    // o JIT precisa estar registrado antes de carregá-los sem o linker bundler.
+    await external('@angular/compiler');
     const [{ Injector, createEnvironmentInjector, runInInjectionContext },
       { provideHttpClient },
       { provideHttpClientTesting, HttpTestingController },
