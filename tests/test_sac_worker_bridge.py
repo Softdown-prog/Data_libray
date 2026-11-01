@@ -192,7 +192,9 @@ class BridgeTests(unittest.TestCase):
                     self.assertIn('"status": "verified"', printed.call_args.args[0])
             files["submission"].write_text("{}")
             with patch("builtins.print"):
-                self.assertEqual(bridge.main(argv), 1)
+                self.assertEqual(bridge.main(argv[:-2]), 1)
+                # An existing verified verdict must never be overwritten by a conflicting replay.
+                self.assertEqual(bridge.main(argv), 2)
 
     def test_sha_digest_stability_for_same_task(self) -> None:
         digest = bridge.task_key(self.task)

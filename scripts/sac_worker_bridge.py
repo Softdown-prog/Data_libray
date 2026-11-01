@@ -120,7 +120,8 @@ def sign_submission(task: Any, evidence: Any, key: bytes) -> dict[str, Any]:
         raise ValueError("invalid-signing-key")
     payload = _body(t, e)
     signature = hmac.new(key, DOMAIN + _canon(payload), hashlib.sha256).hexdigest()
-    return {**payload, "signature": signature}
+    # Snapshot input values, so mutating a returned envelope never changes caller evidence.
+    return json.loads(_canon({**payload, "signature": signature}))
 
 
 def task_key(task: Any) -> str:
