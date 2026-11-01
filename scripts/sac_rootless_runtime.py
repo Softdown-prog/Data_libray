@@ -91,8 +91,7 @@ def collect(*, docker="/usr/bin/docker") -> dict:
         process = subprocess.run(
             [docker, "--host", host, "info", "--format", "{{json .SecurityOptions}}"],
             capture_output=True, text=True, check=False, timeout=8,
-            env={"PATH": "/usr/bin:/bin", "HOME": owner.pw_dir, "DOCKER_HOST": host,
-                 "DOCKER_CONFIG": "/dev/null"},
+            env={"PATH": "/usr/bin:/bin", "HOME": owner.pw_dir, "DOCKER_HOST": host},
         )
         if process.returncode != 0 or len(process.stdout) > 4096:
             raise ValueError("docker-rootless-probe-failed")
