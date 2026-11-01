@@ -8,7 +8,7 @@ User=data-library
 Group=data-library
 WorkingDirectory=/var/lib/data-library-worker/repo
 Environment=HOME=/var/lib/data-library-worker
-Environment=PATH=/var/lib/data-library-worker/tools/node/bin:/var/lib/data-library-worker/tools/node_modules/.bin:/var/lib/data-library-worker/.cargo/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PATH=/usr/lib/go-1.24/bin:/var/lib/data-library-worker/tools/node/bin:/var/lib/data-library-worker/tools/node_modules/.bin:/var/lib/data-library-worker/.cargo/bin:/usr/local/bin:/usr/bin:/bin
 Environment=PYTHONUNBUFFERED=1
 ExecStart=/usr/bin/python3 /var/lib/data-library-worker/repo/scripts/vps_daemon.py --state-dir /var/lib/data-library-worker/state --status all --max-items 1000 --mode both --poll-seconds 60 --recheck-seconds 86400
 Restart=always

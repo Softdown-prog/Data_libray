@@ -76,6 +76,12 @@ fi
 echo "Node privado: $("$node_bin/node" --version)"
 export PATH="$node_bin:$PATH"
 
+# O pacote Ubuntu golang-1.24-go instala o binário em /usr/lib/go-1.24/bin;
+# não mexer nos symlinks globais do host ou nos outros projetos.
+if ! command -v go >/dev/null 2>&1 && [[ -x /usr/lib/go-1.24/bin/go ]]; then
+  export PATH="/usr/lib/go-1.24/bin:$PATH"
+fi
+
 # Reporte TODOS os outros compiladores ausentes, em vez de falhar um por vez.
 missing=""
 for tool in go g++ cargo javac; do
@@ -84,8 +90,18 @@ for tool in go g++ cargo javac; do
   fi
 done
 if [[ -n "$missing" ]]; then
-  echo "Node foi instalado, mas ainda faltam compiladores:$missing" >&2
-  echo "Nenhum serviço foi ativado; instale esses toolchains e repita o comando." >&2
+  echo "Node instalado; compiladores ausentes:$missing" >&2
+  echo "No Ubuntu 24.04: apt-get update && apt-get install -y --no-install-recommends g++ rustc cargo openjdk-21-jdk-headless golang-1.24-go" >&2
+  echo "Não ativei nenhum serviço; instale as dependências e execute novamente." >&2
+  exit 1
+fi
+
+if [[ "$(go version)" != *"go1.2"[3-9]* && "$(go version)" != *"go1.3"* ]]; then
+  echo "Go detectado é anterior a 1.23; instale golang-1.24-go e use seu PATH versionado." >&2
+  exit 1
+fi
+if ! javac -version 2>&1 | grep -Eq '^javac 21([. ]|$)'; then
+  echo "Java 21 é necessário; verifique update-alternatives e openjdk-21-jdk-headless." >&2
   exit 1
 fi
 
