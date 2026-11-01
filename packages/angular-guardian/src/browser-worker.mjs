@@ -51,7 +51,16 @@ process.once('message', async input => {
       result.cases.push({ id: scenario.id, status: codes.size ? 'fail' : 'pass', codes: [...codes].sort() });
     }
     if (result.cases.some(c => c.status !== 'pass')) result.status = 'fail';
-  } catch { result = { status: 'infra-error', executed: false, code: stage + '-infra-error', cases: [] }; }
+  } catch (error) {
+    const detail = String(error?.message ?? '');
+    const reason = stage === 'chromium-launch' && /No usable sandbox|namespace|Operation not permitted|unshare|apparmor/i.test(detail)
+      ? 'user-namespace-unavailable'
+      : stage === 'chromium-launch' && /Executable doesn't exist|not installed|ENOENT/i.test(detail)
+        ? 'browser-executable-missing'
+        : stage === 'chromium-launch' && /Host system is missing dependencies|shared libraries|error while loading/i.test(detail)
+          ? 'browser-dependency-missing' : 'infra-error';
+    result = { status: 'infra-error', executed: false, code: stage + '-' + reason, cases: [] };
+  }
   finally { await close(); }
   process.send?.(result, () => process.exit(0));
 });
