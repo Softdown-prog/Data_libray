@@ -57,7 +57,7 @@ if (selected === 'all' || selected === ids[1]) {
     // Pacotes @angular/common são publicados com compilação parcial. Em Node,
     // o JIT precisa estar registrado antes de carregá-los sem o linker bundler.
     await external('@angular/compiler');
-    const [{ Injector, createEnvironmentInjector, runInInjectionContext },
+    const [{ Injector, PendingTasks, createEnvironmentInjector, runInInjectionContext },
       { provideHttpClient },
       { provideHttpClientTesting, HttpTestingController },
       { ClusterDashboardComponent }] = await Promise.all([
@@ -69,7 +69,13 @@ if (selected === 'all' || selected === ids[1]) {
 
     const start = async () => {
       const injector = createEnvironmentInjector(
-        [provideHttpClient(), provideHttpClientTesting()],
+        [
+          // Teste sem ApplicationRef: fornece apenas a estabilidade exigida
+          // pelo interceptor HTTP; não altera o serviço testado.
+          { provide: PendingTasks, useValue: { add: () => () => {} } },
+          provideHttpClient(),
+          provideHttpClientTesting(),
+        ],
         Injector.NULL,
       );
       const component = runInInjectionContext(injector, () => new ClusterDashboardComponent());
