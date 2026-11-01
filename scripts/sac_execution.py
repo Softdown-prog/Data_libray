@@ -92,7 +92,7 @@ def _invoke(job, manifest, *, executor, timeout, enable_build=False, docker_host
     environ = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": "/tmp"}
     if docker_host is not None:
         if (type(docker_host) is not str or
-                re.fullmatch(r"unix:///run/user/[1-9][0-9]{0,9}/docker\\.sock", docker_host) is None):
+                re.fullmatch(r"unix:///run/user/[1-9][0-9]{0,9}/docker\.sock", docker_host) is None):
             raise ValueError("invalid-rootless-docker-host")
         environ["DOCKER_HOST"] = docker_host
         environ["SAC_ROOTLESS_REQUIRED"] = "1"
@@ -125,7 +125,7 @@ def execute_received(state_dir, policy, registry, *, limit=1, executor="/usr/bin
     git checkout, compilation, or service modification happen in this function.
     """
     if docker_host is not None and (type(docker_host) is not str or
-            re.fullmatch(r"unix:///run/user/[1-9][0-9]{0,9}/docker\\.sock", docker_host) is None):
+            re.fullmatch(r"unix:///run/user/[1-9][0-9]{0,9}/docker\.sock", docker_host) is None):
         raise ValueError("invalid-rootless-docker-host")
     if type(enable_build) is not bool:
         raise ValueError("invalid-build-toggle")
