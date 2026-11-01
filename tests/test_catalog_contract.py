@@ -41,7 +41,11 @@ class TestDatasetContract(unittest.TestCase):
         index = build()
         self.assertEqual(index["count"], len(index["examples"]))
         self.assertGreaterEqual(index["documented_count"], 4)
-        self.assertEqual(index["pending_review_count"], 17)
+        frozen = json.loads((ROOT / "docs" / "LEGACY_REVIEW.json").read_text(encoding="utf-8"))
+        self.assertEqual(index["pending_review_count"], len(frozen["examples"]))
+        migrated = [entry for entry in index["examples"]
+                    if entry["id"] == "python.security.safe-filename"]
+        self.assertEqual(migrated[0]["catalog_status"], "documented")
         self.assertEqual(index["documented_count"] + index["pending_review_count"], index["count"])
 
 

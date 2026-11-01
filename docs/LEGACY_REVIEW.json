@@ -105,15 +105,6 @@
       }
     },
     {
-      "id": "python.security.safe-filename",
-      "frozen_files": {
-        "example.json": "d7ade0c5d625e668d0ce9855faed03631ac575a2",
-        "README.md": "69dfd040d81623c46e897dd620edfad5fd2b1a54",
-        "solution.py": "7376db5bd980a854c3c79f2baf2f4422b1d42a27",
-        "test_solution.py": "66b3f127f478f6f4d26b1c58e3a89989f0ab910c"
-      }
-    },
-    {
       "id": "rust.algorithms.binary-search",
       "frozen_files": {
         "Cargo.toml": "860b212dcc8ec7bd87900b68d9742e454c45b535",
