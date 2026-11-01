@@ -20,7 +20,7 @@ export function dockerArguments({ image, runtime, dist, input, containerName }) 
   return [
     'run', '--rm', '--init', '--name', containerName, '--pull', 'never',
     '--network', 'none', '--read-only', '--user', '1000:1000',
-    '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges',
+    '--cap-drop', 'ALL', '--cap-add', 'SYS_CHROOT', '--security-opt', 'no-new-privileges',
     '--security-opt', 'seccomp=' + seccomp,
     '--pids-limit', '128', '--memory', '768m', '--memory-swap', '768m',
     '--cpus', '1', '--shm-size', '256m',
@@ -101,7 +101,7 @@ export async function verifyPipelineBrowserSandbox({ pipeline, guardian, timeout
   if (report.browser?.sandbox === 'docker-network-none') {
     report.network_isolation = 'container-network-none';
     report.sandbox_controls = { network: 'none', root_filesystem: 'read-only', mounts: 'runtime-snapshot-only',
-      uid: 1000, capabilities: 'none', no_new_privileges: true,
+      uid: 1000, capabilities: 'only-SYS_CHROOT', no_new_privileges: true,
       cpu_limit: '1', memory_limit: '768m', pid_limit: 128,
       chromium_sandbox: 'required', container: 'ephemeral' };
   }
