@@ -1,0 +1,19 @@
+# SAC-008D — compilação Angular confinada (prova offline no Actions)
+
+Este pacote apresenta `isolatedAngularBuild`: pré-requisito técnico para o One Worker gerar `dist` com `ng build` de projetos autorizados sem executar código-fonte Angular diretamente no host.
+
+**Separação de responsabilidades:** o GitHub Actions/SSH-OIDC admite o job v1; o One Worker escolhe, usando política do operador, o checkout, perfil e o nome canônico de projeto Angular. A função aceita somente parâmetros deste operador confiável, **não JSON de Issue**, não tem `git clone`, `npm install`, deploy, API ou shell. O passo de preparação da dependência usa `npm ci --ignore-scripts` em CI descartável; **não é habilitado na VPS**.
+
+O build monta somente um snapshot temporário de fontes enumeradas pelo host (incluindo `package.json`, `angular.json`, `package-lock.json`) e dependências já instaladas em modo read-only. A imagem fixa por SHA256 é a imagem Playwright/Node usada no SAC-006; networking `none`; UID/GID não-root do usuário executor do host (falha fechada se for root); filesystem root readonly, todas as capabilities descartadas, no-new-privileges, limites CPU 1, RAM 1024 MiB sem swap extra, PID 128, /tmp limitado. O comando é fixo `node node_modules/@angular/cli/bin/ng.js build <nome-registrado>`, sem shell.
+
+A saída só é copiada para o `dist` aprovado se o Docker terminar com sucesso e o output contiver arquivos regulares limitados: sem symlinks, sem dispositivos, máximo 4096 arquivos ou 64 MiB. O destino não pode existir. Os erros são códigos estáveis, sem stdout/stderr do build. `deployment_authorized=false` em todos os resultados.
+
+**Limitações atuais**: o builder está conectado ao `sac_supervised_runner.mjs` e ao daemon somente por flags opt-in. Os testes reais foram executados em runners descartáveis do GitHub Actions, não na VPS. Para homologação futura: preparar/sanitizar node_modules em CI confiável; garantir propriedade de diretórios, limpeza de containers mortos, não conceder socket Docker irrestrito ao Worker multiprojetos; limitar resource sourceFiles/artefatos e impedir acesso a segredos; vincular SHA remoto à revisão local; executar preflight/build/post/Guardian sob o mesmo identificador de job. Controles Docker reduzem risco, mas **Docker daemon/root é TCB, não uma sandbox de segurança completa contra código hostil**.
+
+Sem merge, deploy ou acesso à VPS.
+
+## Integração opt-in com o One Worker (SAC-008D)
+
+`vps_daemon.py` agora aceita `--sac-build` **somente junto de `--sac-audit --sac-inbox`**. O comando é uma decisão local do operador; não é um campo aceito pelas Issues. Quando habilitado, `sac_execution.py` chama o runner Node instalado com `--enable-build`. Esse runner exige manifest operator-owned com campo adicional `build: {\"project_name\":\"smoke\"}`, confere SHA do checkout e perfil, executa preflight, chama `isolatedAngularBuild` no Docker sem rede, sela um recibo HMAC **somente após build realmente bem-sucedido** e chama o Guardian isolado. Relatório final `execution=sac-build-audit`, e `code=isolated-build-browser-pass` só quando build/SAC/Chromium estão comprovados. O receipt fica em memória durante essa execução; o `receipt_file` da política legada permanece obrigatório como string, porém não é lido no modo build. `deployment_authorized=false` em todos os casos.
+
+**Importante:** o checkout e dependências precisam ser **preparados em um workspace descartável aprovado pelo operador**, com `dist` inexistente; nenhum `npm install` ou `git clone` de código arbitrário será executado na VPS pelo One Worker. Configuração root-owned, acesso ao Docker daemon, provenance remoto e permissões de recursos exigem homologação separada. Nenhuma unidade systemd recebe o flag automaticamente. A consulta do Painel será atualizada para reconhecer o código de sucesso específico do build sem supor autorização de deploy.
