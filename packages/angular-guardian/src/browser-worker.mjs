@@ -5,12 +5,16 @@ let browser, server;
 const close = async () => { try { await browser?.close(); } catch {} try { await server?.close(); } catch {} };
 process.on('SIGTERM', async () => { await close(); process.exit(1); });
 process.once('message', async input => {
+  let stage = 'input';
   let result = { status: 'infra-error', executed: false, code: 'browser-infrastructure', cases: [] };
   try {
     const contract = browserContract(input.contract);
+    stage = 'artifact-server';
     server = await serveArtifact(input);
+    stage = 'chromium-launch';
     browser = await chromium.launch({ headless: true, timeout: 15000, chromiumSandbox: process.env.SAC_BROWSER_SANDBOX === 'required', args: ['--disable-background-networking', '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1'] });
     result = { status: 'pass', executed: true, code: 'chromium-contract-executed', cases: [] };
+    stage = 'browser-scenarios';
     for (const scenario of contract.cases) {
       const codes = new Set();
       const context = await browser.newContext({ serviceWorkers: 'block', acceptDownloads: false, permissions: [] });
@@ -47,7 +51,7 @@ process.once('message', async input => {
       result.cases.push({ id: scenario.id, status: codes.size ? 'fail' : 'pass', codes: [...codes].sort() });
     }
     if (result.cases.some(c => c.status !== 'pass')) result.status = 'fail';
-  } catch { result = { status: 'infra-error', executed: false, code: 'browser-infrastructure', cases: [] }; }
+  } catch { result = { status: 'infra-error', executed: false, code: stage + '-infra-error', cases: [] }; }
   finally { await close(); }
   process.send?.(result, () => process.exit(0));
 });
