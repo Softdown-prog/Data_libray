@@ -79,7 +79,7 @@ try {
 
   const badSha = test(manifest, 'f'.repeat(40));
   assert.notEqual(badSha.status, 'pass', 'mismatched checkout must not verify');
-  await writeFile(receiptFile, JSON.stringify({ ...receipt, signature: '0'.repeat(64) }));
+  await writeFile(receiptFile, JSON.stringify({ ...receipt, authentication: '0'.repeat(64) }));
   const tampered = test(manifest, sourceSha);
   assert.notEqual(tampered.status, 'pass', 'invalid CI receipt must not verify');
   console.log('SAC-008C: official Angular AOT + isolated Chromium verified; SHA/receipt negatives rejected');
