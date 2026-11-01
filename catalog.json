@@ -13,7 +13,7 @@
       "path": "angular/ui/accessible-toggle",
       "entrypoint": "toggle.component.ts",
       "run": "Importe AccessibleToggleComponent em outro componente standalone.",
-      "test": "cd angular && npx ngc -p tsconfig.json",
+      "test": "cd angular && ./node_modules/.bin/ngc -p tsconfig.behavior.json && cd .. && node --test --test-force-exit --test-name-pattern=angular.web.cluster-status-polling tests/angular_behavior.test.mjs",
       "tags": [
         "standalone",
         "signals",
@@ -30,7 +30,7 @@
       "path": "angular/web/cluster-status-polling",
       "entrypoint": "cluster-dashboard.component.ts",
       "run": "Importe ClusterDashboardComponent em um host standalone; configure provideHttpClient() no bootstrap e uma API GET /api/cluster/status.",
-      "test": "cd angular && npx ngc -p tsconfig.json",
+      "test": "cd angular && ./node_modules/.bin/ngc -p tsconfig.behavior.json && cd .. && node --test --test-force-exit --test-name-pattern=angular.web.cluster-status-polling tests/angular_behavior.test.mjs",
       "tags": [
         "angular-signals",
         "http-client",
@@ -86,9 +86,9 @@
         "usage_language": "typescript",
         "usage_example": "// app.config.ts\nexport const appConfig: ApplicationConfig = { providers: [provideHttpClient()] };\n// Host standalone: imports: [ClusterDashboardComponent]\n// Template host: <dl-cluster-dashboard />",
         "validation": {
-          "level": "compile-only",
-          "scope": "ngc -p angular/tsconfig.json com strictTemplates, tipagem estrita do componente e checagem estrutural pelo catalogador v2.",
-          "gaps": "Não foram executados testes de DOM, timer virtual, HTTP mock, integração real com gateway nem verificação de acessibilidade no navegador."
+          "level": "automated-tests",
+          "scope": "Compilação Angular AOT com strictTemplates e testes Node do signal de status com HttpClientTesting para respostas válidas, payload inválido e erro HTTP 503.",
+          "gaps": "Persistem sem testes renderização de templates no DOM, timer virtual de seis segundos, integração com gateway real e acessibilidade no navegador."
         },
         "files": [
           {
@@ -108,7 +108,7 @@
       "path": "angular/web/query-param-service",
       "entrypoint": "query-param.service.ts",
       "run": "Injete QueryParamService e chame read('https://site.test/?q=ok', 'q').",
-      "test": "cd angular && npx ngc -p tsconfig.json",
+      "test": "cd angular && ./node_modules/.bin/ngc -p tsconfig.behavior.json && cd .. && node --test --test-force-exit --test-name-pattern=angular.web.cluster-status-polling tests/angular_behavior.test.mjs",
       "tags": [
         "query-params",
         "url",

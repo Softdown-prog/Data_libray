@@ -47,7 +47,10 @@ Importe ClusterDashboardComponent em um host standalone; configure provideHttpCl
 ## Testar
 
 ```bash
-cd angular && npx ngc -p tsconfig.json
+cd angular
+./node_modules/.bin/ngc -p tsconfig.behavior.json
+cd ..
+node --test --test-force-exit --test-name-pattern=angular.web.cluster-status-polling tests/angular_behavior.test.mjs
 ```
 
 ## Tratamento de erros
@@ -82,11 +85,11 @@ cd angular && npx ngc -p tsconfig.json
 
 ## Verificação automatizada
 
-**Nível:** compile-only
+**Nível:** automated-tests
 
-**Escopo:** ngc -p angular/tsconfig.json com strictTemplates, tipagem estrita do componente e checagem estrutural pelo catalogador v2.
+**Escopo:** Compilação Angular AOT com strictTemplates e testes Node do signal de status com HttpClientTesting para respostas válidas, payload inválido e erro HTTP 503.
 
-**Lacunas:** Não foram executados testes de DOM, timer virtual, HTTP mock, integração real com gateway nem verificação de acessibilidade no navegador.
+**Lacunas:** Persistem sem testes renderização de templates no DOM, timer virtual de seis segundos, integração com gateway real e acessibilidade no navegador.
 
 ## Arquivos catalogados
 
