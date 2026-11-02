@@ -1,8 +1,9 @@
 name: Validate code library
+# Self-hosted jobs execute inside Docker job containers.
+# Unreviewed pull requests must not run on the VPS runner.
 on:
-  pull_request:
   push:
-    branches: [main, "feat/**"]
+    branches: [main, "feat/**", "fix/**"]
   workflow_dispatch:
 permissions:
   contents: read
@@ -12,13 +13,14 @@ concurrency:
 
 jobs:
   catalog:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
+    container:
+      image: python:3.12-bookworm
+      options: --cpus=2 --memory=2g --pids-limit=256 --security-opt=no-new-privileges
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
+      - run: apt-get update && apt-get install -y --no-install-recommends ruby
       - name: Validate grouped Dependabot Angular updates
         run: |
           ruby -r yaml -e '
@@ -39,25 +41,26 @@ jobs:
         run: python scripts/batch_worker.py --language python --status documented --max-items 1 --mode both --output "$RUNNER_TEMP/dl-worker-smoke"
 
   go:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
+    container:
+      image: golang:1.24-bookworm
+      options: --cpus=2 --memory=2g --pids-limit=256 --security-opt=no-new-privileges
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go/go.mod
+      - run: apt-get update && apt-get install -y --no-install-recommends python3
       - name: Parser Go (gofmt)
         run: python3 scripts/parser_audit.py --language go
       - run: cd go && go test -race -count=1 ./... && go vet ./...
 
   python:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
+    container:
+      image: python:3.12-bookworm
+      options: --cpus=2 --memory=2g --pids-limit=256 --security-opt=no-new-privileges
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
       - run: pip install "ruff>=0.11,<1"
       - name: Parser Python (AST, sem executar)
         run: python3 scripts/parser_audit.py --language python
@@ -66,10 +69,14 @@ jobs:
       - run: python scripts/run_python_tests.py
 
   cpp:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
+    container:
+      image: gcc:14-bookworm
+      options: --cpus=2 --memory=2g --pids-limit=256 --security-opt=no-new-privileges
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - run: apt-get update && apt-get install -y --no-install-recommends python3
       - name: Parser C++20 (G++ syntax-only)
         run: python3 scripts/parser_audit.py --language cpp
       - name: Build and execute each C++20 example
@@ -87,10 +94,14 @@ jobs:
           test "$count" -gt 0
 
   rust:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
+    container:
+      image: rust:1-bookworm
+      options: --cpus=2 --memory=2g --pids-limit=256 --security-opt=no-new-privileges
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - run: apt-get update && apt-get install -y --no-install-recommends python3
       - name: Parser Rust (cargo check)
         run: python3 scripts/parser_audit.py --language rust
       - run: cd rust && cargo fmt --all -- --check
@@ -98,26 +109,28 @@ jobs:
       - run: cd rust && cargo test --workspace
 
   javascript:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
+    container:
+      image: node:24-bookworm
+      options: --cpus=2 --memory=2g --pids-limit=256 --security-opt=no-new-privileges
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
+      - run: apt-get update && apt-get install -y --no-install-recommends python3
       - name: Parser JavaScript (Node --check)
         run: python3 scripts/parser_audit.py --language javascript
       - run: find javascript -name '*.mjs' -print0 | xargs -0 -r -n1 node --check
       - run: find javascript -name '*.test.mjs' -print0 | xargs -0 -r node --test
 
   typescript:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
+    container:
+      image: node:24-bookworm
+      options: --cpus=2 --memory=2g --pids-limit=256 --security-opt=no-new-privileges
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
+      - run: apt-get update && apt-get install -y --no-install-recommends python3
       - run: npm install -g "typescript@~6.0.0"
       - name: Parser TypeScript (tsc strict)
         run: python3 scripts/parser_audit.py --language typescript
@@ -126,13 +139,14 @@ jobs:
       - run: find typescript/dist -name '*.test.js' -print0 | xargs -0 -r node --test
 
   angular:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
+    container:
+      image: node:24-bookworm
+      options: --cpus=2 --memory=2g --pids-limit=256 --security-opt=no-new-privileges
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
+      - run: apt-get update && apt-get install -y --no-install-recommends python3
       - name: Guard official Angular fixture dependency consistency
         run: |
           node scripts/check_angular_fixture.mjs
@@ -147,14 +161,14 @@ jobs:
         run: node --test --test-force-exit tests/angular_behavior.test.mjs
 
   java:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
+    container:
+      image: eclipse-temurin:21-jdk
+      options: --cpus=2 --memory=2g --pids-limit=256 --security-opt=no-new-privileges
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
+      - run: apt-get update && apt-get install -y --no-install-recommends python3
       - name: Parser Java 21 (javac isolado)
         run: python3 scripts/parser_audit.py --language java
       - name: Compile and execute isolated Java examples
