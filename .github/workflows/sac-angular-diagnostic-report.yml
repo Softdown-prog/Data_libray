@@ -1,0 +1,29 @@
+name: SAC Angular Diagnostic Report
+on:
+  push:
+    branches: ['feat/sac-angular-diagnostic-reports']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  report:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test formatter and worker report schema
+        run: |
+          node --check scripts/sac_diagnostic_report.mjs
+          node --check scripts/sac_supervised_runner.mjs
+          node --test tests/sac_diagnostic_report.test.mjs
+          python -m py_compile scripts/sac_execution.py
+          python -m unittest discover -s tests -p 'test_sac_execution.py' -v

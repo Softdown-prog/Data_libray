@@ -76,6 +76,11 @@ try {
   assert.equal(passed.static_pipeline_pass, true);
   assert.equal(passed.browser_pass, true);
   assert.equal(passed.deployment_authorized, false);
+  assert.equal(passed.diagnostic?.schema_version, 1);
+  assert.equal(passed.diagnostic.status, 'pass');
+  assert.deepEqual(passed.diagnostic.findings, []);
+  assert.equal(passed.diagnostic.location_verified, false);
+  assert.equal(passed.diagnostic.deployment_authorized, false);
 
   // End-to-end 008B inbox -> Python supervisor -> fixed Node auditor -> Docker Guardian.
   const python = `
@@ -95,6 +100,8 @@ first=executor.execute_received(state,policy,registry,executor=sys.argv[4],timeo
 assert first["processed"]==1, first
 result=json.loads((state/"sac-results"/"gha-999-1.json").read_text())
 assert result["status"]=="pass" and result["browser_pass"]==True and result["deployment_authorized"]==False, result
+assert result["diagnostic"]["status"]=="pass" and result["diagnostic"]["checks"]["browser"]=="pass", result
+assert result["diagnostic"]["location_verified"]==False and result["diagnostic"]["deployment_authorized"]==False, result
 again=executor.execute_received(state,policy,registry,executor=sys.argv[4],timeout=100)
 assert again["processed"]==0, again
 print("SAC_WORKER_CHAIN_PASS")
@@ -107,9 +114,11 @@ print("SAC_WORKER_CHAIN_PASS")
   assert.match(chain.stdout, /SAC_WORKER_CHAIN_PASS/);
   const badSha = test(manifest, 'f'.repeat(40));
   assert.notEqual(badSha.status, 'pass', 'mismatched checkout must not verify');
+  assert.equal(badSha.diagnostic.status, 'infra-error');
   await writeFile(receiptFile, JSON.stringify({ ...receipt, authentication: '0'.repeat(64) }));
   const tampered = test(manifest, sourceSha);
   assert.notEqual(tampered.status, 'pass', 'invalid CI receipt must not verify');
+  assert.equal(tampered.diagnostic.deployment_authorized, false);
   console.log('SAC-008C: official Angular AOT + isolated Chromium verified; SHA/receipt negatives rejected');
 } finally {
   await rm(dir, { recursive: true, force: true });
