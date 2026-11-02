@@ -130,4 +130,35 @@ print("SAC_WORKER_ISOLATED_BUILD_PASS")
 } finally {
   await rm(hostState,{recursive:true,force:true});
 }
+// Actual Angular negative build inside Docker, with no raw compiler log published.
+const modeFile=path.join(workspace,'src/mode.ts');
+try {
+  await writeFile(modeFile,"export const mode: string = 123;\n");
+  await rm(path.join(workspace,'dist'),{recursive:true,force:true});
+  const failed=await isolatedAngularBuild({resources,projectName:'smoke',image,timeoutMs:120000});
+  assert.equal(failed.status,'fail',JSON.stringify(failed));
+  assert.equal(failed.code,'angular-compiler-failed');
+  assert.equal(failed.built,false);
+  assert.equal(failed.deployment_authorized,false);
+  const evidence=failed.compiler_evidence;
+  assert.equal(evidence.schema_version,2);
+  assert.equal(evidence.phase,'build');
+  assert.equal(evidence.status,'fail');
+  assert.equal(evidence.exit_code,1);
+  assert.equal(evidence.findings[0]?.code,'TS2322');
+  assert.equal(evidence.findings[0]?.file,'src/mode.ts');
+  assert.equal(evidence.findings[0]?.line,1);
+  assert.ok(evidence.findings[0]?.column>0);
+  assert.equal(evidence.findings[0]?.location_verified,true);
+  assert.equal(evidence.post_status,'not-run');
+  assert.equal(evidence.browser_status,'not-run');
+  assert.equal(evidence.root_cause_verified,false);
+  assert.equal(evidence.deployment_authorized,false);
+  assert.ok(!JSON.stringify(evidence).includes('/opt/sac-work'));
+  console.log('SAC_BUILD_FAILURE_EVIDENCE_PASS');
+} finally {
+  await writeFile(modeFile,"export const mode: string = 'positive';\n");
+  await rm(path.join(workspace,'dist'),{recursive:true,force:true});
+}
+
 console.log('SAC-008D real Angular AOT isolated Docker build + authenticated SAC + Chromium PASS');

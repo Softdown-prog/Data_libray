@@ -1,7 +1,7 @@
 name: SAC-008D Angular build sandbox
 on:
   push:
-    branches: ['feat/sac-008d-isolated-angular-build']
+    branches: ['feat/sac-008d-isolated-angular-build', 'feat/sac-build-failure-evidence-20261102']
   pull_request:
   workflow_dispatch:
 permissions:
@@ -16,7 +16,8 @@ jobs:
         with:
           node-version: '24'
       - run: node --check scripts/sac_sandbox_builder.mjs
-      - run: node --test tests/sac_sandbox_builder.test.mjs
+      - run: node --check scripts/sac_compiler_evidence.mjs
+      - run: node --test tests/sac_sandbox_builder.test.mjs tests/sac_compiler_evidence.test.mjs
   integration:
     name: Official Angular AOT in isolated Docker + Guardian
     runs-on: ubuntu-latest

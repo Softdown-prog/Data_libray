@@ -7,6 +7,7 @@ import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { dockerChildEnvironment } from '../packages/angular-guardian/src/docker-environment.mjs';
+import { collectAngularCompilerFailure } from './sac_compiler_evidence.mjs';
 
 const pinned = /^mcr\.microsoft\.com\/playwright@sha256:[0-9a-f]{64}$/;
 const angularName = /^[a-z][a-z0-9-]{0,63}$/;
@@ -143,7 +144,18 @@ export async function isolatedAngularBuild({ resources, projectName, image,
       timeout: timeoutMs, maxBuffer: 16384,
       env: dockerChildEnvironment() });
     if (result.error?.code === 'ETIMEDOUT') return failure('build-timeout');
-    if (result.error || result.signal || result.status !== 0) return failure('build-failed');
+    if (result.error || result.signal) return failure('build-failed');
+    if (result.status !== 0) {
+      const evidence = collectAngularCompilerFailure({
+        stdout:result.stdout,stderr:result.stderr,exitCode:result.status,
+        sourceFiles:resources.sourceFiles
+      });
+      // Only explicitly recognized TypeScript diagnostics count as code failure.
+      // An unknown Docker exit code remains an infrastructure error.
+      return evidence ? {status:'fail',code:'angular-compiler-failed',built:false,
+        network:'none',deployment_authorized:false,compiler_evidence:evidence}
+        : failure('build-failed');
+    }
     const output = path.join(work, resources.dist);
     await inspectDist(output);
     // Publish only to a previously empty output location.
