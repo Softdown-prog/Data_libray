@@ -88,7 +88,11 @@ export function makeDiagnosticReport(result) {
  const overall=secure?'pass':
    result?.status==='fail'||browser?.status==='fail'?'fail':
    result?.status==='infra-error'||browser?.status==='infra-error'?'infra-error':'unverified';
- if (!secure && !findings.length) add('browser',overall,'audit-infrastructure-error',null);
+ const browserIntentionallySkipped = result?.static_pipeline_pass === true &&
+   browser?.status === 'unverified' && browser?.executed === false && browser?.code === 'not-executed';
+ if (!secure && !findings.length && !browserIntentionallySkipped) {
+   add('browser',overall,'audit-infrastructure-error',null);
+ }
  return {schema_version:1,status:overall,checks,findings,truncated,
    location_verified:false,deployment_authorized:false};
 }

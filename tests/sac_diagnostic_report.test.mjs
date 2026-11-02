@@ -59,3 +59,17 @@ test('bounded findings for large failed scenarios',()=>{
  assert.equal(r.findings.length,8);assert.equal(r.truncated,true);
  assert.ok(JSON.stringify(r).length<4096);
 });
+
+test('static verified without scheduled browser test is unverified but not an infrastructure error',()=>{
+ const x=passed();
+ x.browser_pass=false;
+ x.browser={status:'unverified',executed:false,code:'not-executed'};
+ const r=makeDiagnosticReport(x);
+ assert.equal(r.status,'unverified');
+ assert.equal(r.checks.pre,'pass');
+ assert.equal(r.checks.build,'pass');
+ assert.equal(r.checks.post,'pass');
+ assert.equal(r.checks.browser,'unverified');
+ assert.deepEqual(r.findings,[]);
+ assert.equal(r.deployment_authorized,false);
+});
