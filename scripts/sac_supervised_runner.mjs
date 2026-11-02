@@ -8,6 +8,7 @@ import { verifyPipelineBrowserSandbox } from '../packages/angular-guardian/src/s
 import { prepareBuild, sealBuild } from '../packages/angular-pipeline/src/index.mjs';
 import { isolatedAngularBuild } from './sac_sandbox_builder.mjs';
 import { makeDiagnosticReport } from './sac_diagnostic_report.mjs';
+import { makeBuildTechnicalReport } from './sac_technical_report.mjs';
 
 const code = /^[a-z][a-z0-9-]{0,63}$/;
 const sha = /^[a-f0-9]{40}$/;
@@ -63,6 +64,7 @@ try {
   if (resources.workspace !== manifest.workspace || profile.profile_id !== job.profile_id ||
       key.length < 32) throw Error('binding');
   let receipt = existingReceipt;
+  let factualBuildFailure = null;
   if (buildRequested) {
     const params = { profile, resources, sourceSha: job.source_sha, key };
     const { session } = await prepareBuild(params);
@@ -71,9 +73,33 @@ try {
       resources, projectName: manifest.build.project_name,
       image: manifest.sandbox_image, timeoutMs: 120000
     });
-    if (!built.built || built.status !== 'pass') throw Error('isolated-build');
-    receipt = await sealBuild({ ...params, session, buildStatus: 'pass' });
+    if (built.status === 'fail' && built.code === 'angular-compiler-failed' &&
+        built.compiler_evidence) {
+      // An observed TS compiler error is a code failure, not a Docker infra error.
+      const technical_report = makeBuildTechnicalReport(job, built.compiler_evidence);
+      const diagnostic = makeDiagnosticReport({
+        status:'fail',
+        static_result:{phases:{
+          pre:{status:'pass'},
+          build:{status:'fail',code:'angular-compiler-failed'},
+          post:{status:'unverified',code:'not-executed'}
+        }},
+        browser:{status:'unverified',executed:false,code:'not-executed',cases:[]}
+      });
+      factualBuildFailure = {schema_version:1,job_id:job.job_id,
+        project_id:job.project_id,profile_id:job.profile_id,
+        source_sha:job.source_sha,status:'fail',static_pipeline_pass:false,
+        browser_pass:false,deployment_authorized:false,
+        execution:'sac-build-audit',code:'angular-compiler-failed',
+        diagnostic,technical_report};
+    } else {
+      if (!built.built || built.status !== 'pass') throw Error('isolated-build');
+      receipt = await sealBuild({ ...params, session, buildStatus: 'pass' });
+    }
   }
+  if (factualBuildFailure) {
+    process.stdout.write('SAC_AUDIT_RESULT ' + JSON.stringify(factualBuildFailure) + '\n');
+  } else {
   const result = await verifyPipelineBrowserSandbox({
     pipeline: { profile, resources, sourceSha: job.source_sha, receipt, key },
     guardian, image: manifest.sandbox_image, timeoutMs: 60000,
@@ -90,6 +116,7 @@ try {
     code: verified ? (buildRequested ? 'isolated-build-browser-pass' : 'isolated-browser-pass') : 'audit-not-verified',
     diagnostic };
   process.stdout.write('SAC_AUDIT_RESULT ' + JSON.stringify(response) + '\n');
+  }
 } catch {
   if (job && typeof job.job_id === 'string' && /^gha-[0-9]{1,15}-[1-9][0-9]{0,3}$/.test(job.job_id)) {
     process.stdout.write('SAC_AUDIT_RESULT ' + JSON.stringify(fail(job, 'audit-infrastructure-error')) + '\n');

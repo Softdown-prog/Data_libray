@@ -147,6 +147,54 @@ class ExecutionTests(unittest.TestCase):
         self.assertFalse(any("npm" in x or "bash" in x for x in args))
         self.assertTrue(popen.call_args.kwargs["start_new_session"])
 
+    def test_factual_v2_build_failure_round_trip_and_tampering(self):
+        message = "O compilador TypeScript registrou atribuição entre tipos incompatíveis."
+        f = {"tool":"typescript", "code":"TS2322", "file":"src/mode.ts",
+             "line":1, "column":13, "message":message, "location_verified":True}
+        report = {
+            "schema_version":2, "job_id":self.job["job_id"],
+            "project_id":self.job["project_id"], "profile_id":self.job["profile_id"],
+            "source_sha":self.job["source_sha"], "status":"fail", "phase":"build",
+            "exit_code":1, "findings":[f], "truncated":False,
+            "post_status":"not-run", "browser_status":"not-run",
+            "root_cause_verified":False, "deployment_authorized":False,
+        }
+        report["text"] = "\n".join([
+            "Projeto example-a, commit " + self.job["source_sha"] + ".",
+            "A compilação Angular não foi concluída. Código de saída: 1.",
+            "Erro TS2322 no arquivo src/mode.ts, linha 1, coluna 13. " + message,
+            "Pré-compilação: aprovada. Pós-compilação e Guardian: não executados porque o build falhou.",
+            "Este relatório registra eventos observados e não determina a causa raiz.",
+        ])
+        legacy = {"schema_version":1, "status":"fail",
+            "checks":{"pre":"pass","build":"fail","post":"unverified","browser":"unverified"},
+            "findings":[], "truncated":False,
+            "location_verified":False,"deployment_authorized":False}
+        def result(technical=report):
+            return {**self.result(), "status":"fail",
+                    "execution":"sac-build-audit", "code":"angular-compiler-failed",
+                    "static_pipeline_pass":False,"browser_pass":False,
+                    "diagnostic":legacy,"technical_report":technical}
+        valid = se._normalize(self.job,result())
+        self.assertEqual(valid["technical_report"]["findings"][0]["file"],"src/mode.ts")
+        for bad in [
+            {**report, "source_sha":"b"*40},
+            {**report, "root_cause_verified":True},
+            {**report, "deployment_authorized":True},
+            {**report, "text":"Invented conclusion."},
+            {**report, "findings":[{**f,"file":"../../.env"}]},
+            {**report, "findings":[{**f,"location_verified":False}]},
+            {**report, "status":"pass"},
+            {**report, "findings":[{**f,"message":"SECRET"}]},
+        ]:
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                se._normalize(self.job,result(bad))
+        self.assertEqual(self.call(lambda *_, **__: result())["processed"],1)
+        saved = json.loads((self.root/"sac-results"/"gha-789-1.json").read_text())
+        self.assertEqual(saved["status"],"fail")
+        self.assertEqual(saved["technical_report"]["text"],report["text"])
+        self.assertFalse(saved["deployment_authorized"])
+
     def fail(self,msg):
         raise AssertionError(msg)
 
