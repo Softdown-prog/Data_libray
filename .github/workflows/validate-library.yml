@@ -122,6 +122,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Guard official Angular fixture dependency consistency
+        run: |
+          node scripts/check_angular_fixture.mjs
+          node --test tests/check_angular_fixture.test.mjs
       - run: npm install --prefix angular --no-audit --no-fund
       - name: Parser Angular (ngc strictTemplates)
         run: python3 scripts/parser_audit.py --language angular
