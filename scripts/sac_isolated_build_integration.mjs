@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { mkdtemp, rm, writeFile, symlink, mkdir } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile, readFile, symlink, mkdir } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -130,4 +130,110 @@ print("SAC_WORKER_ISOLATED_BUILD_PASS")
 } finally {
   await rm(hostState,{recursive:true,force:true});
 }
+// Actual Angular negative build inside Docker, with no raw compiler log published.
+const modeFile=path.join(workspace,'src/mode.ts');
+try {
+  await writeFile(modeFile,"export const mode: string = 123;\n");
+  await rm(path.join(workspace,'dist'),{recursive:true,force:true});
+  const failed=await isolatedAngularBuild({resources,projectName:'smoke',image,timeoutMs:120000});
+  assert.equal(failed.status,'fail',JSON.stringify(failed));
+  assert.equal(failed.code,'angular-compiler-failed');
+  assert.equal(failed.built,false);
+  assert.equal(failed.deployment_authorized,false);
+  const evidence=failed.compiler_evidence;
+  assert.equal(evidence.schema_version,2);
+  assert.equal(evidence.phase,'build');
+  assert.equal(evidence.status,'fail');
+  assert.equal(evidence.exit_code,1);
+  assert.equal(evidence.findings[0]?.code,'TS2322');
+  assert.equal(evidence.findings[0]?.file,'src/mode.ts');
+  assert.equal(evidence.findings[0]?.line,1);
+  assert.ok(evidence.findings[0]?.column>0);
+  assert.equal(evidence.findings[0]?.location_verified,true);
+  assert.equal(evidence.post_status,'not-run');
+  assert.equal(evidence.browser_status,'not-run');
+  assert.equal(evidence.root_cause_verified,false);
+  assert.equal(evidence.deployment_authorized,false);
+  assert.ok(!JSON.stringify(evidence).includes('/opt/sac-work'));
+  // Transport the same synthetic failure through the REAL supervised Worker
+  // into its immutable result store, without touching the Panel or VPS.
+  const negativeHost=await mkdtemp(path.join(os.tmpdir(),'sac-v2-negative-worker-'));
+  try {
+    const save=async (name,value)=>{
+      const file=path.join(negativeHost,name);
+      await writeFile(file,Buffer.isBuffer(value)||typeof value==='string'
+        ?value:JSON.stringify(value));
+      return file;
+    };
+    const manifest=await save('manifest.json',{
+      schema_version:1,project_id:'synthetic-app',
+      profile_id:'isolated-builder-ci',workspace,
+      profile_file:await save('profile.json',profile),
+      resources_file:await save('resources.json',resources),
+      receipt_file:path.join(negativeHost,'receipt-unused.json'),
+      guardian_file:await save('guardian.json',guardian),
+      trust_key_file:await save('hmac-key',key),
+      sandbox_image:image,build:{project_name:'smoke'}
+    });
+    const py=String.raw`
+import json,sys
+from pathlib import Path
+from scripts import sac_job_queue as q, sac_execution as e
+state=Path(sys.argv[1])/"state"
+job={"schema_version":1,"job_id":"gha-990-1","project_id":"synthetic-app",
+     "profile_id":"isolated-builder-ci","source_sha":sys.argv[3],
+     "kind":"angular-validate"}
+policy={"schema_version":1,"projects":[{"project_id":"synthetic-app",
+ "profile_id":"isolated-builder-ci"}]}
+registry={"schema_version":1,"projects":[{"project_id":"synthetic-app",
+ "profile_id":"isolated-builder-ci","manifest":sys.argv[2]}]}
+q.enqueue(state,job,policy)
+assert q.receive_pending(state,policy)["received"]==1
+result=e.execute_received(state,policy,registry,executor=sys.argv[4],
+ enable_build=True,timeout=175)
+assert result["processed"]==1,result
+saved=json.loads((state/"sac-results"/"gha-990-1.json").read_text())
+assert saved["schema_version"]==1 and saved["status"]=="fail",saved
+assert saved["code"]=="angular-compiler-failed",saved
+assert saved["diagnostic"]["status"]=="fail",saved
+assert saved["technical_report"]["schema_version"]==2,saved
+assert saved["technical_report"]["source_sha"]==sys.argv[3],saved
+assert saved["technical_report"]["findings"][0]["code"]=="TS2322",saved
+assert saved["technical_report"]["findings"][0]["file"]=="src/mode.ts",saved
+assert saved["technical_report"]["findings"][0]["line"]==1,saved
+assert saved["technical_report"]["post_status"]=="not-run",saved
+assert saved["technical_report"]["browser_status"]=="not-run",saved
+assert saved["technical_report"]["root_cause_verified"]==False,saved
+assert saved["deployment_authorized"]==False,saved
+assert e.execute_received(state,policy,registry,enable_build=True)["processed"]==0
+print("SAC_V2_WORKER_REPORT_PERSISTED_PASS")
+`;
+    const p=spawnSync('python3',['-c',py,negativeHost,manifest,sourceSha,process.execPath],{
+      cwd:root,encoding:'utf8',timeout:190000,maxBuffer:20000,
+      env:{PATH:process.env.PATH,HOME:os.tmpdir()}
+    });
+    assert.equal(p.status,0,p.stderr?.slice(0,3000));
+    assert.match(p.stdout,/SAC_V2_WORKER_REPORT_PERSISTED_PASS/);
+    const resultPath=path.join(negativeHost,'state','sac-results','gha-990-1.json');
+    const saved=JSON.parse(await readFile(resultPath,'utf8'));
+    assert.match(saved.technical_report.text,/TS2322/);
+    assert.match(saved.technical_report.text,/src\/mode.ts, linha 1/);
+    assert.ok(!saved.technical_report.text.includes('Causa provável'));
+    // Only a synthetic, validated example may become an Actions artifact.
+    if(process.env.RUNNER_TEMP){
+      await writeFile(path.join(process.env.RUNNER_TEMP,'sac-v2-technical-report.synthetic.txt'),
+        saved.technical_report.text+'\n');
+      await writeFile(path.join(process.env.RUNNER_TEMP,'sac-v2-technical-report.synthetic.json'),
+        JSON.stringify(saved)+'\n');
+    }
+    console.log('SAC_V2_WORKER_TO_TEXT_PASS');
+  } finally {
+    await rm(negativeHost,{recursive:true,force:true});
+  }
+  console.log('SAC_BUILD_FAILURE_EVIDENCE_PASS');
+} finally {
+  await writeFile(modeFile,"export const mode: string = 'positive';\n");
+  await rm(path.join(workspace,'dist'),{recursive:true,force:true});
+}
+
 console.log('SAC-008D real Angular AOT isolated Docker build + authenticated SAC + Chromium PASS');

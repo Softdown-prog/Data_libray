@@ -32,6 +32,82 @@ CODE = re.compile(r"[a-z][a-z0-9-]{0,63}\Z")
 MAX_REPORT = 8192
 MAX_ONE_JOB = 180
 
+TECHNICAL_KEYS = frozenset({
+    "schema_version", "job_id", "project_id", "profile_id", "source_sha",
+    "status", "phase", "exit_code", "findings", "truncated", "post_status",
+    "browser_status", "root_cause_verified", "deployment_authorized", "text"
+})
+TECHNICAL_FINDING_KEYS = frozenset({
+    "tool", "code", "file", "line", "column", "message", "location_verified"
+})
+TS_CODE = re.compile(r"TS[0-9]{4,5}\Z")
+TS_FILE = re.compile(r"(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_.-]+\.tsx?\Z")
+TS_DESCRIPTIONS = {
+    "TS2322": "O compilador TypeScript registrou atribuição entre tipos incompatíveis.",
+    "TS2307": "O compilador TypeScript registrou que não encontrou um módulo.",
+    "TS2304": "O compilador TypeScript registrou um identificador não encontrado.",
+    "TS2339": "O compilador TypeScript registrou uma propriedade não reconhecida.",
+}
+TS_GENERIC = "O compilador Angular registrou um erro TypeScript."
+
+
+def _validate_technical_report(value, raw):
+    if (type(value) is not dict or set(value) != TECHNICAL_KEYS
+            or value["schema_version"] != 2 or value["status"] != "fail"
+            or value["phase"] != "build"
+            or type(value["exit_code"]) is not int or not 1 <= value["exit_code"] <= 255
+            or type(value["truncated"]) is not bool
+            or value["post_status"] != "not-run"
+            or value["browser_status"] != "not-run"
+            or value["root_cause_verified"] is not False
+            or value["deployment_authorized"] is not False
+            or type(value["text"]) is not str
+            or type(value["findings"]) is not list
+            or not 1 <= len(value["findings"]) <= 4):
+        raise ValueError("invalid-technical-report")
+    for k in ("job_id", "project_id", "profile_id", "source_sha"):
+        if value[k] != raw[k]:
+            raise ValueError("technical-report-identity-mismatch")
+    lines = [
+        f'Projeto {value["project_id"]}, commit {value["source_sha"]}.',
+        f'A compilação Angular não foi concluída. Código de saída: {value["exit_code"]}.',
+    ]
+    for finding in value["findings"]:
+        if (type(finding) is not dict or set(finding) != TECHNICAL_FINDING_KEYS
+                or finding["tool"] != "typescript"
+                or type(finding["code"]) is not str or not TS_CODE.fullmatch(finding["code"])
+                or type(finding["location_verified"]) is not bool
+                or finding["message"] != TS_DESCRIPTIONS.get(
+                    finding["code"], TS_GENERIC)):
+            raise ValueError("invalid-technical-finding")
+        if finding["location_verified"]:
+            f = finding["file"]
+            if (type(f) is not str or len(f) > 200 or not TS_FILE.fullmatch(f)
+                    or any(segment in (".", "..", ".git", "node_modules", ".env")
+                           or segment.startswith(".env.") for segment in f.split("/"))
+                    or type(finding["line"]) is not int or not 1 <= finding["line"] <= 1000000
+                    or type(finding["column"]) is not int or not 1 <= finding["column"] <= 10000):
+                raise ValueError("untrusted-source-location")
+            where = (f' no arquivo {f}, linha {finding["line"]},'
+                     f' coluna {finding["column"]}')
+        else:
+            if (finding["file"] is not None or finding["line"] is not None
+                    or finding["column"] is not None):
+                raise ValueError("invented-source-location")
+            where = " (arquivo e posição não confirmados)"
+        lines.append(f'Erro {finding["code"]}{where}. {finding["message"]}')
+    if value["truncated"]:
+        lines.append("Existem outras ocorrências omitidas pelo limite do coletor.")
+    lines.extend([
+        "Pré-compilação: aprovada. Pós-compilação e Guardian: não executados porque o build falhou.",
+        "Este relatório registra eventos observados e não determina a causa raiz.",
+    ])
+    if (value["text"] != "\n".join(lines)
+            or len(json.dumps(value, ensure_ascii=True)) > 4096):
+        raise ValueError("untrusted-technical-text")
+
+
+
 
 def load_registry(value):
     if type(value) is not dict or set(value) != {"schema_version", "projects"}:
@@ -100,7 +176,9 @@ def _validate_diagnostic(value, expected_status):
 
 
 def _normalize(job, raw):
-    if (type(raw) is not dict or set(raw) not in (RESULT_KEYS, RESULT_KEYS | {"diagnostic"})
+    accepted = (RESULT_KEYS, RESULT_KEYS | {"diagnostic"},
+                RESULT_KEYS | {"diagnostic", "technical_report"})
+    if (type(raw) is not dict or set(raw) not in accepted
             or raw["schema_version"] != 1):
         raise ValueError("invalid-auditor-report")
     for name in ("job_id", "project_id", "profile_id", "source_sha"):
@@ -120,6 +198,15 @@ def _normalize(job, raw):
         raise ValueError("false-pass")
     if "diagnostic" in raw:
         _validate_diagnostic(raw["diagnostic"], raw["status"])
+    if "technical_report" in raw:
+        if (raw["execution"] != "sac-build-audit"
+                or raw["status"] != "fail" or raw["code"] != "angular-compiler-failed"
+                or raw["static_pipeline_pass"] or raw["browser_pass"]
+                or raw["diagnostic"]["checks"] != {
+                    "pre": "pass", "build": "fail",
+                    "post": "unverified", "browser": "unverified"}):
+            raise ValueError("inconsistent-technical-report")
+        _validate_technical_report(raw["technical_report"], raw)
     return raw
 
 

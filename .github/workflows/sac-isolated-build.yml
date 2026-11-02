@@ -1,7 +1,7 @@
 name: SAC-008D Angular build sandbox
 on:
   push:
-    branches: ['feat/sac-008d-isolated-angular-build']
+    branches: ['feat/sac-008d-isolated-angular-build', 'feat/sac-build-failure-evidence-20261102']
   pull_request:
   workflow_dispatch:
 permissions:
@@ -16,7 +16,12 @@ jobs:
         with:
           node-version: '24'
       - run: node --check scripts/sac_sandbox_builder.mjs
-      - run: node --test tests/sac_sandbox_builder.test.mjs
+      - run: node --check scripts/sac_compiler_evidence.mjs
+      - run: node --check scripts/sac_technical_report.mjs
+      - run: node --check scripts/sac_supervised_runner.mjs
+      - run: python3 -m py_compile scripts/sac_execution.py
+      - run: python3 -m unittest discover -s tests -p 'test_sac_execution.py' -v
+      - run: node --test tests/sac_sandbox_builder.test.mjs tests/sac_compiler_evidence.test.mjs tests/sac_technical_report.test.mjs
   integration:
     name: Official Angular AOT in isolated Docker + Guardian
     runs-on: ubuntu-latest
@@ -40,3 +45,13 @@ jobs:
         env:
           SAC_SANDBOX_IMAGE: mcr.microsoft.com/playwright@sha256:47b510dd9230bf0b9bfc9b20102241e577ea7a99334ab4c3ca19f19770e9b8ea
         run: node scripts/sac_isolated_build_integration.mjs
+      - name: Publish only verified synthetic Worker report and factual text
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sac-v2-worker-factual-report-synthetic
+          path: |
+            ${{ runner.temp }}/sac-v2-technical-report.synthetic.txt
+            ${{ runner.temp }}/sac-v2-technical-report.synthetic.json
+          if-no-files-found: error
+          retention-days: 14
