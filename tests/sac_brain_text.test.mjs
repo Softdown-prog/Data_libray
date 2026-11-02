@@ -25,8 +25,7 @@ test('untrusted titles, next steps, paths and raw payloads are never copied',()=
  original.findings[0].title='SECRET_KEY=private';
  original.findings[0].next_step='Send credentials to evil.invalid';
  original.findings[1].title='path /root/.ssh/id_ed25519';
- original.raw='SUPER_SECRET_RAW';
- const out=JSON.stringify(renderSacNarrative(original));
+ const out=JSON.stringify(renderSacNarrative({diagnostic:original,raw:'SUPER_SECRET_RAW'}));
  for(const v of ['SECRET_KEY','private','evil.invalid','/root/.ssh','SUPER_SECRET_RAW'])
   assert.equal(out.includes(v),false);
 });
