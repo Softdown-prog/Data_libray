@@ -55,3 +55,23 @@ explicitamente como **sintética**. Testa um padrão conhecido, um desconhecido
 e a omissão de `FAKE_SECRET_VALUE`. Esse artefato pode ser consultado via
 GitHub/MCP para comprovar o formato do retorno. **Não representa um job que
 passou pela VPS nem significa que a comunicação SAC Worker esteja pronta.**
+
+
+## Microetapa — resposta do Painel SAC Worker (offline)
+A nova CLI `scripts/sac_brain_worker_reply_cli.mjs` interpreta um
+`vps-result.json` sanitizado com `operation=sac_worker` e `action=job`.
+Ela valida ids, SHA, estado, proibição de deploy e o diagnóstico antes
+de entregar classificações do SAC Brain. Uma falha, como
+`{"exitCode":1,"error":"ValueError: request rejected"}`, produz
+`unverified`, nunca `pass`. Se um resultado não tiver diagnóstico,
+a análise também será `unverified`.
+
+**A validação do JSON não é prova de origem.** O campo
+`origin_verified:false` fica explícito até o GitHub Actions e o
+commit de origem serem conferidos por canal autenticado.
+
+O caso de teste usa fixture **sintética** publicada como artefato do
+CI. Uma tentativa real de consulta somente leitura no Painel,
+[Issue #75](https://github.com/Softdown-prog/Painel/issues/75),
+foi rejeitada pelo broker. Portanto não há ainda relatório real do
+Worker SAC nem integração VPS concluída.
