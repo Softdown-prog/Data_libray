@@ -17,7 +17,7 @@ const exactPeers = [
 export function checkFixture(manifest, lock) {
   const errors = [];
   const expected = manifest?.dependencies?.['@angular/core'];
-  if (typeof expected !== 'string' || !/^\\d+\\.\\d+\\.\\d+$/.test(expected)) {
+  if (typeof expected !== 'string' || !/^\d+\.\d+\.\d+$/.test(expected)) {
     errors.push('Angular core must have an exact pinned version');
     return errors;
   }
@@ -43,13 +43,13 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     const lock = JSON.parse(readFileSync(resolve(fixtureDir, 'package-lock.json'), 'utf8'));
     const errors = checkFixture(manifest, lock);
     if (errors.length) {
-      for (const error of errors) process.stderr.write(`Angular fixture conflict: ${error}\\n`);
+      for (const error of errors) process.stderr.write(`Angular fixture conflict: ${error}\n`);
       process.exitCode = 1;
     } else {
-      process.stdout.write('Angular fixture manifest, lockfile and exact peers are aligned.\\n');
+      process.stdout.write('Angular fixture manifest, lockfile and exact peers are aligned.\n');
     }
   } catch {
-    process.stderr.write('Angular fixture manifest or lockfile is unavailable/invalid.\\n');
+    process.stderr.write('Angular fixture manifest or lockfile is unavailable/invalid.\n');
     process.exitCode = 1;
   }
 }
