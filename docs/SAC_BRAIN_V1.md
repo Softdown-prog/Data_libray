@@ -75,3 +75,41 @@ CI. Uma tentativa real de consulta somente leitura no Painel,
 [Issue #75](https://github.com/Softdown-prog/Painel/issues/75),
 foi rejeitada pelo broker. Portanto não há ainda relatório real do
 Worker SAC nem integração VPS concluída.
+
+
+## SAC Brain Text v1 — explicação de logs sem modelo local
+
+A etapa `scripts/sac_brain_text.mjs` gera **texto em português de forma
+determinística** usando exclusivamente os códigos e hipóteses do catálogo
+versionado. Não usa Ollama, Hugging Face, modelo 0,5B/7B, rede ou dependências
+externas. É uma saída **adicional**: não substitui o log bruto, o contrato do
+Worker ou o relatório JSON original.
+
+```bash
+node scripts/sac_brain_text_cli.mjs tests/fixtures/sac-brain-incident.synthetic.json --text
+node scripts/sac_brain_text_cli.mjs tests/fixtures/sac-brain-vps-reply.synthetic.json
+```
+
+- Entrada: diagnóstico SAC já sanitizado, ou resposta `sac_worker` de **job**
+  submetida ao adaptador rigoroso `interpretWorkerReply`.
+- Saída: resumo, lista de ocorrências e próximas verificações; quando um
+  código não consta no catálogo, informa que **não há causa comprovada**.
+- Casos `unverified` e `infra-error` não viram `pass`.
+  Consultas negadas ou jobs sem diagnóstico também não viram aprovação.
+- Não lê nem reproduz `title`, `next_step`, logs brutos, paths, segredos
+  ou identificadores informais do input. O resultado afirma
+  `origin_verified:false` e `root_cause_verified:false`.
+- A saída textual não produz timestamp de execução inventado; quem escreve
+  o log pode acrescentar um carimbo confiável no seu próprio sistema.
+- O CI publica um artefato **sintético** `sac-brain-text-v1-synthetic`.
+  Nenhuma execução real da VPS nem autenticação da origem é inferida.
+- A consulta de status do One Worker reportou 21 verificações aprovadas em
+  02/11/2026, mas **isso não é um diagnóstico de job Angular** e não deve
+  ser narrado como tal. A autorização para execução de novos jobs permanece
+  uma etapa separada.
+
+### Integração posterior
+
+Conectar a saída de texto somente após receber um diagnóstico de job real
+por um canal autenticado; manter o log estruturado íntegro e publicar a
+explicação como anexo opcional. Não introduzir modelos locais por padrão.
