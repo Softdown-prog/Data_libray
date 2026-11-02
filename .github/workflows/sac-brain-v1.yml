@@ -1,14 +1,17 @@
 name: SAC Brain v1 local diagnostic engine
 on:
   push:
-    branches: ['feat/sac-brain-v1-20261102']
+    branches: ['feat/sac-brain-v1-20261102', 'feat/sac-brain-deterministic-text-20261102']
     paths:
       - 'scripts/sac_brain.mjs'
       - 'scripts/sac_brain_cli.mjs'
+      - 'scripts/sac_brain_text.mjs'
+      - 'scripts/sac_brain_text_cli.mjs'
       - 'scripts/sac_brain_worker_reply.mjs'
       - 'scripts/sac_brain_worker_reply_cli.mjs'
       - 'knowledge/sac-brain-v1.json'
       - 'tests/sac_brain.test.mjs'
+      - 'tests/sac_brain_text.test.mjs'
       - 'tests/sac_brain_worker_reply.test.mjs'
       - 'tests/fixtures/sac-brain-vps-reply.synthetic.json'
       - 'tests/fixtures/sac-brain-incident.synthetic.json'
@@ -18,10 +21,13 @@ on:
     paths:
       - 'scripts/sac_brain.mjs'
       - 'scripts/sac_brain_cli.mjs'
+      - 'scripts/sac_brain_text.mjs'
+      - 'scripts/sac_brain_text_cli.mjs'
       - 'scripts/sac_brain_worker_reply.mjs'
       - 'scripts/sac_brain_worker_reply_cli.mjs'
       - 'knowledge/sac-brain-v1.json'
       - 'tests/sac_brain.test.mjs'
+      - 'tests/sac_brain_text.test.mjs'
       - 'tests/sac_brain_worker_reply.test.mjs'
       - 'tests/fixtures/sac-brain-vps-reply.synthetic.json'
       - 'tests/fixtures/sac-brain-incident.synthetic.json'
@@ -44,12 +50,14 @@ jobs:
         run: |
           node --check scripts/sac_brain.mjs
           node --check scripts/sac_brain_cli.mjs
+          node --check scripts/sac_brain_text.mjs
+          node --check scripts/sac_brain_text_cli.mjs
           node --check scripts/sac_brain_worker_reply.mjs
           node --check scripts/sac_brain_worker_reply_cli.mjs
-          node --test tests/sac_brain.test.mjs tests/sac_brain_worker_reply.test.mjs tests/sac_diagnostic_report.test.mjs
+          node --test tests/sac_brain.test.mjs tests/sac_brain_text.test.mjs tests/sac_brain_worker_reply.test.mjs tests/sac_diagnostic_report.test.mjs
       - name: Reject nonlocal runtime imports
         run: |
-          if grep -E '^import .* from ' scripts/sac_brain.mjs scripts/sac_brain_cli.mjs scripts/sac_brain_worker_reply.mjs scripts/sac_brain_worker_reply_cli.mjs | grep -Ev "from 'node:fs'|from './sac_brain.mjs'|from './sac_brain_worker_reply.mjs'"; then
+          if grep -E '^import .* from ' scripts/sac_brain.mjs scripts/sac_brain_cli.mjs scripts/sac_brain_worker_reply.mjs scripts/sac_brain_worker_reply_cli.mjs scripts/sac_brain_text.mjs scripts/sac_brain_text_cli.mjs | grep -Ev "from 'node:fs'|from './sac_brain.mjs'|from './sac_brain_worker_reply.mjs'|from './sac_brain_text.mjs'"; then
             echo 'Unexpected SAC Brain dependency' >&2
             exit 1
           fi
@@ -75,3 +83,17 @@ jobs:
           path: sac-brain-vps-reply.synthetic.json
           retention-days: 14
           if-no-files-found: error
+      - name: Generate local deterministic pt-BR operator log from synthetic diagnostic
+        run: |
+          node scripts/sac_brain_text_cli.mjs tests/fixtures/sac-brain-incident.synthetic.json --text > sac-brain-explanation.synthetic.txt
+          node scripts/sac_brain_text_cli.mjs tests/fixtures/sac-brain-vps-reply.synthetic.json > sac-brain-explanation-worker.synthetic.json
+          node --input-type=module -e "import fs from 'node:fs'; import assert from 'node:assert/strict'; const t=fs.readFileSync('sac-brain-explanation.synthetic.txt','utf8'); const r=JSON.parse(fs.readFileSync('sac-brain-explanation-worker.synthetic.json','utf8')); assert.match(t,/navegador/); assert.ok(!t.includes('FAKE_SECRET_VALUE')); assert.equal(r.status,'fail'); assert.equal(r.known,1); assert.equal(r.unknown,1); assert.equal(r.origin_verified,false); assert.equal(r.deployment_authorized,false);"
+      - name: Upload deterministic text explanation (synthetic, no real VPS job)
+        uses: actions/upload-artifact@v4
+        with:
+          name: sac-brain-text-v1-synthetic
+          path: |
+            sac-brain-explanation.synthetic.txt
+            sac-brain-explanation-worker.synthetic.json
+          if-no-files-found: error
+          retention-days: 14
