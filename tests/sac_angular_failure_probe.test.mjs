@@ -3,8 +3,7 @@ import assert from 'node:assert/strict';
 import {inspectKnownSyntheticAngularError} from '../scripts/sac_angular_failure_probe.mjs';
 
 test('a known synthetic Angular diagnostic exposes code and location',()=>{
- const sample='✘ [ERROR] TS2322: Type \\'number\\' is not assignable to type \\'string\\'. [plugin angular-compiler]\\n'
-   .replaceAll('\\n','\n')+'    src/main.ts:5:7:\n';
+ const sample='TS2322: synthetic compiler type error\n    src/main.ts:5:7:'.replace('error\n','error\\n');
  const d=inspectKnownSyntheticAngularError(sample,5);
  assert.deepEqual({...d},{code:'TS2322',file:'src/main.ts',
    line:5,column:7,location_verified:true});
