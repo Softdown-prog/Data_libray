@@ -1,8 +1,14 @@
-import { readFile, realpath, stat } from 'node:fs/promises';
+import { open, realpath } from 'node:fs/promises';
+import { constants } from 'node:fs';
 import path from 'node:path';
 import { parse } from 'parse5';
 
 const RULE = 'SAC-P001';
+// A static audit should not load an unbounded build artifact into memory.
+const MAX_INDEX_BYTES = 2 * 1024 * 1024;
+const MAX_RESOURCE_BYTES = 16 * 1024 * 1024;
+const MAX_TOTAL_BYTES = 64 * 1024 * 1024;
+const MAX_FILE_READS = 512;
 class Finding extends Error {
   constructor(status, message) { super(message); this.status = status; }
 }
@@ -51,17 +57,39 @@ export async function verify(dist, contract) {
   let root, html;
   await check('contract', async () => { contractCheck(contract); return {}; });
   if (evidence[0].status === 'pass') {
+    let reads = 0, totalBytes = 0;
     const file = async relative => {
       safePath(relative);
+      if (++reads > MAX_FILE_READS) unsupported('Artifact read count exceeds static scope');
       const target = path.join(root, relative);
       let resolved;
       try { resolved = await realpath(target); }
       catch (error) { if (['ENOENT', 'ENOTDIR'].includes(error.code)) fail(`Missing file: ${relative}`); throw error; }
       if (!resolved.startsWith(root + path.sep)) fail(`Symlink escapes dist: ${relative}`);
-      if (!(await stat(resolved)).isFile()) fail(`Not a regular file: ${relative}`);
-      const bytes = await readFile(resolved);
-      if (!bytes.length) fail(`Empty file: ${relative}`);
-      return bytes;
+      const handle = await open(resolved, constants.O_RDONLY | constants.O_NONBLOCK);
+      try {
+        const before = await handle.stat();
+        if (!before.isFile()) fail(`Not a regular file: ${relative}`);
+        if (!before.size) fail(`Empty file: ${relative}`);
+        const maximum = relative === contract.index ? MAX_INDEX_BYTES : MAX_RESOURCE_BYTES;
+        if (!Number.isSafeInteger(before.size) || before.size > maximum ||
+            totalBytes + before.size > MAX_TOTAL_BYTES) unsupported('Artifact size exceeds static scope');
+        // Read at most the verified size plus one byte to detect file growth.
+        const buffer = Buffer.alloc(before.size + 1);
+        let count = 0;
+        while (count < buffer.length) {
+          const result = await handle.read(buffer, count, buffer.length - count, null);
+          if (!result.bytesRead) break;
+          count += result.bytesRead;
+        }
+        const after = await handle.stat();
+        if (count !== before.size || after.size !== before.size ||
+            after.mtimeMs !== before.mtimeMs || after.ctimeMs !== before.ctimeMs) {
+          unsupported('Artifact changed during inspection');
+        }
+        totalBytes += count;
+        return buffer.subarray(0, count);
+      } finally { await handle.close(); }
     };
     await check('index', async () => {
       try { root = await realpath(dist); } catch (error) { if (error.code === 'ENOENT') fail('Missing dist'); throw error; }
