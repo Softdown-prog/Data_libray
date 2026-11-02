@@ -65,6 +65,24 @@ base sem `/` final, index aninhado sem mapeamento, scripts inline executáveis,
 Valide artefato imutável: a checagem de realpath não protege contra outro processo
 alterando symlinks simultaneamente.
 
+
+## Limites de inspeção dos artefatos
+
+O auditor estático lê arquivos regulares com um limite estrito: `index.html`
+até **2 MiB**, cada recurso JS/CSS até **16 MiB**, no máximo **64 MiB**
+acumulados e **512 leituras** por verificação. A leitura usa descritores locais,
+confere o tamanho antes e depois da leitura e trata crescimento, truncamento
+ou alteração de metadados detectável como `unverified`. Arquivos grandes,
+muitos recursos ou arquivos mutáveis **não geram `pass`**. Não há truncamento
+silencioso para aprovar parte do build.
+
+O teto acumulado conta leituras repetidas (inclusive recursos referenciados
+múltiplas vezes), de forma conservadora. Estas quotas não são garantia de
+imutabilidade total nem substituem a sandbox: condições de corrida ainda são
+possíveis, e o pipeline valida hashes completos por uma camada separada.
+Se um build legítimo exceder os limites, o operador deve revisar o artefato e
+o contrato em vez de desabilitar os portões de segurança.
+
 ## Testes
 
 ```bash

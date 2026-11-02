@@ -130,3 +130,41 @@ test('nested index mapping is unverified', async t => {
   const { dist } = await fixture(t);
   assert.equal((await verify(dist, { ...contract(), index: 'browser/index.html' })).status, 'unverified');
 });
+
+test('oversized HTML cannot be parsed into an unbounded in-memory tree', async t => {
+  const { dist } = await fixture(t);
+  await writeFile(path.join(dist, 'index.html'), Buffer.alloc(2 * 1024 * 1024 + 1, 0x61));
+  const result = await verify(dist, contract());
+  assert.equal(result.status, 'unverified');
+  assert.equal(result.evidence.find(e => e.assertion === 'index').status, 'unverified');
+});
+
+test('oversized build resource is unverified rather than loaded', async t => {
+  const { dist } = await fixture(t);
+  await writeFile(path.join(dist, 'main.js'), Buffer.alloc(16 * 1024 * 1024 + 1, 0x61));
+  const result = await verify(dist, contract());
+  assert.equal(result.status, 'unverified');
+  assert.equal(result.evidence.find(e => e.assertion === 'html-resources').status, 'unverified');
+});
+
+test('combined build artifact reads stay within the bounded memory budget', async t => {
+  const { dist } = await fixture(t);
+  const assets = Array.from({ length: 5 }, (_, index) => `asset-${index}.js`);
+  await writeFile(path.join(dist, 'index.html'),
+    shell + assets.map(asset => `<script src="${asset}"></script>`).join(''));
+  for (const asset of assets) {
+    await writeFile(path.join(dist, asset), Buffer.alloc(13 * 1024 * 1024, 0x61));
+  }
+  const result = await verify(dist, contract());
+  assert.equal(result.status, 'unverified');
+  assert.equal(result.evidence.find(e => e.assertion === 'html-resources').status, 'unverified');
+});
+
+test('an excessive number of resource references is not silently approved', async t => {
+  const { dist } = await fixture(t);
+  const references = '<link rel="stylesheet" href="style.css">'.repeat(513);
+  await writeFile(path.join(dist, 'index.html'), shell + references);
+  const result = await verify(dist, contract());
+  assert.equal(result.status, 'unverified');
+  assert.equal(result.evidence.find(e => e.assertion === 'html-resources').status, 'unverified');
+});
