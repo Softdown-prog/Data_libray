@@ -7,6 +7,7 @@ on:
       - 'scripts/sac_brain_cli.mjs'
       - 'knowledge/sac-brain-v1.json'
       - 'tests/sac_brain.test.mjs'
+      - 'tests/fixtures/sac-brain-incident.synthetic.json'
       - 'docs/SAC_BRAIN_V1.md'
       - '.github/workflows/sac-brain-v1.yml'
   pull_request:
@@ -15,6 +16,7 @@ on:
       - 'scripts/sac_brain_cli.mjs'
       - 'knowledge/sac-brain-v1.json'
       - 'tests/sac_brain.test.mjs'
+      - 'tests/fixtures/sac-brain-incident.synthetic.json'
       - '.github/workflows/sac-brain-v1.yml'
   workflow_dispatch:
 permissions:
@@ -41,3 +43,14 @@ jobs:
             echo 'Unexpected SAC Brain dependency' >&2
             exit 1
           fi
+      - name: Produce a reproducible sanitized report from synthetic incident
+        run: |
+          node scripts/sac_brain_cli.mjs tests/fixtures/sac-brain-incident.synthetic.json > sac-brain-report.synthetic.json
+          node --input-type=module -e "import fs from 'node:fs'; import assert from 'node:assert/strict'; const r=JSON.parse(fs.readFileSync('sac-brain-report.synthetic.json','utf8')); assert.equal(r.known,1); assert.equal(r.unknown,1); assert.equal(r.deployment_authorized,false); assert.equal(r.root_cause_verified,false); assert.ok(!JSON.stringify(r).includes('FAKE_SECRET_VALUE'));"
+      - name: Upload SAC Brain synthetic diagnostic (no secrets)
+        uses: actions/upload-artifact@v4
+        with:
+          name: sac-brain-v1-synthetic-diagnostic
+          path: sac-brain-report.synthetic.json
+          if-no-files-found: error
+          retention-days: 14

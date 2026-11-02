@@ -46,3 +46,12 @@ Erros `pass` não podem conter findings nem verificações pendentes.
    de exemplos e análise de AST TypeScript por microetapas.
 
 **Não foi efetuado merge, publicação, intervenção na VPS ou mudança de permissão.**
+
+## Prova GitHub Actions (sintética, sem VPS)
+
+O workflow `SAC Brain v1 local diagnostic engine` executa os testes e gera
+`sac-brain-v1-synthetic-diagnostic` a partir de uma fixture rotulada
+explicitamente como **sintética**. Testa um padrão conhecido, um desconhecido
+e a omissão de `FAKE_SECRET_VALUE`. Esse artefato pode ser consultado via
+GitHub/MCP para comprovar o formato do retorno. **Não representa um job que
+passou pela VPS nem significa que a comunicação SAC Worker esteja pronta.**
