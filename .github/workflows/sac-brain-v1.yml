@@ -1,0 +1,43 @@
+name: SAC Brain v1 local diagnostic engine
+on:
+  push:
+    branches: ['feat/sac-brain-v1-20261102']
+    paths:
+      - 'scripts/sac_brain.mjs'
+      - 'scripts/sac_brain_cli.mjs'
+      - 'knowledge/sac-brain-v1.json'
+      - 'tests/sac_brain.test.mjs'
+      - 'docs/SAC_BRAIN_V1.md'
+      - '.github/workflows/sac-brain-v1.yml'
+  pull_request:
+    paths:
+      - 'scripts/sac_brain.mjs'
+      - 'scripts/sac_brain_cli.mjs'
+      - 'knowledge/sac-brain-v1.json'
+      - 'tests/sac_brain.test.mjs'
+      - '.github/workflows/sac-brain-v1.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  brain:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify local engine and diagnostic schema
+        run: |
+          node --check scripts/sac_brain.mjs
+          node --check scripts/sac_brain_cli.mjs
+          node --test tests/sac_brain.test.mjs tests/sac_diagnostic_report.test.mjs
+      - name: Reject nonlocal runtime imports
+        run: |
+          if grep -E '^import .* from ' scripts/sac_brain.mjs scripts/sac_brain_cli.mjs | grep -Ev "from 'node:fs'|from './sac_brain.mjs'"; then
+            echo 'Unexpected SAC Brain dependency' >&2
+            exit 1
+          fi
