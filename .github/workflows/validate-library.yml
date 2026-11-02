@@ -19,6 +19,17 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Validate grouped Dependabot Angular updates
+        run: |
+          ruby -r yaml -e '
+            c = YAML.load_file(".github/dependabot.yml")
+            abort "Dependabot v2 required" unless c["version"] == 2
+            u = c.fetch("updates").find { |x| x["package-ecosystem"] == "npm" && x["directory"] == "/packages/angular-postcompiler/smoke" }
+            abort "Angular fixture update entry absent" unless u
+            %w[angular-fixture angular-fixture-security].each do |group|
+              abort "Missing Angular group: #{group}" unless u.dig("groups", group, "patterns")&.include?("@angular/*")
+            end
+          '
       - run: python scripts/catalog.py --check
       - name: Validar sintaxe do instalador VPS
         run: bash -n deploy/install-vps-worker.sh
