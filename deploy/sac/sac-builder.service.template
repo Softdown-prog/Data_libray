@@ -1,0 +1,36 @@
+# TEMPLATE ONLY. NOT INSTALLED OR ENABLED. Operator must replace placeholders,
+# provision private rootless Docker and a dedicated, separate queue before use.
+[Unit]
+Description=SAC isolated Angular builder (separate from Data Library catalog)
+After=local-fs.target
+
+[Service]
+Type=oneshot
+User=sac-builder
+Group=sac-builder
+WorkingDirectory=/opt/sac-runtime/repo
+Environment=HOME=/var/lib/sac-builder
+Environment=TMPDIR=/var/lib/sac-builder/tmp
+Environment=XDG_RUNTIME_DIR=/run/user/@SAC_BUILDER_UID@
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 /opt/sac-runtime/repo/scripts/sac_dedicated_runner.py --execute
+TimeoutStartSec=210
+CPUQuota=100%
+MemoryMax=1536M
+TasksMax=160
+UMask=0077
+NoNewPrivileges=yes
+PrivateDevices=yes
+PrivateTmp=no
+IPAddressDeny=any
+RestrictAddressFamilies=AF_UNIX
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+ReadWritePaths=/var/lib/sac-builder
+ReadOnlyPaths=/etc/sac-builder /opt/sac-runtime
+
+# Deliberately no Install section: cannot be enabled automatically.

@@ -81,7 +81,7 @@ def _normalize(job, raw):
     return raw
 
 
-def _invoke(job, manifest, *, executor, timeout, enable_build=False):
+def _invoke(job, manifest, *, executor, timeout, enable_build=False, docker_host=None):
     command = [executor, str(Path(__file__).with_name("sac_supervised_runner.mjs")),
                "--manifest", manifest]
     if enable_build:
@@ -90,6 +90,13 @@ def _invoke(job, manifest, *, executor, timeout, enable_build=False):
     if timeout < 10 or timeout > MAX_ONE_JOB:
         raise ValueError("invalid-execution-timeout")
     environ = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": "/tmp"}
+    if docker_host is not None:
+        if (type(docker_host) is not str or
+                re.fullmatch(r"unix:///run/user/[1-9][0-9]{0,9}/docker\.sock", docker_host) is None):
+            raise ValueError("invalid-rootless-docker-host")
+        environ["DOCKER_HOST"] = docker_host
+        environ["SAC_ROOTLESS_REQUIRED"] = "1"
+        environ["TMPDIR"] = "/var/lib/sac-builder/tmp"
     proc = subprocess.Popen(
         command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
         text=True, start_new_session=True, env=environ,
@@ -112,12 +119,15 @@ def _invoke(job, manifest, *, executor, timeout, enable_build=False):
 
 
 def execute_received(state_dir, policy, registry, *, limit=1, executor="/usr/bin/node", timeout=150,
-                     invoke=None, enable_build=False):
+                     invoke=None, enable_build=False, docker_host=None):
     """Process only accepted inbox requests, serially and without replaying results.
 
     Caller holds the same exclusive worker.lock as vps_daemon. No backend actions,
     git checkout, compilation, or service modification happen in this function.
     """
+    if docker_host is not None and (type(docker_host) is not str or
+            re.fullmatch(r"unix:///run/user/[1-9][0-9]{0,9}/docker\.sock", docker_host) is None):
+        raise ValueError("invalid-rootless-docker-host")
     if type(enable_build) is not bool:
         raise ValueError("invalid-build-toggle")
     if type(limit) is not int or not 1 <= limit <= 4:
@@ -160,7 +170,7 @@ def execute_received(state_dir, policy, registry, *, limit=1, executor="/usr/bin
                 raise ValueError("project-not-authorized")
             manifest = manifests[pair]
             try:
-                outcome = (invoke or _invoke)(job, manifest, executor=executor, timeout=timeout, enable_build=enable_build)
+                outcome = (invoke or _invoke)(job, manifest, executor=executor, timeout=timeout, enable_build=enable_build, docker_host=docker_host)
                 result = _normalize(job, outcome)
             except (OSError, ValueError, TypeError, KeyError):
                 result = _result(job, "infra-error", "audit-runner-error")

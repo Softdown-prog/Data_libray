@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import os from 'node:os';
 import path from 'node:path';
+import { dockerChildEnvironment } from './docker-environment.mjs';
 import { verifyPipelineBrowser } from './pipeline.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -78,7 +79,7 @@ export async function runSandbox({ contract, binding, dist, mount, host, timeout
     await chmod(snapshot, 0o755);
     const args = dockerArguments({ image, runtime, dist: snapshot, input, containerName: name });
     const proc = spawnSync('docker', args, { encoding: 'utf8', shell: false, timeout: timeoutMs,
-      maxBuffer: 131072, env: { PATH: process.env.PATH ?? '/usr/bin:/bin', HOME: os.tmpdir() } });
+      maxBuffer: 131072, env: dockerChildEnvironment() });
     if (proc.error?.code === 'ETIMEDOUT') return failure('sandbox-timeout');
     if (proc.error || proc.status !== 0 || proc.signal) return failure('sandbox-runtime-error');
     return parseReport(proc.stdout, contract);
