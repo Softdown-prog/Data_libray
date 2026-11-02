@@ -30,6 +30,41 @@ class ExecutionTests(unittest.TestCase):
         return se.execute_received(self.root,self.policy,self.registry,
                                    invoke=handler or (lambda job, manifest, **_: self.result()), **kw)
 
+    def test_optional_diagnostic_is_persisted_without_deploy(self):
+        report = {
+            "schema_version": 1, "status": "pass",
+            "checks": {"pre": "pass", "build": "pass", "post": "pass", "browser": "pass"},
+            "findings": [], "truncated": False, "location_verified": False,
+            "deployment_authorized": False,
+        }
+        r = self.result(diagnostic=report)
+        self.assertEqual(self.call(lambda *_, **__: r)["processed"], 1)
+        saved = json.loads((self.root/"sac-results"/"gha-789-1.json").read_text())
+        self.assertEqual(saved["diagnostic"]["status"], "pass")
+        self.assertFalse(saved["diagnostic"]["deployment_authorized"])
+
+    def test_diagnostic_rejects_forged_status_secret_and_overflow(self):
+        good = {
+            "schema_version": 1, "status": "pass",
+            "checks": {"pre": "pass", "build": "pass", "post": "pass", "browser": "pass"},
+            "findings": [], "truncated": False, "location_verified": False,
+            "deployment_authorized": False,
+        }
+        bad = [
+            {**good, "status": "fail"},
+            {**good, "source_file": "/private/.env"},
+            {**good, "findings": [{
+                "phase": "browser", "status": "fail",
+                "code": "required-assertion-failed", "assertion": "click",
+                "title": "Leak https://private.example", "next_step": "Recheck the click",
+            }]},
+            {**good, "findings": [None]},
+            {**good, "findings": [{"phase": "browser"}] * 9},
+        ]
+        for value in bad:
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                se._normalize(self.job, self.result(diagnostic=value))
+
     def test_admission_and_binding_with_idempotent_result(self):
         self.assertEqual(self.call()["processed"],1)
         state=json.loads((self.root/"sac-results"/"gha-789-1.json").read_text())
