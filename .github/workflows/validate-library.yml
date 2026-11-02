@@ -1,9 +1,10 @@
 name: Validate code library
-# Self-hosted jobs execute inside Docker job containers.
-# Unreviewed pull requests must not run on the VPS runner.
+# Self-hosted jobs execute inside Docker job containers, on a dedicated labeled runner.
+# Only main pushes and explicit dispatches may use this infrastructure runner.
+# Configure a separate rootless Docker daemon; never mount the production socket.
 on:
   push:
-    branches: [main, "feat/**", "fix/**"]
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
@@ -13,7 +14,7 @@ concurrency:
 
 jobs:
   catalog:
-    runs-on: self-hosted
+    runs-on: [self-hosted, linux, x64, data-library-docker]
     container:
       image: python:3.12-bookworm
       options: --cpus=2 --memory=2g --pids-limit=256 --security-opt=no-new-privileges
@@ -41,7 +42,7 @@ jobs:
         run: python scripts/batch_worker.py --language python --status documented --max-items 1 --mode both --output "$RUNNER_TEMP/dl-worker-smoke"
 
   go:
-    runs-on: self-hosted
+    runs-on: [self-hosted, linux, x64, data-library-docker]
     container:
       image: golang:1.24-bookworm
       options: --cpus=2 --memory=2g --pids-limit=256 --security-opt=no-new-privileges
@@ -54,7 +55,7 @@ jobs:
       - run: cd go && go test -race -count=1 ./... && go vet ./...
 
   python:
-    runs-on: self-hosted
+    runs-on: [self-hosted, linux, x64, data-library-docker]
     container:
       image: python:3.12-bookworm
       options: --cpus=2 --memory=2g --pids-limit=256 --security-opt=no-new-privileges
@@ -69,7 +70,7 @@ jobs:
       - run: python scripts/run_python_tests.py
 
   cpp:
-    runs-on: self-hosted
+    runs-on: [self-hosted, linux, x64, data-library-docker]
     container:
       image: gcc:14-bookworm
       options: --cpus=2 --memory=2g --pids-limit=256 --security-opt=no-new-privileges
@@ -94,7 +95,7 @@ jobs:
           test "$count" -gt 0
 
   rust:
-    runs-on: self-hosted
+    runs-on: [self-hosted, linux, x64, data-library-docker]
     container:
       image: rust:1-bookworm
       options: --cpus=2 --memory=2g --pids-limit=256 --security-opt=no-new-privileges
@@ -109,7 +110,7 @@ jobs:
       - run: cd rust && cargo test --workspace
 
   javascript:
-    runs-on: self-hosted
+    runs-on: [self-hosted, linux, x64, data-library-docker]
     container:
       image: node:24-bookworm
       options: --cpus=2 --memory=2g --pids-limit=256 --security-opt=no-new-privileges
@@ -123,7 +124,7 @@ jobs:
       - run: find javascript -name '*.test.mjs' -print0 | xargs -0 -r node --test
 
   typescript:
-    runs-on: self-hosted
+    runs-on: [self-hosted, linux, x64, data-library-docker]
     container:
       image: node:24-bookworm
       options: --cpus=2 --memory=2g --pids-limit=256 --security-opt=no-new-privileges
@@ -139,7 +140,7 @@ jobs:
       - run: find typescript/dist -name '*.test.js' -print0 | xargs -0 -r node --test
 
   angular:
-    runs-on: self-hosted
+    runs-on: [self-hosted, linux, x64, data-library-docker]
     container:
       image: node:24-bookworm
       options: --cpus=2 --memory=2g --pids-limit=256 --security-opt=no-new-privileges
@@ -161,7 +162,7 @@ jobs:
         run: node --test --test-force-exit tests/angular_behavior.test.mjs
 
   java:
-    runs-on: self-hosted
+    runs-on: [self-hosted, linux, x64, data-library-docker]
     container:
       image: eclipse-temurin:21-jdk
       options: --cpus=2 --memory=2g --pids-limit=256 --security-opt=no-new-privileges
