@@ -23,6 +23,10 @@ RESULT_KEYS = frozenset({
     "status", "static_pipeline_pass", "browser_pass", "deployment_authorized",
     "execution", "code",
 })
+DIAGNOSTIC_KEYS = frozenset({"schema_version", "status", "checks", "findings",
+                             "truncated", "location_verified", "deployment_authorized"})
+FINDING_KEYS = frozenset({"phase", "status", "code", "assertion", "title", "next_step"})
+CHECKS = frozenset({"pre", "build", "post", "browser"})
 STATUS = frozenset({"pass", "fail", "unverified", "infra-error"})
 CODE = re.compile(r"[a-z][a-z0-9-]{0,63}\Z")
 MAX_REPORT = 8192
@@ -60,8 +64,44 @@ def _result(job, status="unverified", code="not-executed", *, static=False, brow
     }
 
 
+def _validate_diagnostic(value, expected_status):
+    if type(value) is not dict or set(value) != DIAGNOSTIC_KEYS:
+        raise ValueError("invalid-diagnostic-schema")
+    if (type(value["schema_version"]) is not int or value["schema_version"] != 1
+            or value["status"] != expected_status or value["status"] not in STATUS
+            or type(value["truncated"]) is not bool
+            or value["location_verified"] is not False
+            or value["deployment_authorized"] is not False):
+        raise ValueError("invalid-diagnostic-status")
+    checks = value["checks"]
+    if type(checks) is not dict or set(checks) != CHECKS or any(
+            type(v) is not str or v not in STATUS for v in checks.values()):
+        raise ValueError("invalid-diagnostic-checks")
+    findings = value["findings"]
+    if type(findings) is not list or len(findings) > 8:
+        raise ValueError("invalid-diagnostic-count")
+    for item in findings:
+        if type(item) is not dict or set(item) != FINDING_KEYS:
+            raise ValueError("invalid-diagnostic-finding")
+        if (item["phase"] not in CHECKS or item["status"] not in STATUS or
+                type(item["code"]) is not str or CODE.fullmatch(item["code"]) is None or
+                (item["assertion"] is not None and (
+                    type(item["assertion"]) is not str or
+                    re.fullmatch(r"[A-Za-z][A-Za-z0-9-]{0,63}", item["assertion"]) is None))):
+            raise ValueError("invalid-diagnostic-code")
+        for field, maximum in (("title", 95), ("next_step", 170)):
+            value_text = item[field]
+            if (type(value_text) is not str or not 4 <= len(value_text) <= maximum or
+                    any(c in value_text for c in ("\n", "\r", "\x00", "\\", "<", ">")) or
+                    "://" in value_text):
+                raise ValueError("invalid-diagnostic-text")
+    if len(json.dumps(value, ensure_ascii=True)) > 4096:
+        raise ValueError("diagnostic-too-large")
+
+
 def _normalize(job, raw):
-    if type(raw) is not dict or set(raw) != RESULT_KEYS or raw["schema_version"] != 1:
+    if (type(raw) is not dict or set(raw) not in (RESULT_KEYS, RESULT_KEYS | {"diagnostic"})
+            or raw["schema_version"] != 1):
         raise ValueError("invalid-auditor-report")
     for name in ("job_id", "project_id", "profile_id", "source_sha"):
         if raw[name] != job[name]:
@@ -78,6 +118,8 @@ def _normalize(job, raw):
             raw["code"] == ("isolated-build-browser-pass" if raw["execution"] == "sac-build-audit"
                             else "isolated-browser-pass")):
         raise ValueError("false-pass")
+    if "diagnostic" in raw:
+        _validate_diagnostic(raw["diagnostic"], raw["status"])
     return raw
 
 

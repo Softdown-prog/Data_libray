@@ -7,6 +7,7 @@ import path from 'node:path';
 import { verifyPipelineBrowserSandbox } from '../packages/angular-guardian/src/sandbox.mjs';
 import { prepareBuild, sealBuild } from '../packages/angular-pipeline/src/index.mjs';
 import { isolatedAngularBuild } from './sac_sandbox_builder.mjs';
+import { makeDiagnosticReport } from './sac_diagnostic_report.mjs';
 
 const code = /^[a-z][a-z0-9-]{0,63}$/;
 const sha = /^[a-f0-9]{40}$/;
@@ -18,7 +19,8 @@ function fail(job, reason) {
   return { schema_version: 1, job_id: job.job_id, project_id: job.project_id,
     profile_id: job.profile_id, source_sha: job.source_sha, status: 'infra-error',
     static_pipeline_pass: false, browser_pass: false, deployment_authorized: false,
-    execution: buildRequested ? 'sac-build-audit' : 'sac-audit', code: reason };
+    execution: buildRequested ? 'sac-build-audit' : 'sac-audit', code: reason,
+    diagnostic: makeDiagnosticReport({status:'infra-error',browser:{status:'infra-error',code:reason,cases:[]}}) };
 }
 let job;
 try {
@@ -79,13 +81,14 @@ try {
   const verified = result.static_pipeline_pass === true && result.browser_pass === true &&
     result.network_isolation === 'container-network-none' &&
     result.deployment_authorized === false && result.browser?.sandbox === 'docker-network-none';
-  const status = verified ? 'pass' : result.browser?.status === 'fail' || result.status === 'fail' ? 'fail'
-    : 'unverified';
+  const diagnostic = makeDiagnosticReport(result);
+  const status = diagnostic.status;
   const response = { schema_version: 1, job_id: job.job_id, project_id: job.project_id,
     profile_id: job.profile_id, source_sha: job.source_sha,
     status, static_pipeline_pass: result.static_pipeline_pass === true,
     browser_pass: verified, deployment_authorized: false, execution: buildRequested ? 'sac-build-audit' : 'sac-audit',
-    code: verified ? (buildRequested ? 'isolated-build-browser-pass' : 'isolated-browser-pass') : 'audit-not-verified' };
+    code: verified ? (buildRequested ? 'isolated-build-browser-pass' : 'isolated-browser-pass') : 'audit-not-verified',
+    diagnostic };
   process.stdout.write('SAC_AUDIT_RESULT ' + JSON.stringify(response) + '\n');
 } catch {
   if (job && typeof job.job_id === 'string' && /^gha-[0-9]{1,15}-[1-9][0-9]{0,3}$/.test(job.job_id)) {
