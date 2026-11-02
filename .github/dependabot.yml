@@ -1,0 +1,23 @@
+# Only the official Angular smoke fixture is monitored here.
+# Keep Angular packages in one PR; compatibility is still decided by the CI gate.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/packages/angular-postcompiler/smoke"
+    schedule:
+      interval: "weekly"
+    groups:
+      angular-fixture:
+        applies-to: "version-updates"
+        patterns:
+          - "@angular/*"
+        update-types:
+          - "minor"
+          - "patch"
+      angular-fixture-security:
+        applies-to: "security-updates"
+        patterns:
+          - "@angular/*"
+        update-types:
+          - "minor"
+          - "patch"
