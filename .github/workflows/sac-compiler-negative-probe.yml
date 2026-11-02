@@ -1,0 +1,64 @@
+name: SAC-041 Official Angular negative compiler evidence
+on:
+  push:
+    branches: ['feat/sac-compiler-negative-probe-20261102']
+    paths:
+      - 'scripts/sac_angular_failure_probe.mjs'
+      - 'tests/sac_angular_failure_probe.test.mjs'
+      - 'docs/SAC_COMPILER_NEGATIVE_PROBE.md'
+      - '.github/workflows/sac-compiler-negative-probe.yml'
+  pull_request:
+    paths:
+      - 'scripts/sac_angular_failure_probe.mjs'
+      - 'tests/sac_angular_failure_probe.test.mjs'
+      - 'docs/SAC_COMPILER_NEGATIVE_PROBE.md'
+      - '.github/workflows/sac-compiler-negative-probe.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  negative-angular-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Check probe source and pure parsing tests
+        run: |
+          node --check scripts/sac_angular_failure_probe.mjs
+          node --test tests/sac_angular_failure_probe.test.mjs
+      - name: Install pinned Angular fixture (ephemeral runner; no lifecycle scripts)
+        run: npm ci --prefix packages/angular-postcompiler/smoke --ignore-scripts --no-audit --no-fund
+      - name: Observe genuine failed Angular/TypeScript build without exporting raw log
+        run: node scripts/sac_angular_failure_probe.mjs > sac-compiler-probe.synthetic.json
+      - name: Validate evidence structure and status
+        run: |
+          node --input-type=module -e "
+          import fs from 'node:fs';
+          import assert from 'node:assert/strict';
+          const r=JSON.parse(fs.readFileSync('sac-compiler-probe.synthetic.json','utf8'));
+          assert.equal(r.probe,'synthetic-angular-compiler-failure');
+          assert.equal(r.stage,'build');
+          assert.equal(r.build_status,'fail');
+          assert.equal(r.exit_code,1);
+          assert.equal(r.diagnostic.code,'TS2322');
+          assert.equal(r.diagnostic.file,'src/main.ts');
+          assert.ok(r.diagnostic.line>0 && r.diagnostic.column>0);
+          assert.equal(r.diagnostic.location_verified,true);
+          assert.equal(r.post_status,'not-run');
+          assert.equal(r.browser_status,'not-run');
+          assert.equal(r.original_output_exported,false);
+          assert.equal(r.deployment_authorized,false);
+          console.log('OFFICIAL_ANGULAR_NEGATIVE_PROBE_PASS');
+          "
+      - name: Publish only synthetic bounded evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: sac-041-angular-negative-evidence
+          path: sac-compiler-probe.synthetic.json
+          retention-days: 14
+          if-no-files-found: error
