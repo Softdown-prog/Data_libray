@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "locale": "pt-BR",
+  "rules": [
+    {
+      "code": "typescript-peer-incompatible",
+      "phase": "pre",
+      "category": "dependency",
+      "cause": "Versão do TypeScript possivelmente fora da faixa suportada pelo Angular instalado.",
+      "action": "Compare as peerDependencies do Angular com o lockfile e a versão de TypeScript instalada."
+    },
+    {
+      "code": "angular-peer-incompatible",
+      "phase": "pre",
+      "category": "dependency",
+      "cause": "Dependências Angular possivelmente com versões incompatíveis entre si.",
+      "action": "Confira @angular/core, compiler, cli e suas dependências peer no lockfile."
+    },
+    {
+      "code": "installed-package-missing",
+      "phase": "pre",
+      "category": "dependency",
+      "cause": "Pacote exigido pelo projeto não foi comprovado no ambiente de compilação.",
+      "action": "Confira package.json, lockfile e instalação npm ci do runner."
+    },
+    {
+      "code": "source-manifest-incomplete",
+      "phase": "pre",
+      "category": "source",
+      "cause": "O manifesto não inclui todas as entradas necessárias para comprovar a origem.",
+      "action": "Compare os arquivos do projeto com o manifesto assinado no CI."
+    },
+    {
+      "code": "official-build-failed",
+      "phase": "build",
+      "category": "compilation",
+      "cause": "A compilação oficial Angular não concluiu com sucesso; causa técnica ainda não identificada.",
+      "action": "Inspecione os diagnósticos do Angular AOT e strictTemplates na etapa oficial."
+    },
+    {
+      "code": "build-evidence-unauthenticated",
+      "phase": "post",
+      "category": "integrity",
+      "cause": "O recibo do build não pôde ser autenticado.",
+      "action": "Refaça o build confiável e verifique assinatura, hash e vínculo ao commit."
+    },
+    {
+      "code": "artifact-mismatch",
+      "phase": "post",
+      "category": "integrity",
+      "cause": "Os artefatos emitidos divergem da evidência registrada na compilação.",
+      "action": "Compare hashes do dist e repita o build sem mutar os arquivos gerados."
+    },
+    {
+      "code": "mount-mismatch",
+      "phase": "post",
+      "category": "routing",
+      "cause": "Base href do HTML e caminho de publicação aparentemente divergentes.",
+      "action": "Confira a base de montagem e as referências aos bundles Angular emitidos."
+    },
+    {
+      "code": "angular-bootstrap-unverified",
+      "phase": "browser",
+      "category": "bootstrap",
+      "cause": "O Guardian não comprovou a inicialização do componente raiz Angular.",
+      "action": "Verifique bootstrap, ng-version e seletores no navegador isolado."
+    },
+    {
+      "code": "application-pageerror",
+      "phase": "browser",
+      "category": "runtime",
+      "cause": "O navegador registrou uma exceção na aplicação; origem exata não comprovada.",
+      "action": "Reproduza o cenário no Chromium e investigue o stack trace em ambiente confiável."
+    },
+    {
+      "code": "no-observable-transition",
+      "phase": "browser",
+      "category": "interaction",
+      "cause": "A interação ocorreu sem mudança visível que o Guardian pudesse comprovar.",
+      "action": "Verifique evento, estado, binding Angular e DOM após a ação."
+    },
+    {
+      "code": "network-policy-blocked",
+      "phase": "browser",
+      "category": "isolation",
+      "cause": "O cenário tentou utilizar uma conexão proibida pelo ambiente isolado.",
+      "action": "Elimine dependência externa do teste ou use respostas locais controladas."
+    },
+    {
+      "code": "browser-timeout",
+      "phase": "browser",
+      "category": "timeout",
+      "cause": "O cenário de navegador excedeu o prazo permitido; causa não determinada.",
+      "action": "Investigue inicialização, seletores, condições de espera e carga do Chromium."
+    }
+  ]
+}

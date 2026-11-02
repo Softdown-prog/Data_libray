@@ -1,0 +1,52 @@
+{
+  "id": "321123-1-sac_worker-infrastructure",
+  "project": "infrastructure",
+  "operation": "sac_worker",
+  "runId": "321123",
+  "exitCode": 0,
+  "sacWorker": {
+    "action": "job",
+    "jobId": "gha-111222-1",
+    "projectId": "demo-angular",
+    "profileId": "angular-strict",
+    "sourceSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "status": "fail",
+    "code": "audit-not-verified",
+    "execution": "sac-audit",
+    "staticPipelinePass": false,
+    "browserPass": false,
+    "deploymentAuthorized": false,
+    "readOnly": true,
+    "diagnostic": {
+      "schema_version": 1,
+      "status": "fail",
+      "checks": {
+        "pre": "pass",
+        "build": "pass",
+        "post": "pass",
+        "browser": "fail"
+      },
+      "findings": [
+        {
+          "phase": "browser",
+          "status": "fail",
+          "code": "no-observable-transition",
+          "assertion": "synthetic-click",
+          "title": "SECRET_SHOULD_NOT_APPEAR",
+          "next_step": "not trusted"
+        },
+        {
+          "phase": "browser",
+          "status": "fail",
+          "code": "unknown-runtime",
+          "assertion": "synthetic-other",
+          "title": "unknown cause",
+          "next_step": "not trusted"
+        }
+      ],
+      "truncated": false,
+      "location_verified": false,
+      "deployment_authorized": false
+    }
+  }
+}

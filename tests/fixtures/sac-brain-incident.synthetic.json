@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "status": "fail",
+  "checks": {
+    "pre": "pass",
+    "build": "pass",
+    "post": "pass",
+    "browser": "fail"
+  },
+  "findings": [
+    {
+      "phase": "browser",
+      "status": "fail",
+      "code": "no-observable-transition",
+      "assertion": "synthetic-click",
+      "title": "FAKE_SECRET_VALUE",
+      "next_step": "Untrusted text must not be copied"
+    },
+    {
+      "phase": "browser",
+      "status": "fail",
+      "code": "undocumented-synthetic-error",
+      "assertion": "synthetic-other",
+      "title": "No confirmed cause",
+      "next_step": "Do not guess"
+    }
+  ],
+  "truncated": false,
+  "location_verified": false,
+  "deployment_authorized": false
+}
