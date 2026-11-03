@@ -339,6 +339,12 @@ export function analyzeImportGraph({files, policy = {layers: [], allowImports: {
         continue;
       }
       if (assets.has(target)) {
+        // TypeScript can find JSON paths even if resolveJsonModule is disabled.
+        // Resolving a filename does not prove the compiler would accept the import.
+        if (config.options?.resolveJsonModule !== true) {
+          unresolved = true; report({code:'json-module-not-enabled',file});
+          continue;
+        }
         asset_edges.push({from:file,to:target,kind:'json'});
         continue;
       }

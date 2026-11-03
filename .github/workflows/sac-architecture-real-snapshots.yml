@@ -3,11 +3,13 @@ on:
   push:
     branches: ['feat/sac-angular-architecture-graph-20261103']
     paths:
+      - 'packages/angular-precompiler/src/dependency-graph.mjs'
       - 'scripts/sac_architecture_real_snapshot.mjs'
       - 'docs/SAC_ARCHITECTURE_GRAPH.md'
       - '.github/workflows/sac-architecture-real-snapshots.yml'
   pull_request:
     paths:
+      - 'packages/angular-precompiler/src/dependency-graph.mjs'
       - 'scripts/sac_architecture_real_snapshot.mjs'
       - 'docs/SAC_ARCHITECTURE_GRAPH.md'
       - '.github/workflows/sac-architecture-real-snapshots.yml'

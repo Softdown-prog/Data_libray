@@ -307,6 +307,7 @@ test('JSON missing, unresolved config, invalid contents and asset pollution are 
     jsonAssets:[{path:'src/ui/meta.json',source:'{"ok":true}'}]
   });
   assert.equal(disabled.status,'unverified');
+  assert.ok(disabled.findings.some(f=>f.code==='json-module-not-enabled'));
   for(const bad of [
     {path:'src/ui/meta.json',source:'{not json}'},
     {path:'src/ui/../../private.json',source:'{}'},
