@@ -1,0 +1,73 @@
+name: SAC-PRE002 LHS Dynamic Import Build Evidence (isolated)
+on:
+  push:
+    branches: ['feat/sac-pre002-lhs-dynamic-evidence-20261103']
+    paths:
+      - 'packages/angular-precompiler/src/runtime-external-evidence.mjs'
+      - 'tests/sac_lhs_runtime_external_evidence.test.mjs'
+      - 'scripts/sac_lhs_dynamic_build_evidence.mjs'
+      - '.github/workflows/sac-lhs-dynamic-evidence.yml'
+      - 'docs/SAC_ARCHITECTURE_GRAPH.md'
+  pull_request:
+    paths:
+      - 'packages/angular-precompiler/src/runtime-external-evidence.mjs'
+      - 'tests/sac_lhs_runtime_external_evidence.test.mjs'
+      - 'scripts/sac_lhs_dynamic_build_evidence.mjs'
+      - '.github/workflows/sac-lhs-dynamic-evidence.yml'
+      - 'docs/SAC_ARCHITECTURE_GRAPH.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  lhs-external-runtime-evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout Data Library
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Checkout immutable LHS snapshot
+        uses: actions/checkout@v4
+        with:
+          repository: Softdown-prog/A7-forge-2D-
+          ref: db639a117024b2e14c4af844bfb69b90bef5da20
+          path: .sac-snapshots/lhs
+          persist-credentials: false
+      - name: Verify source revision and fixed import entrypoints
+        shell: bash
+        run: |
+          test "$(git -C .sac-snapshots/lhs rev-parse HEAD)" = 'db639a117024b2e14c4af844bfb69b90bef5da20'
+          test "$(git -C .sac-snapshots/lhs hash-object games/lan_house_simulator/frontend-angular/src/main.ts)" = '0b3411c903ebfeddb021cf4afa69fe5389d4637d'
+          test "$(git -C .sac-snapshots/lhs hash-object games/lan_house_simulator/frontend-angular/src/site-rewrite/account.ts)" = '73b7159e422338eb4f51583ff6b8fa37fa0e94cf'
+      - name: Install trusted TypeScript from Data Library
+        run: npm ci --prefix packages/angular-postcompiler/smoke --ignore-scripts --no-audit --no-fund
+      - name: Run bounded unit and negative tests
+        run: |
+          node --check packages/angular-precompiler/src/runtime-external-evidence.mjs
+          node --check scripts/sac_lhs_dynamic_build_evidence.mjs
+          node --test tests/sac_lhs_runtime_external_evidence.test.mjs
+      - name: Install LHS build dependencies without package lifecycle scripts
+        run: |
+          npm ci --prefix .sac-snapshots/lhs/games/lan_house_simulator --ignore-scripts --no-audit --no-fund
+          npm ci --prefix .sac-snapshots/lhs/games/lan_house_simulator/frontend-angular --ignore-scripts --no-audit --no-fund
+      - name: Build isolated Angular institutional site and native game
+        working-directory: .sac-snapshots/lhs/games/lan_house_simulator
+        env:
+          CI: 'true'
+        run: npm run build:site:clean
+      - name: Inspect emitted Angular chunks and shipped native JS without executing game
+        shell: bash
+        run: |
+          node scripts/sac_lhs_dynamic_build_evidence.mjs > "$RUNNER_TEMP/sac-lhs-dynamic-evidence.json"
+          cat "$RUNNER_TEMP/sac-lhs-dynamic-evidence.json"
+      - name: Upload sanitized evidence only
+        uses: actions/upload-artifact@v4
+        with:
+          name: sac-lhs-dynamic-runtime-build-evidence
+          path: ${{ runner.temp }}/sac-lhs-dynamic-evidence.json
+          if-no-files-found: error
+          retention-days: 14
