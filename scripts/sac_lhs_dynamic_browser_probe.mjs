@@ -115,6 +115,67 @@ async function checkTarget(url){
 }
 
 /** Reloads are independent navigations: modules must load again over HTTP. */
+/** Interaction smoke: only presentational buttons plus creating an isolated local test save. */
+async function exerciseMobileControls(page,phase,width){
+  await page.waitForFunction(()=>document.documentElement.dataset.gameReady==='true',
+    null,{timeout:20000});
+  const chapters=page.locator('#react-menu-tour');
+  await chapters.locator('#react-tab-historia').tap({timeout:12000});
+  assert.equal(await chapters.locator('#react-tab-historia').getAttribute('aria-selected'),
+    'true','sac-touch-tour-state-not-updated');
+  assert.match(await chapters.locator('#react-chapter-content').innerText(),
+    /internet tem uma história/i,'sac-touch-tour-content-did-not-update');
+  await chapters.locator('#react-tab-abrir').tap({timeout:12000});
+  assert.equal(await chapters.locator('#react-tab-abrir').getAttribute('aria-selected'),
+    'true','sac-touch-tour-did-not-reset');
+
+  const options=page.locator('#menu-options');
+  await options.tap({timeout:12000});
+  assert.equal(await options.getAttribute('aria-expanded'),'true',
+    'sac-touch-options-did-not-expand');
+  assert.equal(await page.locator('#menu-settings').isVisible(),true,
+    'sac-touch-settings-panel-not-visible');
+  await options.tap({timeout:12000});
+  assert.equal(await options.getAttribute('aria-expanded'),'false',
+    'sac-touch-options-did-not-collapse');
+  assert.equal(await page.locator('#menu-settings').isVisible(),false,
+    'sac-touch-settings-panel-not-hidden');
+
+  const start=phase==='initial'?'#menu-new':'#menu-continue';
+  const playButton=page.locator(start);
+  assert.equal(await playButton.isEnabled(),true,
+    'sac-touch-save-missing-or-start-button-disabled');
+  await playButton.tap({timeout:12000});
+  await page.waitForFunction(()=>document.getElementById('game-app')?.hidden===false
+    && document.getElementById('start-screen')?.hidden===true,
+    null,{timeout:15000});
+  const zoom=page.locator('#scene-zoom');
+  const readZoom=()=>zoom.evaluate(el=>String(el.value??el.textContent??'').trim());
+  const prior=await readZoom();
+  await page.locator('#scene-zoom-in').tap({timeout:12000});
+  const increased=await readZoom();
+  const numeric=v=>Number.parseInt(v.replace('%',''),10);
+  assert.ok(Number.isFinite(numeric(prior))&&numeric(increased)>numeric(prior),
+    'sac-touch-zoom-did-not-increase');
+  await page.locator('#scene-zoom-out').tap({timeout:12000});
+  const decreased=await readZoom();
+  assert.ok(numeric(decreased)<numeric(increased),'sac-touch-zoom-did-not-decrease');
+  await page.locator('#scene-fit').tap({timeout:12000});
+  const fitted=await readZoom();
+  assert.ok(Number.isFinite(numeric(fitted))&&numeric(fitted)>=60&&numeric(fitted)<=300,
+    'sac-touch-fit-invalid-zoom');
+
+  // Returning to the menu is safe and exercises the native control binding.
+  await page.locator('#open-menu').tap({timeout:12000});
+  await page.waitForFunction(()=>document.getElementById('start-screen')?.hidden===false
+    && document.getElementById('game-app')?.hidden===true,
+    null,{timeout:15000});
+  const result={phase,viewport_width:width,tab_switch:true,options_open_close:true,
+    game_started:phase==='initial',saved_game_continued:phase==='reload',
+    zoom_in_and_out:true,fit_scene:true,returned_to_menu:true};
+  return result;
+}
+
 async function runMobileReloads(){
   const widths=[360,414], outcome=[];
   for(const width of widths){
@@ -123,7 +184,7 @@ async function runMobileReloads(){
       const page=await ctx.newPage();
       const pageErrors=[];
       page.on('pageerror',error=>pageErrors.push(error.name));
-      const cycles=[];
+      const cycles=[], controls=[];
       for(const phase of ['initial','reload']){
         const canvasRequest=page.waitForResponse(
           res=>new URL(res.url()).pathname==='/game/js/main.js',{timeout:20000});
@@ -155,6 +216,8 @@ async function runMobileReloads(){
           horizontal_overflow_px:visible.horizontalOverflow,
           pageerror_count:pageErrors.length
         });
+        controls.push(await exerciseMobileControls(page,phase,width));
+        assert.deepEqual(pageErrors,[],'sac-mobile-controls-triggered-pageerror');
       }
       // The save module is imported by an isolated page; no account or
       // payment flow is activated, and parsing a real save is out of scope.
@@ -184,7 +247,7 @@ async function runMobileReloads(){
       }
       await probe.close();
       outcome.push({viewport_width:width,viewport_height:width===360?800:896,
-        game:cycles,save:saveCycles,
+        game:cycles,save:saveCycles,touch_controls:controls,
         no_page_errors:pageErrors.length===0});
     } finally {await ctx.close();}
   }

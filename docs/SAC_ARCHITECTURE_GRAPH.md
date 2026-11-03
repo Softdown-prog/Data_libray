@@ -87,3 +87,11 @@ O mesmo script de teste Chromium agora executa, além da prova desktop e das tr�
 Em documento local de prova separado, o módulo `game/js/sim/saveTransfer.js` também é importado antes e depois de um reload usando URLs de consulta distintas para evitar reutilizar a cache de módulos. O teste valida somente exportação, HTTP, MIME e hash; não executa o validador em salvamentos reais, não clica em botões de conta ou de pagamento e não testa interações do jogo. Os resultados para as quatro navegações de jogo e quatro imports do validador constam do JSON `mobile_reload_evidence` no relatório do Actions.
 
 Esta é uma emulação mobile no Chromium desktop, não um teste físico no Android; pull-to-refresh do sistema, gestos reais, desempenho e Cloudflare em produção permanecem fora do escopo. A autorização de deploy permanece `false`.
+
+### Toque real em controles do jogo após recarregar (microetapa isolada)
+
+O probe de Chromium emula viewport com toque de 360 e 414 px e, para cada tamanho, executa **abertura e reload** do `/game/`. Após confirmar o bootstrap Angular, espera `data-game-ready=true`, toca em duas abas informativas Angular do menu (e exige `aria-selected` e conteúdo atualizado) e abre/fecha as opções nativas (e exige visibilidade + `aria-expanded`).
+
+Num contexto de browser temporário e sem dados de usuário, o probe inicia somente uma nova campanha local de teste. Após o recarregamento, exige a opção **Continuar partida** e reabre o jogo. Em ambos os ciclos toca nos controles de zoom +, zoom − e **Ver tudo**, verificando que a porcentagem realmente mudou. Em seguida toca em **Menu** e verifica que a tela de início voltou. A execução não toca em compra, depósito, estoque, preços, conta, doação, importação/exportação ou reset destrutivo.
+
+Erros JavaScript causados pelos toques falham o CI; o resultado sanitizado por viewport fica em `mobile_reload_evidence[].touch_controls`. Os toques são efetivamente sintetizados pelo Playwright com `hasTouch=true`, não são chamadas diretas a `.click()` ou despacho artificial de evento DOM. Não se afirma teste em dispositivo Android real, acesso a armazenamento externo, economia, cloud ou multiplayer. `deployment_authorized=false` permanece obrigatório.
