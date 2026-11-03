@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {makeLhsObservationReport} from '../packages/angular-core/src/lhs-observation-report.mjs';
+import {makeAuthenticatedLhsObservation} from '../packages/angular-core/src/lhs-authenticated-observation.mjs';
 
 const SHA='db639a117024b2e14c4af844bfb69b90bef5da20';
 const A='a'.repeat(64),B='b'.repeat(64);
@@ -132,4 +133,31 @@ test('source, module name and digest cannot silently change',()=>{
   assert.throws(()=>makeLhsObservationReport(x),/artifact-binding-invalid/);
   const y=fixture();y.artifactEvidence.entries[0].target_sha256='bad';
   assert.throws(()=>makeLhsObservationReport(y),/artifact-binding-invalid/);
+});
+
+
+test('authenticated adapter refuses absent receipt even with observed Chromium',async()=>{
+  const x=fixture();
+  await assert.rejects(
+    makeAuthenticatedLhsObservation({...x,profile:{},resources:{},key:Buffer.alloc(32,4)}),
+    /sac-lhs-authenticated-build-binding-invalid/
+  );
+});
+test('forged receipt without host HMAC never becomes authenticated evidence',async()=>{
+  const x=fixture();
+  const receipt={data:{source_sha_claim:SHA,build_status:'pass',
+    artifact_digest:'f'.repeat(64)},authentication:'0'.repeat(64)};
+  await assert.rejects(
+    makeAuthenticatedLhsObservation({...x,profile:null,resources:null,
+      receipt,key:Buffer.alloc(32,4)}),
+    /sac-lhs-authenticated-build-binding-invalid/
+  );
+});
+test('tampered source evidence fails before a receipt is considered',async()=>{
+  const x=fixture();x.browserEvidence.source_commit='0'.repeat(40);
+  await assert.rejects(
+    makeAuthenticatedLhsObservation({...x,profile:null,resources:null,
+      receipt:{data:{}},key:Buffer.alloc(32,8)}),
+    /sac-core-observation-source-mismatch/
+  );
 });
