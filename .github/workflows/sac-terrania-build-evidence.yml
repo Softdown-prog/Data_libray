@@ -1,0 +1,74 @@
+name: SAC-PRE002 Terrania Pinned Build Evidence (isolated)
+on:
+  push:
+    branches: ['feat/sac-pre002-terrania-build-evidence-20261103']
+    paths:
+      - 'scripts/sac_terrania_generated_build_evidence.mjs'
+      - 'docs/SAC_ARCHITECTURE_GRAPH.md'
+      - '.github/workflows/sac-terrania-build-evidence.yml'
+  pull_request:
+    paths:
+      - 'scripts/sac_terrania_generated_build_evidence.mjs'
+      - 'docs/SAC_ARCHITECTURE_GRAPH.md'
+      - '.github/workflows/sac-terrania-build-evidence.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  terrania-build-evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout Data Library (read-only)
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Checkout pinned Terrania commit (isolated build input)
+        uses: actions/checkout@v4
+        with:
+          repository: Softdown-prog/Terrania
+          ref: 6ce58c1687ad21c1d3e01dc87061751ca07a09f1
+          path: .sac-snapshots/terrania
+          persist-credentials: false
+      - name: Verify immutable revision and exact generator before execution
+        shell: bash
+        run: |
+          test "$(git -C .sac-snapshots/terrania rev-parse HEAD)" = '6ce58c1687ad21c1d3e01dc87061751ca07a09f1'
+          test "$(git -C .sac-snapshots/terrania hash-object scripts/write-runtime-config.mjs)" = '036b8e812fb0d7c423d270c64c7fcca284fb04a8'
+          test ! -e .sac-snapshots/terrania/src/app/runtime-config.ts
+          test ! -e .sac-snapshots/terrania/.env
+          test ! -e .sac-snapshots/terrania/.env.local
+      - name: Install only Data Library trusted TypeScript fixture
+        run: npm ci --prefix packages/angular-postcompiler/smoke --ignore-scripts --no-audit --no-fund
+      - name: Install Terrania pinned dependencies without lifecycle scripts
+        run: npm ci --prefix .sac-snapshots/terrania --ignore-scripts --no-audit --no-fund
+      - name: Typecheck pinned Angular with controlled empty runtime settings
+        working-directory: .sac-snapshots/terrania
+        env:
+          VITE_MULTIPLAYER_URL: ''
+          VITE_PRESENCE_URL: ''
+          CI: 'true'
+        run: npm run typecheck
+      - name: Build pinned Angular (no deployment or VPS)
+        working-directory: .sac-snapshots/terrania
+        env:
+          VITE_MULTIPLAYER_URL: ''
+          VITE_PRESENCE_URL: ''
+          CI: 'true'
+        run: npm run build
+      - name: Reconcile generated source with bounded SAC-PRE002 graph
+        shell: bash
+        run: |
+          node --check scripts/sac_terrania_generated_build_evidence.mjs
+          node scripts/sac_terrania_generated_build_evidence.mjs > "$RUNNER_TEMP/sac-terrania-build-evidence.json"
+          cat "$RUNNER_TEMP/sac-terrania-build-evidence.json"
+      - name: Publish sanitized evidence, not source or build outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: sac-terrania-pinned-generated-build-evidence
+          path: ${{ runner.temp }}/sac-terrania-build-evidence.json
+          if-no-files-found: error
+          retention-days: 14

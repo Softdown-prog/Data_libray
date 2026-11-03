@@ -47,3 +47,15 @@ A ferramenta `scripts/sac_architecture_real_snapshot.mjs` verifica limites de ar
 O resultado do CI pode ser verde mesmo quando o relatório do projeto estiver `fail` ou `unverified`: o CI atesta que o **auditor executou corretamente** e reportou a evidência, não que o projeto seja livre de problemas. Sem políticas arquiteturais revisadas por projeto, a prova real foca o grafo de imports/ciclos e não julga violações de camadas. `pass` aplica-se apenas às fontes TS enumeradas, não ao HTML, templates, backend, testes end-to-end ou publicação.
 
 Os SHA dos snapshots são constantes versionadas; atualizar projetos exige uma microetapa explícita, não um fetch automático da `main` durante cada teste. Nenhuma alteração é feita em `main`, serviços, VPS ou projetos externos.
+
+## Evidência do build Angular real — Terrania (experimento isolado)
+
+O workflow `sac-terrania-build-evidence.yml` é separado do auditor estático. Somente ele executa uma cópia descartável de um commit **fixado** do Terrania (`6ce58c1687ad21c1d3e01dc87061751ca07a09f1`) no GitHub Actions, sem segredos, sem tokens persistentes no checkout e sem qualquer deploy ou uso da VPS. O código do SAC Core, o Worker e a `main` dos demais projetos não são alterados.
+
+Antes de executar o gerador, o workflow confere o SHA do commit e o Git blob de `scripts/write-runtime-config.mjs` (`036b8e812fb0d7c423d270c64c7fcca284fb04a8`), verifica a ausência de `.env`/`.env.local` e instala dependências com `npm ci --ignore-scripts`. As variáveis públicas `VITE_MULTIPLAYER_URL` e `VITE_PRESENCE_URL` são passadas vazias. Em seguida executa `npm run typecheck` e `npm run build`, ambos na área temporária do runner, não no repositório de origem. A evidência só é gerada se o compilador e o build terminarem com código 0.
+
+O script `scripts/sac_terrania_generated_build_evidence.mjs` lê a saída **efetivamente gerada** `src/app/runtime-config.ts`, verifica conteúdo reproduzível vazio, revisões e limites de arquivos, e executa o mesmo analisador SAC-PRE002 de duas formas: com o arquivo omitido (48 arquivos TS, duas dependências `generated-source-not-captured`) e incluído (49 arquivos TS, arestas para o módulo efetivo). A comparação é determinística e não interpreta o arquivo gerado como certificado de deploy ou de execução do jogo.
+
+O artefato JSON publicado contém somente hashes, os caminhos fixados, status e contagens; nenhum conteúdo de variáveis, código-fonte, arquivos `.env` ou artefatos compilados é incluído no relatório. O próprio log do job contém a evidência da compilação e do build reais. A segurança do ambiente depende da revisão e fixação do código executado; não se afirma que executar um build de terceiros é seguro em qualquer contexto.
+
+**Limite:** essa evidência cobre exclusivamente a geração de `runtime-config.ts` nesse snapshot do Terrania. Os dois imports dinâmicos do LHS continuam `unverified` até existir evidência de bundling verificável e vinculada ao commit exato, sem executar o jogo ou o sistema de pagamentos. O fluxo observacional não é integrado ao Worker e não autoriza deploy.
