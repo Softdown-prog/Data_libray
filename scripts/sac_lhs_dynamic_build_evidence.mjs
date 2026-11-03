@@ -21,7 +21,8 @@ const output=path.join(project,'out','site-clean-angular');
 const pinned='db639a117024b2e14c4af844bfb69b90bef5da20';
 const MAX_FILE=3*1024*1024;
 const allowedRelative = x => typeof x==='string' && x.length<=160 &&
-  /^[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_.-]+)*$/.test(x) && !x.split('/').includes('..');
+  /^(?:[a-zA-Z0-9_-]+\/)*[a-zA-Z0-9_-][a-zA-Z0-9_.-]*$/.test(x) &&
+  !x.split('/').some(part=>part==='.'||part==='..');
 async function readBounded(base,relative){
   assert.ok(allowedRelative(relative),'sac-invalid-asset-path');
   const abs=path.join(base,relative);
