@@ -121,13 +121,15 @@ async function exerciseMobileControls(page,phase,width){
     null,{timeout:20000});
   const chapters=page.locator('#react-menu-tour');
   await chapters.locator('#react-tab-historia').tap({timeout:12000});
-  assert.equal(await chapters.locator('#react-tab-historia').getAttribute('aria-selected'),
-    'true','sac-touch-tour-state-not-updated');
+  await page.waitForFunction(
+    ()=>document.getElementById('react-tab-historia')?.getAttribute('aria-selected')==='true',
+    null,{timeout:8000});
   assert.match(await chapters.locator('#react-chapter-content').innerText(),
     /internet tem uma história/i,'sac-touch-tour-content-did-not-update');
   await chapters.locator('#react-tab-abrir').tap({timeout:12000});
-  assert.equal(await chapters.locator('#react-tab-abrir').getAttribute('aria-selected'),
-    'true','sac-touch-tour-did-not-reset');
+  await page.waitForFunction(
+    ()=>document.getElementById('react-tab-abrir')?.getAttribute('aria-selected')==='true',
+    null,{timeout:8000});
 
   const options=page.locator('#menu-options');
   await options.tap({timeout:12000});
