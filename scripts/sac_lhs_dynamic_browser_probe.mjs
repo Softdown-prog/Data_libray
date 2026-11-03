@@ -130,15 +130,31 @@ async function probeSwipeDoesNotSelect(page){
       throw new Error('sac-swipe-viewport-or-canvas-missing');
     v.scrollLeft=0;
     const rect=v.getBoundingClientRect(),c=canvas.getBoundingClientRect();
-    const x=Math.min(rect.right-25,Math.max(rect.left+30,rect.left+rect.width*.77));
-    const y=Math.max(rect.top+20,Math.min(rect.bottom-25,(Math.max(rect.top,c.top)+Math.min(rect.bottom,c.bottom))/2));
-    const target=document.elementFromPoint(x,y);
+    const region={left:Math.max(rect.left,c.left,0)+12,
+      right:Math.min(rect.right,c.right,innerWidth)-12,
+      top:Math.max(rect.top,c.top,0)+12,
+      bottom:Math.min(rect.bottom,c.bottom,innerHeight)-12};
+    const samples=[];
+    for(const fy of [.25,.5,.75]){
+      for(const fx of [.75,.6,.45,.3]){
+        const x=region.left+(region.right-region.left)*fx;
+        const y=region.top+(region.bottom-region.top)*fy;
+        const target=document.elementFromPoint(x,y);
+        samples.push({x,y,tag:target?.tagName??null,id:target?.id??null});
+      }
+    }
+    const chosen=samples.find(q=>document.elementFromPoint(q.x,q.y)===canvas);
     const evidence={clicks:0};
     canvas.addEventListener('click',()=>{evidence.clicks++;},{capture:true});
     window.__sacSwipeEvidence=evidence;
-    return {x,y,scroll:v.scrollLeft,maxScroll:v.scrollWidth-v.clientWidth,
-      pointInsideCanvas:target===canvas};
+    return {x:chosen?.x??0,y:chosen?.y??0,scroll:v.scrollLeft,
+      maxScroll:v.scrollWidth-v.clientWidth,pointInsideCanvas:!!chosen,
+      diagnostic:chosen?null:{viewport:{top:rect.top,bottom:rect.bottom,left:rect.left,right:rect.right},
+        canvas:{top:c.top,bottom:c.bottom,left:c.left,right:c.right},
+        region,samples}};
+
   });
+  if(!before.pointInsideCanvas)console.error('SAC_SWIPE_GEOMETRY',JSON.stringify(before.diagnostic));
   assert.equal(before.pointInsideCanvas,true,'sac-swipe-start-not-on-game-canvas');
   assert.ok(before.maxScroll>60,'sac-swipe-canvas-has-no-horizontal-overflow');
   const distance=Math.min(135,Math.max(65,before.x-45));
