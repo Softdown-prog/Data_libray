@@ -79,3 +79,11 @@ Verificações positivas: HTTP 200, MIME JavaScript, CSP e SHA-256 dos dois mód
 Verificações negativas: um 404, uma resposta com MIME `text/plain` e uma CSP `script-src 'none'` devem causar rejeição de `import()` no navegador. Sem essas rejeições, o workflow falha. O relatório JSON sanitizado expõe apenas SHA e status fixos, contagens e resultados booleanos. O jogo pode inicializar seu motor no contexto de teste, mas não recebe comandos de gameplay; isso não equivale a validação funcional nem aprovação de deploy.
 
 **Escopo de evidência:** resultados positivos provam o carregamento dos módulos no Chromium com um servidor estático local representativo. Não provam Cloudflare Pages em produção, conectividade externa, login, pagamento, funcionamento do validador com um arquivo real ou todas as interações do jogo. O estado global de conformidade não é automaticamente elevado a `pass`; `deployment_authorized=false` permanece obrigatório.
+
+### Recarregamento em viewport Android (360 e 414 px)
+
+O mesmo script de teste Chromium agora executa, além da prova desktop e das três negativas, dois contextos móveis independentes (`isMobile`, `hasTouch`, `deviceScaleFactor=2`) de 360×800 e 414×896 pixels. Em cada contexto, `/game/` abre e recarrega uma vez, exigindo HTTP 200, novo carregamento de `game/js/main.js` com MIME JavaScript e SHA-256 fixado, inicialização do Angular e nenhum `pageerror`. O teste verifica `window.innerWidth` e o touch emulado; `horizontal_overflow_px` é apenas uma medida diagnóstica e não é certificação de responsividade.
+
+Em documento local de prova separado, o módulo `game/js/sim/saveTransfer.js` também é importado antes e depois de um reload usando URLs de consulta distintas para evitar reutilizar a cache de módulos. O teste valida somente exportação, HTTP, MIME e hash; não executa o validador em salvamentos reais, não clica em botões de conta ou de pagamento e não testa interações do jogo. Os resultados para as quatro navegações de jogo e quatro imports do validador constam do JSON `mobile_reload_evidence` no relatório do Actions.
+
+Esta é uma emulação mobile no Chromium desktop, não um teste físico no Android; pull-to-refresh do sistema, gestos reais, desempenho e Cloudflare em produção permanecem fora do escopo. A autorização de deploy permanece `false`.

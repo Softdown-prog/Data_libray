@@ -70,7 +70,7 @@ jobs:
         run: |
           npm install --prefix packages/angular-guardian --ignore-scripts --no-audit --no-fund
           cd packages/angular-guardian && npx --no-install playwright install --with-deps chromium
-      - name: Verify localhost HTTP, JavaScript MIME, CSP and real Chromium imports
+      - name: Verify Chromium dynamic imports, Android-size viewports and reloads
         shell: bash
         run: |
           node --check scripts/sac_lhs_dynamic_browser_probe.mjs

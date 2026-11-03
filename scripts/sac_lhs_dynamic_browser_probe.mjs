@@ -83,9 +83,13 @@ const address=server.address();
 const origin='http://127.0.0.1:'+address.port;
 const browser=await chromium.launch({headless:true,args:['--disable-background-networking']});
 let blockedExternal=0;
-async function isolated(){
+async function isolated(mobileWidth=null){
+  const phone=mobileWidth!==null;
   const ctx=await browser.newContext({serviceWorkers:'block',acceptDownloads:false,
-    permissions:[],viewport:{width:1280,height:720}});
+    permissions:[],viewport:phone
+      ? {width:mobileWidth,height:mobileWidth===360?800:896}
+      : {width:1280,height:720},
+    ...(phone?{isMobile:true,hasTouch:true,deviceScaleFactor:2}:{})});
   await ctx.route('**/*',route=>{
     const requestUrl=route.request().url();
     if (/^https?:\/\//.test(requestUrl) && new URL(requestUrl).origin!==origin) {
@@ -109,6 +113,84 @@ async function checkTarget(url){
     return {status:response.status(),javascript_mime:true,csp_header:true,sha256:tracked[url]};
   } finally {await ctx.close();}
 }
+
+/** Reloads are independent navigations: modules must load again over HTTP. */
+async function runMobileReloads(){
+  const widths=[360,414], outcome=[];
+  for(const width of widths){
+    const ctx=await isolated(width);
+    try{
+      const page=await ctx.newPage();
+      const pageErrors=[];
+      page.on('pageerror',error=>pageErrors.push(error.name));
+      const cycles=[];
+      for(const phase of ['initial','reload']){
+        const canvasRequest=page.waitForResponse(
+          res=>new URL(res.url()).pathname==='/game/js/main.js',{timeout:20000});
+        const navigation=phase==='initial'
+          ? await page.goto(origin+'/game/',{waitUntil:'domcontentloaded',timeout:20000})
+          : await page.reload({waitUntil:'domcontentloaded',timeout:20000});
+        assert.equal(navigation?.status(),200,'sac-mobile-game-navigation-failed');
+        const response=await canvasRequest;
+        assert.equal(response.status(),200,'sac-mobile-canvas-import-404');
+        assert.match(response.headers()['content-type']??'',/^text\/javascript/,
+          'sac-mobile-canvas-import-mime-error');
+        assert.equal(sha(await response.body()),tracked['/game/js/main.js'],
+          'sac-mobile-canvas-module-content-changed');
+        await page.waitForFunction(
+          ()=>document.documentElement.dataset['uiFramework']==='angular',
+          null,{timeout:20000});
+        const visible=await page.evaluate(()=>({
+          width:window.innerWidth,
+          hasTouch:navigator.maxTouchPoints>0,
+          horizontalOverflow:Math.max(0,document.documentElement.scrollWidth-window.innerWidth)
+        }));
+        assert.equal(visible.width,width,'sac-mobile-viewport-not-respected');
+        assert.equal(visible.hasTouch,true,'sac-mobile-touch-not-emulated');
+        await page.waitForTimeout(350);
+        assert.deepEqual(pageErrors,[],'sac-mobile-game-pageerror');
+        cycles.push({
+          phase,navigation_status:navigation.status(),canvas_import_status:response.status(),
+          angular_bootstrap:true,touch_emulation:true,
+          horizontal_overflow_px:visible.horizontalOverflow,
+          pageerror_count:pageErrors.length
+        });
+      }
+      // The save module is imported by an isolated page; no account or
+      // payment flow is activated, and parsing a real save is out of scope.
+      const probe=await ctx.newPage();
+      const saveCycles=[];
+      for(const phase of ['initial','reload']){
+        const navigation=phase==='initial'
+          ? await probe.goto(origin+probePath,{waitUntil:'domcontentloaded',timeout:20000})
+          : await probe.reload({waitUntil:'domcontentloaded',timeout:20000});
+        assert.equal(navigation?.status(),200,'sac-mobile-probe-navigation-failed');
+        const moduleURL='/game/js/sim/saveTransfer.js?__sac_mobile='+width+'&phase='+phase;
+        const saveResponse=probe.waitForResponse(
+          res=>res.url().includes('__sac_mobile='+width) &&
+            new URL(res.url()).pathname==='/game/js/sim/saveTransfer.js',{timeout:20000});
+        const exportType=await probe.evaluate(async url=>{
+          const imported=await import(url);
+          return typeof imported.parseImportedSave;
+        },moduleURL);
+        assert.equal(exportType,'function','sac-mobile-save-module-export-missing');
+        const response=await saveResponse;
+        assert.equal(response.status(),200,'sac-mobile-save-module-404');
+        assert.match(response.headers()['content-type']??'',/^text\/javascript/,
+          'sac-mobile-save-module-mime-error');
+        assert.equal(sha(await response.body()),tracked['/game/js/sim/saveTransfer.js'],
+          'sac-mobile-save-module-content-changed');
+        saveCycles.push({phase,import_executed:true,export_detected:true,status:response.status()});
+      }
+      await probe.close();
+      outcome.push({viewport_width:width,viewport_height:width===360?800:896,
+        game:cycles,save:saveCycles,
+        no_page_errors:pageErrors.length===0});
+    } finally {await ctx.close();}
+  }
+  return outcome;
+}
+
 let report;
 try {
   const canvasHttp=await checkTarget('/game/js/main.js');
@@ -177,11 +259,13 @@ try {
   const negativeTests={missing_module_rejected:await negative('missing'),
     incorrect_mime_rejected:await negative('mime'),
     restrictive_csp_rejected:await negative('csp')};
+  const mobileReloads=await runMobileReloads();
   report={schema_version:1,rule_id:'SAC-PRE002-EXT-BROWSER',
     source_commit:pinned,scope:'isolated-loopback-browser-dynamic-imports',
     browser:'chromium',server:'127.0.0.1',game,
     save:{dynamic_import_executed:true,export_detected:true,...saveHttp},
     negative_tests:negativeTests,
+    mobile_reload_evidence:mobileReloads,
     external_network_blocked_count:blockedExternal,
     browser_module_load_verified:true,gameplay_verified:false,
     authentication_attempted:false,payment_attempted:false,
