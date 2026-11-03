@@ -1,0 +1,41 @@
+name: SAC-PRE002 Angular import graph (isolated)
+on:
+  pull_request:
+    paths:
+      - 'packages/angular-precompiler/src/dependency-graph.mjs'
+      - 'tests/sac_angular_dependency_graph.test.mjs'
+      - 'docs/SAC_ARCHITECTURE_GRAPH.md'
+      - '.github/workflows/sac-architecture-graph.yml'
+  push:
+    branches: ['feat/sac-angular-architecture-graph-20261103']
+    paths:
+      - 'packages/angular-precompiler/src/dependency-graph.mjs'
+      - 'tests/sac_angular_dependency_graph.test.mjs'
+      - 'docs/SAC_ARCHITECTURE_GRAPH.md'
+      - '.github/workflows/sac-architecture-graph.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  graph:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install trusted TypeScript fixture (no lifecycle scripts)
+        run: npm ci --prefix packages/angular-postcompiler/smoke --ignore-scripts --no-audit --no-fund
+      - name: Install SAC Core dependencies for existing precompiler tests
+        run: npm ci --prefix packages/angular-core --ignore-scripts --no-audit --no-fund
+      - name: Install existing precompiler dependency for regression suite
+        run: npm ci --prefix packages/angular-precompiler --ignore-scripts --no-audit --no-fund
+      - name: Validate syntax and AST graph contracts
+        run: |
+          node --check packages/angular-precompiler/src/dependency-graph.mjs
+          node --test tests/sac_angular_dependency_graph.test.mjs
+      - name: Preserve existing precompiler behavior
+        run: npm test --prefix packages/angular-precompiler

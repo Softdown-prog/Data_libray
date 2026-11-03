@@ -1,0 +1,70 @@
+name: SAC-PRE002 Pinned Real Angular Snapshots
+on:
+  push:
+    branches: ['feat/sac-angular-architecture-graph-20261103']
+    paths:
+      - 'scripts/sac_architecture_real_snapshot.mjs'
+      - 'docs/SAC_ARCHITECTURE_GRAPH.md'
+      - '.github/workflows/sac-architecture-real-snapshots.yml'
+  pull_request:
+    paths:
+      - 'scripts/sac_architecture_real_snapshot.mjs'
+      - 'docs/SAC_ARCHITECTURE_GRAPH.md'
+      - '.github/workflows/sac-architecture-real-snapshots.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-snapshots:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout SAC source only
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Checkout pinned Painel snapshot (read-only)
+        uses: actions/checkout@v4
+        with:
+          repository: Softdown-prog/Painel
+          ref: e610075418f1ef44256fd5d4778f811517f69390
+          path: .sac-snapshots/painel
+          persist-credentials: false
+      - name: Checkout pinned Lan House Simulator snapshot (read-only)
+        uses: actions/checkout@v4
+        with:
+          repository: Softdown-prog/A7-forge-2D-
+          ref: db639a117024b2e14c4af844bfb69b90bef5da20
+          path: .sac-snapshots/lhs
+          persist-credentials: false
+      - name: Checkout pinned Terrania snapshot (read-only)
+        uses: actions/checkout@v4
+        with:
+          repository: Softdown-prog/Terrania
+          ref: 6ce58c1687ad21c1d3e01dc87061751ca07a09f1
+          path: .sac-snapshots/terrania
+          persist-credentials: false
+      - name: Verify exact snapshot revisions
+        shell: bash
+        run: |
+          test "$(git -C .sac-snapshots/painel rev-parse HEAD)" = 'e610075418f1ef44256fd5d4778f811517f69390'
+          test "$(git -C .sac-snapshots/lhs rev-parse HEAD)" = 'db639a117024b2e14c4af844bfb69b90bef5da20'
+          test "$(git -C .sac-snapshots/terrania rev-parse HEAD)" = '6ce58c1687ad21c1d3e01dc87061751ca07a09f1'
+      - name: Install only the trusted Data Library TypeScript fixture
+        run: npm ci --prefix packages/angular-postcompiler/smoke --ignore-scripts --no-audit --no-fund
+      - name: Analyze actual source snapshots without executing them
+        shell: bash
+        run: |
+          node --check scripts/sac_architecture_real_snapshot.mjs
+          node scripts/sac_architecture_real_snapshot.mjs > "$RUNNER_TEMP/sac-architecture-real-snapshot.json"
+          cat "$RUNNER_TEMP/sac-architecture-real-snapshot.json"
+      - name: Publish bounded source-free evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: sac-pre002-real-snapshot-evidence
+          path: ${{ runner.temp }}/sac-architecture-real-snapshot.json
+          if-no-files-found: error
+          retention-days: 14
