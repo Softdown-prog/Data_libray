@@ -98,3 +98,138 @@ test('no logs, source code or free-form error text appear in reports', () => {
   assert.equal(JSON.stringify(result).includes(token), false);
   assert.equal(result.root_cause_verified, false);
 });
+
+
+const trustedConfig = (compilerOptions, extra = {}) => ({
+  path: 'tsconfig.json', text: JSON.stringify({compilerOptions, ...extra})
+});
+const checkConfig = (files, config, selectedPolicy = policy) =>
+  analyzeImportGraph({files, policy: selectedPolicy, typescript: ts, tsconfig: config});
+
+test('official TS resolver maps paths aliases to enumerated sources and detects inverted layer', () => {
+  const config = trustedConfig({baseUrl: '.', paths: {'@domain/*': ['src/domain/*'], '@ui/*': ['src/ui/*']}, moduleResolution: 'bundler', module:'preserve'});
+  const good = checkConfig([
+    file('src/ui/view.ts', "import {state} from '@domain/model'; export const result=state;"),
+    file('src/domain/model.ts', 'export const state = 1;')
+  ],config);
+  assert.equal(good.status, 'pass');
+  assert.deepEqual(good.edges, [{from:'src/ui/view.ts',to:'src/domain/model.ts',kind:'runtime'}]);
+  const bad = checkConfig([
+    file('src/domain/model.ts', "import {view} from '@ui/view'; export const model=view;"),
+    file('src/ui/view.ts', 'export const view=1;')
+  ],config);
+  assert.equal(bad.status,'fail');
+  assert.ok(bad.findings.some(f => f.code==='forbidden-layer-import'));
+});
+
+test('official resolver handles alias-to-index and JSONC tsconfig with trailing commas', () => {
+  const config={path:'tsconfig.json',text:[
+    '{',
+    ' // trusted operator enumerated this config',
+    ' "compilerOptions": {',
+    '  "baseUrl": ".",',
+    '  "paths": {"@domain": ["src/domain/index.ts"],},',
+    '  "moduleResolution": "bundler", "module": "preserve",',
+    ' }',
+    '}'
+  ].join('\n')};
+  const output=checkConfig([
+    file('src/ui/view.ts',"import {value} from '@domain'; export const got=value;"),
+    file('src/domain/index.ts','export const value=2;')
+  ],config);
+  assert.equal(output.status,'pass');
+  assert.equal(output.edges[0].to,'src/domain/index.ts');
+});
+
+test('TypeScript baseUrl imports resolve via official resolver with only virtual files', () => {
+  const config=trustedConfig({baseUrl:'src',moduleResolution:'bundler',module:'preserve'});
+  const output=checkConfig([
+    file('src/ui/view.ts',"import {value} from 'domain/model'; export const view=value;"),
+    file('src/domain/model.ts','export const value=10;')
+  ],config);
+  assert.equal(output.status,'pass');
+  assert.deepEqual(output.edges,[{from:'src/ui/view.ts',to:'src/domain/model.ts',kind:'runtime'}]);
+});
+
+test('alias cycles count runtime but not pure type-only dependencies', () => {
+  const config=trustedConfig({baseUrl:'.',paths:{'@domain/*':['src/domain/*']},moduleResolution:'bundler',module:'preserve'});
+  const files=[
+    file('src/domain/a.ts',"import {b} from '@domain/b'; export const a=b;"),
+    file('src/domain/b.ts',"export {a} from '@domain/a'; export const b=2;")
+  ];
+  assert.equal(checkConfig(files,config).status,'fail');
+  const onlyTypes=[
+    file('src/domain/a.ts',"import type {B} from '@domain/b'; export type A={b:B};"),
+    file('src/domain/b.ts',"import type {A} from '@domain/a'; export type B={a:A};")
+  ];
+  const output=checkConfig(onlyTypes,config);
+  assert.equal(output.status,'pass');
+  assert.equal(output.edges.length,2);
+  assert.ok(output.edges.every(edge => edge.kind==='type'));
+});
+
+test('missing alias target cannot be hidden by external allowlist', () => {
+  const config=trustedConfig({baseUrl:'.',paths:{'@angular/*':['src/domain/*']},moduleResolution:'bundler',module:'preserve'});
+  const output=checkConfig([file('src/ui/view.ts',"import {value} from '@angular/missing';")],config);
+  assert.equal(output.status,'unverified');
+  assert.ok(output.findings.some(f=>f.code==='unresolved-tsconfig-alias'));
+});
+
+test('unsupported inherited tsconfig never claims that graph is complete', () => {
+  const config=trustedConfig({baseUrl:'.',paths:{'@domain/*':['src/domain/*']}},{extends:'./tsconfig.base.json'});
+  const result=checkConfig([file('src/ui/view.ts','export const view=1;')],config);
+  assert.equal(result.status,'unverified');
+  assert.deepEqual(result.findings,[{code:'unsupported-tsconfig-inheritance'}]);
+});
+
+test('unsupported or hostile config is conservatively unverified without secrets', () => {
+  for(const compilerOptions of [
+    {baseUrl:'../secret'},
+    {baseUrl:'.',paths:{'@secret/*':['../secret/*']}},
+    {baseUrl:'.',paths:{'@app/*':['src/**']}},
+    {moduleResolution:'invalid-TS-mode'},
+    {rootDirs:['src','other']}
+  ]){
+    const result=checkConfig([file('src/ui/view.ts','export const view=1;')],trustedConfig(compilerOptions));
+    assert.equal(result.status,'unverified');
+    assert.equal(result.deployment_authorized,false);
+  }
+  const malformed={path:'tsconfig.json',text:'{"compilerOptions": {"paths": "PRIVATE_SECRET"}}'};
+  assert.equal(JSON.stringify(checkConfig([file('src/ui/view.ts','')],malformed)).includes('PRIVATE_SECRET'),false);
+  assert.throws(()=>checkConfig([file('src/ui/view.ts','')],{path:'../tsconfig.json',text:'{}'}),/invalid-input/);
+  assert.throws(()=>checkConfig([file('src/ui/view.ts','')],{path:'tsconfig.json',text:'x'.repeat(16385)}),/invalid-input/);
+});
+
+test('relative .js TypeScript imports remain recognized with tsconfig enabled', () => {
+  const config=trustedConfig({moduleResolution:'bundler',module:'preserve'});
+  const output=checkConfig([
+    file('src/ui/view.ts',"import {state} from '../domain/model.js'; export const view=state;"),
+    file('src/domain/model.ts','export const state=1;')
+  ],config);
+  assert.equal(output.status,'pass');
+  assert.equal(output.edges[0].to,'src/domain/model.ts');
+});
+
+test('paths work without baseUrl using tsconfig directory as the virtual root', () => {
+  const config=trustedConfig({paths:{'@domain/*':['./src/domain/*']},moduleResolution:'bundler',module:'preserve'});
+  const output=checkConfig([
+    file('src/domain/a.ts','export const state=10;'),
+    file('src/ui/main.ts',"import {state} from '@domain/a'; export const value=state;")
+  ],config);
+  assert.equal(output.status,'pass');
+  assert.equal(output.edges[0].to,'src/domain/a.ts');
+});
+
+test('TypeScript resolves literal dynamic import via alias without running code', () => {
+  const config=trustedConfig({baseUrl:'.',paths:{'@domain/*':['src/domain/*']},moduleResolution:'bundler',module:'preserve'});
+  const output=checkConfig([
+    file('src/ui/main.ts',"export const future=()=>import('@domain/a');"),
+    file('src/domain/a.ts','export const item=1;')
+  ],config);
+  assert.equal(output.status,'pass');
+  assert.deepEqual(output.edges,[{from:'src/ui/main.ts',to:'src/domain/a.ts',kind:'runtime'}]);
+  const corrupt=checkConfig([file('src/ui/main.ts','export const value=1;')],
+    {path:'tsconfig.json',text:'{malformed json PRIVATE_SECRET'});
+  assert.equal(corrupt.status,'unverified');
+  assert.equal(JSON.stringify(corrupt).includes('PRIVATE_SECRET'),false);
+});
