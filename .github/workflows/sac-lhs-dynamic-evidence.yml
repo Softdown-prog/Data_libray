@@ -68,7 +68,7 @@ jobs:
           cat "$RUNNER_TEMP/sac-lhs-dynamic-evidence.json"
       - name: Install browser harness and ephemeral Chromium
         run: |
-          npm ci --prefix packages/angular-guardian --ignore-scripts --no-audit --no-fund
+          npm install --prefix packages/angular-guardian --ignore-scripts --no-audit --no-fund
           cd packages/angular-guardian && npx --no-install playwright install --with-deps chromium
       - name: Verify localhost HTTP, JavaScript MIME, CSP and real Chromium imports
         shell: bash
