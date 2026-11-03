@@ -41,7 +41,7 @@ const sources=[
 ];
 const profile={
   schema_version:1,profile_id:'lhs-pinned-receipt-observation',
-  angular_version:'22.2.0',capabilities:['angular','workspace'],
+  angular_version:'22.2.4',capabilities:['angular','workspace'],
   mode:'angular-only',mount:'/',bundle_hints:null,
   rules:['SAC-PRE001','SAC-P001'].map(rule_id=>({
     rule_id,version:'1.0.0',required:true,enforcement:'blocking'
