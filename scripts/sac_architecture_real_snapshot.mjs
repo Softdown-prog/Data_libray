@@ -98,6 +98,13 @@ function summarize(result) {
     type_edges:result.edges.filter(e=>e.kind==='type').length,
     finding_count:result.findings.length,
     finding_codes:Object.fromEntries(Object.entries(codes).sort(([a],[b])=>a.localeCompare(b))),
+    // Only stable code and bounded repository-relative file paths, never source text.
+    finding_locations:result.findings.slice(0,12).map(f=>({
+      code:f.code,
+      file:typeof f.file==='string'?f.file:null,
+      target:typeof f.target==='string'?f.target:null,
+      members:Array.isArray(f.members)?f.members.slice(0,8):[]
+    })),
     truncated:result.truncated,
     root_cause_verified:result.root_cause_verified,
     deployment_authorized:result.deployment_authorized
