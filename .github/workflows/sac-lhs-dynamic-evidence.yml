@@ -1,12 +1,15 @@
 name: SAC-PRE002 LHS Dynamic Import Build Evidence (isolated)
 on:
   push:
-    branches: ['feat/sac-pre002-lhs-dynamic-evidence-20261103']
+    branches: ['feat/sac-pre002-lhs-dynamic-evidence-20261103', 'feat/sac-core-lhs-observation-20261103']
     paths:
       - 'packages/angular-precompiler/src/runtime-external-evidence.mjs'
       - 'tests/sac_lhs_runtime_external_evidence.test.mjs'
       - 'scripts/sac_lhs_dynamic_build_evidence.mjs'
       - 'scripts/sac_lhs_dynamic_browser_probe.mjs'
+      - 'scripts/sac_lhs_core_observation.mjs'
+      - 'packages/angular-core/src/lhs-observation-report.mjs'
+      - 'tests/sac_lhs_core_observation.test.mjs'
       - '.github/workflows/sac-lhs-dynamic-evidence.yml'
       - 'docs/SAC_ARCHITECTURE_GRAPH.md'
   pull_request:
@@ -15,6 +18,9 @@ on:
       - 'tests/sac_lhs_runtime_external_evidence.test.mjs'
       - 'scripts/sac_lhs_dynamic_build_evidence.mjs'
       - 'scripts/sac_lhs_dynamic_browser_probe.mjs'
+      - 'scripts/sac_lhs_core_observation.mjs'
+      - 'packages/angular-core/src/lhs-observation-report.mjs'
+      - 'tests/sac_lhs_core_observation.test.mjs'
       - '.github/workflows/sac-lhs-dynamic-evidence.yml'
       - 'docs/SAC_ARCHITECTURE_GRAPH.md'
   workflow_dispatch:
@@ -52,6 +58,9 @@ jobs:
           node --check packages/angular-precompiler/src/runtime-external-evidence.mjs
           node --check scripts/sac_lhs_dynamic_build_evidence.mjs
           node --test tests/sac_lhs_runtime_external_evidence.test.mjs
+          node --check packages/angular-core/src/lhs-observation-report.mjs
+          node --check scripts/sac_lhs_core_observation.mjs
+          node --test tests/sac_lhs_core_observation.test.mjs tests/sac_diagnostic_report.test.mjs
       - name: Install LHS build dependencies without package lifecycle scripts
         run: |
           npm ci --prefix .sac-snapshots/lhs/games/lan_house_simulator --ignore-scripts --no-audit --no-fund
@@ -76,6 +85,14 @@ jobs:
           node --check scripts/sac_lhs_dynamic_browser_probe.mjs
           node scripts/sac_lhs_dynamic_browser_probe.mjs > "$RUNNER_TEMP/sac-lhs-browser-evidence.json"
           cat "$RUNNER_TEMP/sac-lhs-browser-evidence.json"
+      - name: Consolidate pinned evidence in SAC Core without promotion
+        shell: bash
+        run: |
+          node scripts/sac_lhs_core_observation.mjs \
+            "$RUNNER_TEMP/sac-lhs-dynamic-evidence.json" \
+            "$RUNNER_TEMP/sac-lhs-browser-evidence.json" \
+            > "$RUNNER_TEMP/sac-lhs-core-observation.json"
+          cat "$RUNNER_TEMP/sac-lhs-core-observation.json"
       - name: Upload sanitized evidence only
         uses: actions/upload-artifact@v4
         with:
@@ -83,5 +100,6 @@ jobs:
           path: |
             ${{ runner.temp }}/sac-lhs-dynamic-evidence.json
             ${{ runner.temp }}/sac-lhs-browser-evidence.json
+            ${{ runner.temp }}/sac-lhs-core-observation.json
           if-no-files-found: error
           retention-days: 14
