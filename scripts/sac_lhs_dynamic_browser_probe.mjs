@@ -115,6 +115,91 @@ async function checkTarget(url){
 }
 
 /** Reloads are independent navigations: modules must load again over HTTP. */
+/**
+ * Dispatches a genuine browser touch gesture via the Chromium DevTools
+ * protocol, not element.click(). The app stays in a disposable local save.
+ * A separate synthetic negative probe verifies the viewport's click guard.
+ */
+async function probeSwipeDoesNotSelect(page){
+  const viewport=page.locator('#scene-viewport');
+  await viewport.scrollIntoViewIfNeeded({timeout:12000});
+  const before=await page.evaluate(()=>{
+    const v=document.getElementById('scene-viewport');
+    const canvas=document.getElementById('game');
+    if(!(v instanceof HTMLElement)||!(canvas instanceof HTMLCanvasElement))
+      throw new Error('sac-swipe-viewport-or-canvas-missing');
+    v.scrollLeft=0;
+    const rect=v.getBoundingClientRect(),c=canvas.getBoundingClientRect();
+    const x=Math.min(rect.right-25,Math.max(rect.left+30,rect.left+rect.width*.77));
+    const y=Math.max(rect.top+20,Math.min(rect.bottom-25,(Math.max(rect.top,c.top)+Math.min(rect.bottom,c.bottom))/2));
+    const target=document.elementFromPoint(x,y);
+    const evidence={clicks:0};
+    canvas.addEventListener('click',()=>{evidence.clicks++;},{capture:true});
+    window.__sacSwipeEvidence=evidence;
+    return {x,y,scroll:v.scrollLeft,maxScroll:v.scrollWidth-v.clientWidth,
+      pointInsideCanvas:target===canvas};
+  });
+  assert.equal(before.pointInsideCanvas,true,'sac-swipe-start-not-on-game-canvas');
+  assert.ok(before.maxScroll>60,'sac-swipe-canvas-has-no-horizontal-overflow');
+  const distance=Math.min(135,Math.max(65,before.x-45));
+  assert.ok(distance>55,'sac-swipe-distance-too-small');
+  const cdp=await page.context().newCDPSession(page);
+  let touched=false;
+  try {
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',
+      touchPoints:[{x:before.x,y:before.y}]});touched=true;
+    for(let step=1;step<=9;step++){
+      await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',
+        touchPoints:[{x:before.x-distance*step/9,y:before.y}]});
+      await page.waitForTimeout(22);
+    }
+  } finally {
+    if(touched)await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    await cdp.detach();
+  }
+  await page.waitForFunction(prev=>{
+    const v=document.getElementById('scene-viewport');
+    return v && v.scrollLeft>prev+15;
+  },before.scroll,{timeout:6500});
+  await page.waitForTimeout(240);
+  const after=await page.evaluate(()=>{
+    const v=document.getElementById('scene-viewport');
+    return {scroll:v.scrollLeft,clicks:window.__sacSwipeEvidence.clicks,
+      adminHidden:document.getElementById('admin').hidden,
+      shopHidden:document.getElementById('shop').hidden,
+      placementHidden:document.getElementById('placement-toolbar').hidden};
+  });
+  assert.ok(after.scroll-before.scroll>15,'sac-swipe-did-not-pan-canvas');
+  assert.equal(after.clicks,0,'sac-swipe-generated-game-click');
+  assert.equal(after.adminHidden,true,'sac-swipe-opened-admin');
+  assert.equal(after.shopHidden,true,'sac-swipe-opened-shop');
+  assert.equal(after.placementHidden,true,'sac-swipe-opened-placement');
+
+  // A negative test for browsers synthesizing click after a pointer drag.
+  // Untrusted DOM events cannot stand in for the CDP gesture above.
+  const guard=await page.evaluate(()=>{
+    const v=document.getElementById('scene-viewport');
+    const c=document.getElementById('game');
+    const r=c.getBoundingClientRect();
+    const init={bubbles:true,clientX:r.left+48,clientY:r.top+45,pointerType:'touch'};
+    v.dispatchEvent(new PointerEvent('pointerdown',init));
+    v.dispatchEvent(new PointerEvent('pointermove',{...init,clientX:init.clientX+50}));
+    const click=new MouseEvent('click',{bubbles:true,cancelable:true,
+      clientX:init.clientX+50,clientY:init.clientY});
+    c.dispatchEvent(click);
+    return {prevented:click.defaultPrevented,canvasClicks:window.__sacSwipeEvidence.clicks};
+  });
+  assert.equal(guard.prevented,true,'sac-swipe-synthetic-click-not-prevented');
+  assert.equal(guard.canvasClicks,0,'sac-swipe-synthetic-click-reached-canvas');
+  assert.equal(await page.locator('#admin').isVisible(),false,
+    'sac-swipe-synthetic-click-opened-admin');
+  return {native_touch_swipe:true,canvas_scrolled:true,
+    scroll_delta_px:Math.round(after.scroll-before.scroll),
+    game_clicks:after.clicks,admin_remained_closed:true,
+    shop_remained_closed:true,placement_remained_closed:true,
+    synthetic_post_drag_click_blocked:true};
+}
+
 /** Interaction smoke: only presentational buttons plus creating an isolated local test save. */
 async function exerciseMobileControls(page,phase,width){
   await page.waitForFunction(()=>document.documentElement.dataset.gameReady==='true',
@@ -151,6 +236,7 @@ async function exerciseMobileControls(page,phase,width){
   await page.waitForFunction(()=>document.getElementById('game-app')?.hidden===false
     && document.getElementById('start-screen')?.hidden===true,
     null,{timeout:15000});
+  const swipeEvidence=await probeSwipeDoesNotSelect(page);
   const zoom=page.locator('#scene-zoom');
   const readZoom=()=>zoom.evaluate(el=>String(el.value??el.textContent??'').trim());
   const prior=await readZoom();
@@ -174,7 +260,8 @@ async function exerciseMobileControls(page,phase,width){
     null,{timeout:15000});
   const result={phase,viewport_width:width,tab_switch:true,options_open_close:true,
     game_started:phase==='initial',saved_game_continued:phase==='reload',
-    zoom_in_and_out:true,fit_scene:true,returned_to_menu:true};
+    zoom_in_and_out:true,fit_scene:true,returned_to_menu:true,
+    canvas_swipe:swipeEvidence};
   return result;
 }
 
