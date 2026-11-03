@@ -20,7 +20,7 @@ const MAX_DIRS = 256;
 const BASE_POLICY = Object.freeze({
   layers: [],
   allowImports: {},
-  external: ['@angular/', 'rxjs', 'rxjs/', 'phaser']
+  external: ['@angular/', 'rxjs', 'rxjs/', 'phaser', 'phaser/']
 });
 const TARGETS = Object.freeze([
   {
@@ -29,7 +29,9 @@ const TARGETS = Object.freeze([
     sha: 'e610075418f1ef44256fd5d4778f811517f69390',
     subdir: 'angular',
     expectedTypescriptFiles: 26,
-    inherited: ['tsconfig.app.json']
+    inherited: ['tsconfig.app.json'],
+    jsonPaths: [],
+    generatedFiles: []
   },
   {
     id: 'lhs',
@@ -37,7 +39,9 @@ const TARGETS = Object.freeze([
     sha: 'db639a117024b2e14c4af844bfb69b90bef5da20',
     subdir: 'games/lan_house_simulator/frontend-angular',
     expectedTypescriptFiles: 38,
-    inherited: ['tsconfig.app.json','tsconfig.site.json','tsconfig.site-rewrite.json']
+    inherited: ['tsconfig.app.json','tsconfig.site.json','tsconfig.site-rewrite.json'],
+    jsonPaths: ['src/site-rewrite/page-metadata.json'],
+    generatedFiles: []
   },
   {
     id: 'terrania',
@@ -45,7 +49,9 @@ const TARGETS = Object.freeze([
     sha: '6ce58c1687ad21c1d3e01dc87061751ca07a09f1',
     subdir: '.',
     expectedTypescriptFiles: 48,
-    inherited: []
+    inherited: [],
+    jsonPaths: [],
+    generatedFiles: [{path:'src/app/runtime-config.ts',generator:'scripts/write-runtime-config.mjs'}]
   }
 ]);
 
@@ -94,6 +100,7 @@ function summarize(result) {
     status:result.status,
     nodes:result.nodes.length,
     edges:result.edges.length,
+    asset_edges:result.asset_edges.length,
     runtime_edges:result.edges.filter(e=>e.kind==='runtime').length,
     type_edges:result.edges.filter(e=>e.kind==='type').length,
     finding_count:result.findings.length,
@@ -116,8 +123,16 @@ for (const target of TARGETS) {
   const files = await sourceFiles(workspace);
   assert.equal(files.length, target.expectedTypescriptFiles, 'snapshot-file-inventory-mismatch');
   const configText = await boundedFile(path.join(workspace,'tsconfig.json'), 16 * 1024);
+  const jsonAssets = [];
+  for (const name of target.jsonPaths) {
+    assert.ok(name.startsWith('src/') && !name.includes('..'),'unsafe-asset-manifest');
+    const source=await boundedFile(path.join(workspace,name), 32*1024);
+    JSON.parse(source);
+    jsonAssets.push({path:name,source});
+  }
   const main = analyzeImportGraph({
-    files, policy: BASE_POLICY, typescript: ts,
+    files, policy: BASE_POLICY, typescript: ts, jsonAssets,
+    generatedFiles:target.generatedFiles,
     tsconfig:{path:'tsconfig.json',text:configText}
   });
   assert.equal(main.nodes.length, target.expectedTypescriptFiles);
@@ -127,6 +142,7 @@ for (const target of TARGETS) {
   // Repeat with opposite input order to ensure stable results on real source trees.
   const shuffled = analyzeImportGraph({
     files:[...files].reverse(), policy:BASE_POLICY, typescript:ts,
+    jsonAssets:[...jsonAssets].reverse(), generatedFiles:[...target.generatedFiles].reverse(),
     tsconfig:{path:'tsconfig.json',text:configText}
   });
   assert.deepEqual(shuffled,main,'real-snapshot-analysis-not-deterministic');
@@ -134,14 +150,13 @@ for (const target of TARGETS) {
   for (const name of target.inherited) {
     const text = await boundedFile(path.join(workspace,name), 16*1024);
     const inspected = analyzeImportGraph({
-      files, policy:BASE_POLICY, typescript:ts,
-      tsconfig:{path:'tsconfig.json',text}
+      files, policy:BASE_POLICY, typescript:ts, jsonAssets,
+      generatedFiles:target.generatedFiles,
+      tsconfig:{path:name,text,parents:[{path:'tsconfig.json',text:configText}]}
     });
-    // 'extends' must never be silently treated as a complete config.
-    assert.notEqual(inspected.status,'pass','inherited-tsconfig-not-fail-closed');
-    assert.ok(inspected.findings.some(f=>f.code==='unsupported-tsconfig-inheritance'),
-      'missing-inheritance-evidence');
-    apps.push({file:name, status:inspected.status, limitation:'unsupported-tsconfig-inheritance'});
+    assert.ok(!inspected.findings.some(f=>f.code==='unsupported-tsconfig-inheritance'),
+      'same-directory-inheritance-must-resolve');
+    apps.push({file:name, ...summarize(inspected)});
   }
   const report={
     project:target.id,
@@ -149,6 +164,8 @@ for (const target of TARGETS) {
     source_sha:target.sha,
     scope:'all-enumerated-ts-sources-under-project-src',
     source_files_checked:target.expectedTypescriptFiles,
+    asset_files_supplied:jsonAssets.length,
+    generated_file_expectations:target.generatedFiles.length,
     main_tsconfig:summarize(main),
     inherited_tsconfigs:apps
   };

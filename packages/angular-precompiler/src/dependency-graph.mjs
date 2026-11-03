@@ -65,77 +65,142 @@ const safeConfigPath = (value, allowStar = false) =>
   (allowStar || !value.includes('*')) &&
   !value.split('/').includes('node_modules') && !value.split('/').includes('.git');
 
+const TSCONFIG_NAME = /^tsconfig(?:\.[a-zA-Z0-9-]{1,40})?\.json$/;
+const MAX_CONFIGS = 4;
+const MAX_JSON_ASSETS = 32;
+const MAX_JSON_BYTES = 32 * 1024;
+const MAX_JSON_TOTAL = 256 * 1024;
+const validJson = value => typeof value === 'string' && value.length <= 200 &&
+  /^(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_.-]+\.json$/.test(value) &&
+  value.startsWith('src/') &&
+  !value.split('/').some(s => s === '.' || s === '..' || s === 'node_modules');
+const validGenerator = value => typeof value === 'string' &&
+  /^scripts\/(?:[a-zA-Z0-9_-]+\/)*[a-zA-Z0-9_-]+\.mjs$/.test(value) && value.length <= 160;
+
 function readTsconfig(ts, tsconfig) {
   if (tsconfig === undefined) return {options: null, aliasPatterns: [], invalid: null};
-  if (!keys(tsconfig, ['path', 'text']) || tsconfig.path !== 'tsconfig.json' ||
-      typeof tsconfig.text !== 'string' || Buffer.byteLength(tsconfig.text, 'utf8') > MAX_TSCONFIG_BYTES) fail();
+  if (!keys(tsconfig,['path','text']) && !keys(tsconfig,['path','text','parents'])) fail();
+  const parents = tsconfig.parents ?? [];
+  if (!Array.isArray(parents) || parents.length > MAX_CONFIGS - 1) fail();
+  const inputs = [{path: tsconfig.path, text: tsconfig.text}, ...parents];
+  const records = new Map();
+  for (const entry of inputs) {
+    if (!keys(entry,['path','text']) || typeof entry.path !== 'string' ||
+        !TSCONFIG_NAME.test(entry.path) || typeof entry.text !== 'string' ||
+        Buffer.byteLength(entry.text,'utf8') > MAX_TSCONFIG_BYTES ||
+        records.has(entry.path)) fail();
+    records.set(entry.path, entry.text);
+  }
   if (typeof ts.parseConfigFileTextToJson !== 'function' ||
       typeof ts.convertCompilerOptionsFromJson !== 'function' ||
       typeof ts.resolveModuleName !== 'function') fail();
-  const parsed = ts.parseConfigFileTextToJson('tsconfig.json', tsconfig.text);
-  const config = parsed.config;
-  if (parsed.error || !object(config) || (config.compilerOptions !== undefined && !object(config.compilerOptions)))
-    return {options: null, aliasPatterns: [], invalid: 'invalid-tsconfig'};
-  // 'extends' needs its real parent file and cannot safely be approximated.
-  if ('extends' in config || 'references' in config)
-    return {options: null, aliasPatterns: [], invalid: 'unsupported-tsconfig-inheritance'};
-  const compiler = config.compilerOptions ?? {};
-  // These options modify module resolution; omitting them would claim false certainty.
+  const visited = new Set();
+  const evaluate = (file, active) => {
+    if (active.has(file)) return {invalid:'unsupported-tsconfig-inheritance'};
+    const text = records.get(file);
+    if (text === undefined) return {invalid:'unsupported-tsconfig-inheritance'};
+    visited.add(file);
+    const decoded = ts.parseConfigFileTextToJson(file,text);
+    const config = decoded.config;
+    if (decoded.error || !object(config) ||
+        (config.compilerOptions !== undefined && !object(config.compilerOptions)))
+      return {invalid:'invalid-tsconfig'};
+    if ('references' in config) return {invalid:'unsupported-tsconfig-inheritance'};
+    let inherited = {};
+    if ('extends' in config) {
+      const ext = config.extends;
+      if (typeof ext !== 'string' || !/^(?:\.\/)?tsconfig(?:\.[A-Za-z0-9-]{1,40})?\.json$/.test(ext))
+        return {invalid:'unsupported-tsconfig-inheritance'};
+      const name = ext.replace(/^\.\//,'');
+      const parent = evaluate(name,new Set([...active,file]));
+      if (parent.invalid) return parent;
+      inherited = parent.compiler;
+    }
+    return {compiler:{...inherited,...(config.compilerOptions ?? {})}};
+  };
+  const result = evaluate(tsconfig.path,new Set());
+  if (result.invalid) return {options:null,aliasPatterns:[],invalid:result.invalid};
+  // Every caller-enumerated parent must belong to the actual inheritance chain.
+  if (visited.size !== records.size)
+    return {options:null,aliasPatterns:[],invalid:'unsupported-tsconfig-inheritance'};
+  const compiler = result.compiler;
   if (['rootDirs','moduleSuffixes','customConditions','resolvePackageJsonImports',
-       'resolvePackageJsonExports','noResolve','allowArbitraryExtensions','baseUrlPaths'].some(k => k in compiler))
-    return {options: null, aliasPatterns: [], invalid: 'unsupported-tsconfig-resolution'};
+       'resolvePackageJsonExports','noResolve','allowArbitraryExtensions','baseUrlPaths'].some(k=>k in compiler))
+    return {options:null,aliasPatterns:[],invalid:'unsupported-tsconfig-resolution'};
   if (compiler.baseUrl !== undefined &&
       !(compiler.baseUrl === '.' || safeConfigPath(compiler.baseUrl)))
-    return {options: null, aliasPatterns: [], invalid: 'unsupported-tsconfig-resolution'};
+    return {options:null,aliasPatterns:[],invalid:'unsupported-tsconfig-resolution'};
   if (compiler.paths !== undefined &&
       (!object(compiler.paths) || Object.keys(compiler.paths).length > 32))
-    return {options: null, aliasPatterns: [], invalid: 'unsupported-tsconfig-paths'};
+    return {options:null,aliasPatterns:[],invalid:'unsupported-tsconfig-paths'};
   const patterns = [];
-  for (const [alias, targets] of Object.entries(compiler.paths ?? {})) {
-    if (!safeConfigPath(alias, true) || alias.startsWith('.') ||
+  for (const [alias,targets] of Object.entries(compiler.paths ?? {})) {
+    if (!safeConfigPath(alias,true) || alias.startsWith('.') ||
         !Array.isArray(targets) || !targets.length || targets.length > 8 ||
-        targets.some(target => !safeConfigPath(target, true)))
-      return {options: null, aliasPatterns: [], invalid: 'unsupported-tsconfig-paths'};
+        targets.some(target=>!safeConfigPath(target,true)))
+      return {options:null,aliasPatterns:[],invalid:'unsupported-tsconfig-paths'};
     patterns.push(alias);
   }
   if (compiler.moduleResolution !== undefined && typeof compiler.moduleResolution !== 'string')
-    return {options: null, aliasPatterns: [], invalid: 'unsupported-tsconfig-resolution'};
+    return {options:null,aliasPatterns:[],invalid:'unsupported-tsconfig-resolution'};
   if (compiler.module !== undefined && typeof compiler.module !== 'string')
-    return {options: null, aliasPatterns: [], invalid: 'unsupported-tsconfig-resolution'};
+    return {options:null,aliasPatterns:[],invalid:'unsupported-tsconfig-resolution'};
+  if (compiler.resolveJsonModule !== undefined && typeof compiler.resolveJsonModule !== 'boolean')
+    return {options:null,aliasPatterns:[],invalid:'unsupported-tsconfig-resolution'};
   const subset = {};
-  for (const key of ['baseUrl','paths','moduleResolution','module']) {
+  for (const key of ['baseUrl','paths','moduleResolution','module','resolveJsonModule'])
     if (key in compiler) subset[key] = compiler[key];
-  }
-  const converted = ts.convertCompilerOptionsFromJson(subset, VIRTUAL_ROOT, 'tsconfig.json');
-  if (converted.errors.length) return {options: null, aliasPatterns: [], invalid: 'invalid-tsconfig-options'};
-  return {options: converted.options, aliasPatterns: patterns, invalid: null};
+  const converted=ts.convertCompilerOptionsFromJson(subset,VIRTUAL_ROOT,tsconfig.path);
+  if (converted.errors.length) return {options:null,aliasPatterns:[],invalid:'invalid-tsconfig-options'};
+  return {options:converted.options,aliasPatterns:patterns,invalid:null};
 }
 
-function virtualResolver(ts, sources, options) {
+function validateResources(jsonAssets, generatedFiles, sources) {
+  if (!Array.isArray(jsonAssets) || jsonAssets.length > MAX_JSON_ASSETS ||
+      !Array.isArray(generatedFiles) || generatedFiles.length > MAX_JSON_ASSETS) fail();
+  const assets = new Map(), generated = new Set();
+  let total=0;
+  for (const item of jsonAssets) {
+    if (!keys(item,['path','source']) || !validJson(item.path) ||
+        typeof item.source !== 'string' || sources.has(item.path) || assets.has(item.path)) fail();
+    const bytes=Buffer.byteLength(item.source,'utf8');
+    total+=bytes;
+    if (bytes>MAX_JSON_BYTES || total>MAX_JSON_TOTAL) fail();
+    try { JSON.parse(item.source); } catch { fail(); }
+    assets.set(item.path,item.source);
+  }
+  for (const item of generatedFiles) {
+    if (!keys(item,['path','generator']) || !validFile(item.path) ||
+        !validGenerator(item.generator) || sources.has(item.path) || generated.has(item.path)) fail();
+    generated.add(item.path);
+  }
+  return {assets,generated};
+}
+
+function virtualResolver(ts, sources, assets, options) {
   const snapshot = new Map();
   const directories = new Set([VIRTUAL_ROOT]);
-  for (const [file, source] of sources) {
+  for (const [file,source] of [...sources,...assets]) {
     const absolute = VIRTUAL_ROOT + '/' + file;
     snapshot.set(absolute, source);
-    for (let dir = path.posix.dirname(absolute); dir.startsWith(VIRTUAL_ROOT); dir = path.posix.dirname(dir)) {
+    for (let dir=path.posix.dirname(absolute);dir.startsWith(VIRTUAL_ROOT);dir=path.posix.dirname(dir)) {
       if (directories.has(dir)) break;
       directories.add(dir);
     }
   }
-  const host = {
-    fileExists: file => snapshot.has(file),
-    readFile: file => snapshot.get(file),
-    directoryExists: dir => directories.has(dir),
-    getCurrentDirectory: () => VIRTUAL_ROOT,
-    realpath: file => file,
-    useCaseSensitiveFileNames: () => true
+  const host={
+    fileExists:file=>snapshot.has(file),
+    readFile:file=>snapshot.get(file),
+    directoryExists:dir=>directories.has(dir),
+    getCurrentDirectory:()=>VIRTUAL_ROOT,
+    realpath:file=>file,
+    useCaseSensitiveFileNames:()=>true
   };
-  return (from, specifier) => {
-    // TypeScript is called with an in-memory host; no trusted sys fallback.
-    const result = ts.resolveModuleName(specifier, VIRTUAL_ROOT + '/' + from, options, host);
-    const absolute = result.resolvedModule?.resolvedFileName;
+  return (from,specifier)=>{
+    const result=ts.resolveModuleName(specifier,VIRTUAL_ROOT+'/'+from,options,host);
+    const absolute=result.resolvedModule?.resolvedFileName;
     if (!absolute || !snapshot.has(absolute)) return null;
-    return absolute.slice(VIRTUAL_ROOT.length + 1);
+    return absolute.slice(VIRTUAL_ROOT.length+1);
   };
 }
 
@@ -211,7 +276,7 @@ function cycleComponents(nodes, runtimeEdges) {
  * module resolution uses the official TypeScript API with a virtual-only host.
  * typescript is supplied by a trusted operator, not by the analyzed workspace.
  */
-export function analyzeImportGraph({files, policy = {layers: [], allowImports: {}, external: []}, typescript: ts, tsconfig} = {}) {
+export function analyzeImportGraph({files, policy = {layers: [], allowImports: {}, external: []}, typescript: ts, tsconfig, jsonAssets = [], generatedFiles = []} = {}) {
   if (!ts || typeof ts.createSourceFile !== 'function' || typeof ts.forEachChild !== 'function' ||
       typeof ts.isImportDeclaration !== 'function' || !Array.isArray(files) ||
       files.length < 1 || files.length > MAX_FILES) fail();
@@ -227,11 +292,12 @@ export function analyzeImportGraph({files, policy = {layers: [], allowImports: {
     sources.set(item.path, item.source);
   }
   const nodes = [...sources.keys()].sort();
+  const {assets,generated} = validateResources(jsonAssets,generatedFiles,sources);
   const config = readTsconfig(ts, tsconfig);
-  const resolve = config.options ? virtualResolver(ts, sources, config.options) : null;
+  const resolve = config.options ? virtualResolver(ts, sources, assets, config.options) : null;
   const layers = [...policy.layers].sort((a, b) => b.prefix.length - a.prefix.length);
   const layerOf = file => layers.find(rule => file.startsWith(rule.prefix))?.name ?? null;
-  const edges = [], findings = [];
+  const edges = [], asset_edges = [], findings = [];
   let unresolved = false, failure = false, truncated = false, count = 0;
   const report = finding => {
     if (findings.length >= MAX_FINDINGS) { truncated = true; unresolved = true; return; }
@@ -261,12 +327,25 @@ export function analyzeImportGraph({files, policy = {layers: [], allowImports: {
         unresolved = true; report({code: 'module-resolution-unverified', file}); continue;
       }
       if (!target) {
+        if (relative && candidates(file,specifier).some(candidate=>generated.has(candidate))) {
+          unresolved = true; report({code:'generated-source-not-captured',file}); continue;
+        }
         if (!relative && matchesAlias(config.aliasPatterns, specifier)) {
           unresolved = true; report({code: 'unresolved-tsconfig-alias', file}); continue;
         }
         if (!relative && policy.external.some(ext => ext.endsWith('/') ? specifier.startsWith(ext) : specifier === ext)) continue;
         unresolved = true;
         report({code: relative ? 'unresolved-relative-import' : 'unclassified-bare-import', file});
+        continue;
+      }
+      if (assets.has(target)) {
+        // TypeScript can find JSON paths even if resolveJsonModule is disabled.
+        // Resolving a filename does not prove the compiler would accept the import.
+        if (config.options?.resolveJsonModule !== true) {
+          unresolved = true; report({code:'json-module-not-enabled',file});
+          continue;
+        }
+        asset_edges.push({from:file,to:target,kind:'json'});
         continue;
       }
       edges.push({from: file, to: target, kind});
@@ -282,6 +361,7 @@ export function analyzeImportGraph({files, policy = {layers: [], allowImports: {
     }
   }
   edges.sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+  asset_edges.sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)));
   for (const members of cycleComponents(nodes, edges.filter(e => e.kind === 'runtime'))) {
     failure = true;
     report({code: 'circular-runtime-import', members});
@@ -294,6 +374,7 @@ export function analyzeImportGraph({files, policy = {layers: [], allowImports: {
     scope: 'enumerated-typescript-sources-only',
     nodes,
     edges,
+    asset_edges,
     findings,
     truncated,
     root_cause_verified: false,

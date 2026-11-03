@@ -233,3 +233,128 @@ test('TypeScript resolves literal dynamic import via alias without running code'
   assert.equal(corrupt.status,'unverified');
   assert.equal(JSON.stringify(corrupt).includes('PRIVATE_SECRET'),false);
 });
+
+
+test('same-directory tsconfig extends inherits official TS aliases without filesystem reads', () => {
+  const parent={path:'tsconfig.json',text:JSON.stringify({compilerOptions:{
+    baseUrl:'.',paths:{'@domain/*':['src/domain/*']},moduleResolution:'bundler',module:'preserve'
+  }})};
+  const child={path:'tsconfig.app.json',text:JSON.stringify({extends:'./tsconfig.json',compilerOptions:{outDir:'./out-tsc'}}),parents:[parent]};
+  const result=analyzeImportGraph({
+    files:[
+      file('src/ui/page.ts',"import {value} from '@domain/model'; export const page=value;"),
+      file('src/domain/model.ts','export const value=3;')
+    ], policy, typescript:ts, tsconfig:child
+  });
+  assert.equal(result.status,'pass');
+  assert.deepEqual(result.edges,[{from:'src/ui/page.ts',to:'src/domain/model.ts',kind:'runtime'}]);
+});
+
+test('tsconfig extends chain honors child override and rejects stale parent aliases', () => {
+  const config={path:'tsconfig.app.json',text:JSON.stringify({
+    extends:'./tsconfig.mid.json',compilerOptions:{paths:{'@lib/*':['src/ui/*']}}
+  }),parents:[
+    {path:'tsconfig.mid.json',text:JSON.stringify({extends:'./tsconfig.json',compilerOptions:{moduleResolution:'bundler',module:'preserve'}})},
+    {path:'tsconfig.json',text:JSON.stringify({compilerOptions:{baseUrl:'.',paths:{'@lib/*':['src/domain/*']}}})}
+  ]};
+  const output=analyzeImportGraph({
+    files:[file('src/domain/main.ts',"import {x} from '@lib/view';"),file('src/ui/view.ts','export const x=1;')],
+    policy,typescript:ts,tsconfig:config
+  });
+  assert.equal(output.status,'fail');
+  assert.ok(output.findings.some(f=>f.code==='forbidden-layer-import'));
+});
+
+test('missing, cyclic, unreachable and nonlocal tsconfig inheritance fail closed', () => {
+  const only=file('src/ui/app.ts','export const x=1;');
+  for(const config of [
+    {path:'tsconfig.app.json',text:'{"extends":"./tsconfig.json"}'},
+    {path:'tsconfig.app.json',text:'{"extends":"../tsconfig.json"}'},
+    {path:'tsconfig.app.json',text:'{"extends":"tsconfig.json"}',parents:[
+      {path:'tsconfig.json',text:'{"extends":"./tsconfig.app.json"}'}]},
+    {path:'tsconfig.app.json',text:'{}',parents:[{path:'tsconfig.json',text:'{}'}]}
+  ]){
+    const result=analyzeImportGraph({files:[only],typescript:ts,policy,tsconfig:config});
+    assert.equal(result.status,'unverified');
+    assert.ok(result.findings.some(f=>f.code==='unsupported-tsconfig-inheritance'));
+  }
+  assert.throws(()=>analyzeImportGraph({files:[only],typescript:ts,policy,tsconfig:{
+    path:'tsconfig.app.json',text:'{}',parents:[{path:'../tsconfig.json',text:'{}'}]
+  }}),/invalid-input/);
+});
+
+test('explicit JSON source and resolveJsonModule form a verified asset edge', () => {
+  const cfg=trustedConfig({module:'preserve',moduleResolution:'bundler',resolveJsonModule:true});
+  const result=analyzeImportGraph({
+    files:[file('src/ui/page.ts',"import data from './page-data.json'; export const x=data.title;")],
+    jsonAssets:[{path:'src/ui/page-data.json',source:'{"title":"ok"}'}],
+    policy,typescript:ts,tsconfig:cfg
+  });
+  assert.equal(result.status,'pass');
+  assert.deepEqual(result.edges,[]);
+  assert.deepEqual(result.asset_edges,[{from:'src/ui/page.ts',to:'src/ui/page-data.json',kind:'json'}]);
+  assert.equal(result.deployment_authorized,false);
+});
+
+test('JSON missing, unresolved config, invalid contents and asset pollution are not approved',()=>{
+  const cfg=trustedConfig({module:'preserve',moduleResolution:'bundler',resolveJsonModule:true});
+  const src=[file('src/ui/page.ts',"import info from './meta.json';")];
+  const unknown=analyzeImportGraph({files:src,policy,typescript:ts,tsconfig:cfg});
+  assert.equal(unknown.status,'unverified');
+  assert.ok(unknown.findings.some(f=>f.code==='unresolved-relative-import'));
+  const disabled=analyzeImportGraph({
+    files:src,policy,typescript:ts,tsconfig:trustedConfig({module:'preserve',moduleResolution:'bundler'}),
+    jsonAssets:[{path:'src/ui/meta.json',source:'{"ok":true}'}]
+  });
+  assert.equal(disabled.status,'unverified');
+  assert.ok(disabled.findings.some(f=>f.code==='json-module-not-enabled'));
+  for(const bad of [
+    {path:'src/ui/meta.json',source:'{not json}'},
+    {path:'src/ui/../../private.json',source:'{}'},
+    {path:'src/node_modules/x.json',source:'{}'},
+    {path:'src/ui/meta.json',source:'"secret"'.repeat(33000)}
+  ]) assert.throws(()=>analyzeImportGraph({
+    files:src,policy,typescript:ts,tsconfig:cfg,jsonAssets:[bad]
+  }),/invalid-input/);
+});
+
+test('generated source manifest describes missing output without inventing code or marking pass',()=>{
+  const cfg=trustedConfig({module:'preserve',moduleResolution:'bundler'});
+  const files=[file('src/ui/page.ts',"import {runtime} from './runtime-config';")];
+  const result=analyzeImportGraph({
+    files,policy,typescript:ts,tsconfig:cfg,
+    generatedFiles:[{path:'src/ui/runtime-config.ts',generator:'scripts/write-runtime-config.mjs'}]
+  });
+  assert.equal(result.status,'unverified');
+  assert.ok(result.findings.some(f=>f.code==='generated-source-not-captured'));
+  assert.equal(result.root_cause_verified,false);
+  const actual=analyzeImportGraph({
+    files:[...files,file('src/ui/runtime-config.ts','export const runtime = 1;')],
+    policy,typescript:ts,tsconfig:cfg
+  });
+  assert.equal(actual.status,'pass');
+  assert.throws(()=>analyzeImportGraph({files,policy,typescript:ts,tsconfig:cfg,
+    generatedFiles:[{path:'src/ui/runtime-config.ts',generator:'../../bad.mjs'}]
+  }),/invalid-input/);
+});
+
+test('deep external imports require explicit operator prefix, not a broad package claim',()=>{
+  const files=[file('src/ui/page.ts',"import * as Phaser from 'phaser/dist/phaser.esm.js';")];
+  const cfg=trustedConfig({module:'preserve',moduleResolution:'bundler'});
+  const broad=analyzeImportGraph({files,policy:{...policy,external:['phaser']},typescript:ts,tsconfig:cfg});
+  assert.equal(broad.status,'unverified');
+  const explicit=analyzeImportGraph({files,policy:{...policy,external:['phaser/']},typescript:ts,tsconfig:cfg});
+  assert.equal(explicit.status,'pass');
+});
+
+test('inherited resolveJsonModule is honored, malformed configs leak no source contents',()=>{
+  const cfg={path:'tsconfig.site.json',text:JSON.stringify({extends:'./tsconfig.json',compilerOptions:{resolveJsonModule:true}}),
+    parents:[{path:'tsconfig.json',text:JSON.stringify({compilerOptions:{module:'preserve',moduleResolution:'bundler'}})}]};
+  const result=analyzeImportGraph({
+    files:[file('src/ui/app.ts',"import data from './x.json';")],
+    policy,typescript:ts,tsconfig:cfg,
+    jsonAssets:[{path:'src/ui/x.json',source:'{"SECRET":"DO_NOT_PRINT_PRIVATE"}'}]
+  });
+  assert.equal(result.status,'pass');
+  assert.equal(JSON.stringify(result).includes('DO_NOT_PRINT_PRIVATE'),false);
+});
