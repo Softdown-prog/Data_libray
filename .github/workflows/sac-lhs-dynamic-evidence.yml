@@ -57,6 +57,11 @@ jobs:
           test "$(git -C .sac-snapshots/lhs hash-object games/lan_house_simulator/frontend-angular/src/site-rewrite/account.ts)" = '73b7159e422338eb4f51583ff6b8fa37fa0e94cf'
       - name: Install trusted TypeScript from Data Library
         run: npm ci --prefix packages/angular-postcompiler/smoke --ignore-scripts --no-audit --no-fund
+      - name: Install SAC Core runtime dependencies before importing report modules
+        run: |
+          npm ci --prefix packages/angular-core --ignore-scripts --no-audit --no-fund
+          npm ci --prefix packages/angular-precompiler --ignore-scripts --no-audit --no-fund
+          npm ci --prefix packages/angular-postcompiler --ignore-scripts --no-audit --no-fund
       - name: Run bounded unit and negative tests
         run: |
           node --check packages/angular-precompiler/src/runtime-external-evidence.mjs
@@ -71,12 +76,8 @@ jobs:
         run: |
           npm ci --prefix .sac-snapshots/lhs/games/lan_house_simulator --ignore-scripts --no-audit --no-fund
           npm ci --prefix .sac-snapshots/lhs/games/lan_house_simulator/frontend-angular --ignore-scripts --no-audit --no-fund
-      - name: Install SAC-004 toolchain and run HMAC negative regression tests
-        run: |
-          npm ci --prefix packages/angular-core --ignore-scripts --no-audit --no-fund
-          npm ci --prefix packages/angular-precompiler --ignore-scripts --no-audit --no-fund
-          npm ci --prefix packages/angular-postcompiler --ignore-scripts --no-audit --no-fund
-          node --test packages/angular-pipeline/test/pipeline.test.mjs
+      - name: Run SAC-004 HMAC negative regression tests
+        run: node --test packages/angular-pipeline/test/pipeline.test.mjs
       - name: Capture mandatory SAC preflight before official LHS build
         run: |
           node scripts/sac_lhs_authenticated_build.mjs prepare
