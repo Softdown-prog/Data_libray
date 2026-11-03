@@ -33,3 +33,13 @@ Limites conservadores: até 128 arquivos, 512 KiB por arquivo, 2 MiB totais, 204
 O workflow SAC-PRE002 Angular import graph (isolated) instala a fixture TypeScript existente em packages/angular-postcompiler/smoke, executa node --test tests/sac_angular_dependency_graph.test.mjs e preserva os testes anteriores do precompiler. Os testes usam arquivos sintéticos e verificam casos positivos e negativos, ciclos, imports type-only, aliases, `baseUrl`, JSONC, imports dinâmicos literais, `extends` não suportado, configurações inválidas, limites e ausência de vazamento do código-fonte.
 
 Próxima etapa: comparar com snapshots Angular reais autorizados, estudar resolução segura de herança `extends` e somente depois propor registro observacional no SAC Core. Nenhum merge ou deploy automático.
+
+## Teste em snapshots reais fixados (somente leitura)
+
+O workflow `sac-architecture-real-snapshots.yml` examina checkouts GitHub fixados por SHA dos repositórios públicos **Painel**, **Lan House Simulator** e **Terrania**, sem modificar seus arquivos nem executar código-fonte dos projetos. São exatamente 26, 38 e 48 arquivos TypeScript, respectivamente, sob as respectivas pastas `src/` (112 arquivos no total). O teste depende apenas do TypeScript instalado pela fixture confiável da Data Library.
+
+A ferramenta `scripts/sac_architecture_real_snapshot.mjs` verifica limites de arquivos, bytes e symlinks, testa reprodutibilidade com ordem invertida e produz um artefato JSON sanitizado. A configuração principal de cada projeto é lida como dados; os `tsconfig.app.json` e variantes herdadas presentes no Painel/LHS também são testados e devem **não** produzir `pass` enquanto `extends` não tiver tratamento confiável. O teste registra `unsupported-tsconfig-inheritance` sem imputá-la ao projeto.
+
+O resultado do CI pode ser verde mesmo quando o relatório do projeto estiver `fail` ou `unverified`: o CI atesta que o **auditor executou corretamente** e reportou a evidência, não que o projeto seja livre de problemas. Sem políticas arquiteturais revisadas por projeto, a prova real foca o grafo de imports/ciclos e não julga violações de camadas. `pass` aplica-se apenas às fontes TS enumeradas, não ao HTML, templates, backend, testes end-to-end ou publicação.
+
+Os SHA dos snapshots são constantes versionadas; atualizar projetos exige uma microetapa explícita, não um fetch automático da `main` durante cada teste. Nenhuma alteração é feita em `main`, serviços, VPS ou projetos externos.
