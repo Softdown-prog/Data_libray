@@ -29,6 +29,8 @@ jobs:
           node-version: '24'
       - name: Install trusted TypeScript fixture (no lifecycle scripts)
         run: npm ci --prefix packages/angular-postcompiler/smoke --ignore-scripts --no-audit --no-fund
+      - name: Install SAC Core dependencies for existing precompiler tests
+        run: npm ci --prefix packages/angular-core --ignore-scripts --no-audit --no-fund
       - name: Install existing precompiler dependency for regression suite
         run: npm ci --prefix packages/angular-precompiler --ignore-scripts --no-audit --no-fund
       - name: Validate syntax and AST graph contracts
