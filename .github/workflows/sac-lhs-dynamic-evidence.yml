@@ -6,6 +6,7 @@ on:
       - 'packages/angular-precompiler/src/runtime-external-evidence.mjs'
       - 'tests/sac_lhs_runtime_external_evidence.test.mjs'
       - 'scripts/sac_lhs_dynamic_build_evidence.mjs'
+      - 'scripts/sac_lhs_dynamic_browser_probe.mjs'
       - '.github/workflows/sac-lhs-dynamic-evidence.yml'
       - 'docs/SAC_ARCHITECTURE_GRAPH.md'
   pull_request:
@@ -13,6 +14,7 @@ on:
       - 'packages/angular-precompiler/src/runtime-external-evidence.mjs'
       - 'tests/sac_lhs_runtime_external_evidence.test.mjs'
       - 'scripts/sac_lhs_dynamic_build_evidence.mjs'
+      - 'scripts/sac_lhs_dynamic_browser_probe.mjs'
       - '.github/workflows/sac-lhs-dynamic-evidence.yml'
       - 'docs/SAC_ARCHITECTURE_GRAPH.md'
   workflow_dispatch:
@@ -64,10 +66,22 @@ jobs:
         run: |
           node scripts/sac_lhs_dynamic_build_evidence.mjs > "$RUNNER_TEMP/sac-lhs-dynamic-evidence.json"
           cat "$RUNNER_TEMP/sac-lhs-dynamic-evidence.json"
+      - name: Install browser harness and ephemeral Chromium
+        run: |
+          npm install --prefix packages/angular-guardian --ignore-scripts --no-audit --no-fund
+          cd packages/angular-guardian && npx --no-install playwright install --with-deps chromium
+      - name: Verify Chromium dynamic imports, Android-size viewports and reloads
+        shell: bash
+        run: |
+          node --check scripts/sac_lhs_dynamic_browser_probe.mjs
+          node scripts/sac_lhs_dynamic_browser_probe.mjs > "$RUNNER_TEMP/sac-lhs-browser-evidence.json"
+          cat "$RUNNER_TEMP/sac-lhs-browser-evidence.json"
       - name: Upload sanitized evidence only
         uses: actions/upload-artifact@v4
         with:
           name: sac-lhs-dynamic-runtime-build-evidence
-          path: ${{ runner.temp }}/sac-lhs-dynamic-evidence.json
+          path: |
+            ${{ runner.temp }}/sac-lhs-dynamic-evidence.json
+            ${{ runner.temp }}/sac-lhs-browser-evidence.json
           if-no-files-found: error
           retention-days: 14

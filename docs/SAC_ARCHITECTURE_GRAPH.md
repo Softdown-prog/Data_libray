@@ -69,3 +69,37 @@ O workflow `sac-lhs-dynamic-evidence.yml` usa somente o SHA fixado `db639a117024
 O inspetor puro `runtime-external-evidence.mjs` recebe como strings os arquivos de origem, chunks JavaScript Angular e o resultado compilado do jogo. Verifica expressões `import()` não literais na AST de origem, indícios da URL e do import nos chunks emitidos, a presença dos alvos `game/js/main.js` e `game/js/sim/saveTransfer.js` no artefato e a inicialização Angular. Regras de caminho/tamanho e testes negativos evitam aprovações se faltar algum elemento. O relatório em `scripts/sac_lhs_dynamic_build_evidence.mjs` contém somente status, hashes, caminhos fixos, indicadores booleanos e contagens; não exporta código compilado nem conteúdos de contas.
 
 **Importante:** o estado é intencionalmente `unverified` mesmo com artefatos consistentes. Isso comprova apenas presença e coerência das referências no build fixado, não que a URL responda HTTP 200, tenha MIME correto, obedeça CSP, carregue no navegador, nem que a validação de saves funcione. Para concluir o runtime são necessários testes controlados de navegador e de servidor estático, separados, antes de qualquer autorização de deploy.
+
+### Prova complementar: imports dinâmicos no Chromium local
+
+O script `scripts/sac_lhs_dynamic_browser_probe.mjs` usa os mesmos artefatos do snapshot LHS fixado por SHA, após o build de `out/site-clean-angular`, e inicia um servidor temporário em `127.0.0.1` com MIME de módulos JavaScript e a política CSP `Content-Security-Policy` extraída do arquivo `_headers` efetivamente construído. O servidor rejeita caminhos fora do diretório de saída, arquivos especiais, symlinks e extensões desconhecidas. O ambiente Chromium usa Playwright da dependência versionada `packages/angular-guardian`, sem conexão de navegador a hosts externos.
+
+Verificações positivas: HTTP 200, MIME JavaScript, CSP e SHA-256 dos dois módulos nativos; navegação para `/game/` com Angular inicializado e requisição efetiva do Canvas JS; import real do módulo `/game/js/sim/saveTransfer.js` num documento de prova isolado (somente carregamento e verificação de `parseImportedSave`, **nunca** invocando a validação de um save). O teste não acessa os formulários de conta, login, doação ou pagamentos e não envia dados pessoais.
+
+Verificações negativas: um 404, uma resposta com MIME `text/plain` e uma CSP `script-src 'none'` devem causar rejeição de `import()` no navegador. Sem essas rejeições, o workflow falha. O relatório JSON sanitizado expõe apenas SHA e status fixos, contagens e resultados booleanos. O jogo pode inicializar seu motor no contexto de teste, mas não recebe comandos de gameplay; isso não equivale a validação funcional nem aprovação de deploy.
+
+**Escopo de evidência:** resultados positivos provam o carregamento dos módulos no Chromium com um servidor estático local representativo. Não provam Cloudflare Pages em produção, conectividade externa, login, pagamento, funcionamento do validador com um arquivo real ou todas as interações do jogo. O estado global de conformidade não é automaticamente elevado a `pass`; `deployment_authorized=false` permanece obrigatório.
+
+### Recarregamento em viewport Android (360 e 414 px)
+
+O mesmo script de teste Chromium agora executa, além da prova desktop e das três negativas, dois contextos móveis independentes (`isMobile`, `hasTouch`, `deviceScaleFactor=2`) de 360×800 e 414×896 pixels. Em cada contexto, `/game/` abre e recarrega uma vez, exigindo HTTP 200, novo carregamento de `game/js/main.js` com MIME JavaScript e SHA-256 fixado, inicialização do Angular e nenhum `pageerror`. O teste verifica `window.innerWidth` e o touch emulado; `horizontal_overflow_px` é apenas uma medida diagnóstica e não é certificação de responsividade.
+
+Em documento local de prova separado, o módulo `game/js/sim/saveTransfer.js` também é importado antes e depois de um reload usando URLs de consulta distintas para evitar reutilizar a cache de módulos. O teste valida somente exportação, HTTP, MIME e hash; não executa o validador em salvamentos reais, não clica em botões de conta ou de pagamento e não testa interações do jogo. Os resultados para as quatro navegações de jogo e quatro imports do validador constam do JSON `mobile_reload_evidence` no relatório do Actions.
+
+Esta é uma emulação mobile no Chromium desktop, não um teste físico no Android; pull-to-refresh do sistema, gestos reais, desempenho e Cloudflare em produção permanecem fora do escopo. A autorização de deploy permanece `false`.
+
+### Toque real em controles do jogo após recarregar (microetapa isolada)
+
+O probe de Chromium emula viewport com toque de 360 e 414 px e, para cada tamanho, executa **abertura e reload** do `/game/`. Após confirmar o bootstrap Angular, espera `data-game-ready=true`, toca em duas abas informativas Angular do menu (e exige `aria-selected` e conteúdo atualizado) e abre/fecha as opções nativas (e exige visibilidade + `aria-expanded`).
+
+Num contexto de browser temporário e sem dados de usuário, o probe inicia somente uma nova campanha local de teste. Após o recarregamento, exige a opção **Continuar partida** e reabre o jogo. Em ambos os ciclos toca nos controles de zoom +, zoom − e **Ver tudo**, verificando que a porcentagem realmente mudou. Em seguida toca em **Menu** e verifica que a tela de início voltou. A execução não toca em compra, depósito, estoque, preços, conta, doação, importação/exportação ou reset destrutivo.
+
+Erros JavaScript causados pelos toques falham o CI; o resultado sanitizado por viewport fica em `mobile_reload_evidence[].touch_controls`. Os toques são efetivamente sintetizados pelo Playwright com `hasTouch=true`, não são chamadas diretas a `.click()` ou despacho artificial de evento DOM. Não se afirma teste em dispositivo Android real, acesso a armazenamento externo, economia, cloud ou multiplayer. `deployment_authorized=false` permanece obrigatório.
+
+### Swipe do Canvas e prevenção de clique acidental — mobile Chromium
+
+O probe `scripts/sac_lhs_dynamic_browser_probe.mjs` executa também um gesto real de toque horizontal em `#scene-viewport` através do protocolo Chrome DevTools (`Input.dispatchTouchEvent`). Em **360 e 414 px**, antes e depois de `page.reload`, exige espaço horizontal rolável, deslocamento de `scrollLeft` superior a 15 px, zero eventos `click` no Canvas e manutenção dos painéis de administração, loja e posicionamento fechados. Caso o gesto não arraste o Canvas ou gere seleção/clique, o workflow falha.
+
+Uma prova negativa complementar dispara `pointerdown`/`pointermove` com distância superior ao limiar e, em seguida, um `click` sintético cancelável no Canvas: o controlador em fase de captura do `scene-viewport` deve bloquear a chegada do clique ao elemento de jogo e marcar `defaultPrevented`. Esta prova sintética verifica a guarda do DOM, mas **não** substitui o gesto real medido separadamente. Após ambos os testes, os controles seguros de zoom, ajuste do enquadramento e retorno ao menu continuam sendo verificados.
+
+O relatório publica apenas deslocamentos e estados booleanos, sem capturar jogabilidade, screenshots, contas, saves, pagamentos ou dados de usuário. É um teste do snapshot fixado do LHS em Chromium emulado; não é validação de um Android físico, de compra/posicionamento reais nem autorização de deploy.
