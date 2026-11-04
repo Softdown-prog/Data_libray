@@ -7,7 +7,7 @@ on:
       - 'docs/SAC_ARCHITECTURE_GRAPH.md'
       - '.github/workflows/sac-architecture-graph.yml'
   push:
-    branches: ['feat/sac-angular-architecture-graph-20261103']
+    branches: ['feat/sac-angular-architecture-graph-20261103', 'feat/sac-core-lhs-observation-20261103']
     paths:
       - 'packages/angular-precompiler/src/dependency-graph.mjs'
       - 'tests/sac_angular_dependency_graph.test.mjs'
