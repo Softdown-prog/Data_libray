@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {mkdtemp,mkdir,rm,writeFile,unlink,symlink} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import {verifyAngularIslands} from '../packages/angular-postcompiler/src/angular-islands.mjs';
+import {verifyAngularIslands} from '../src/angular-islands.mjs';
 
 const contract=()=>({
  schema_version:1,index:'index.html',mount:'/dashboard/',
