@@ -13,34 +13,69 @@ import {inspectAngularTemplateLinks} from './template-links.mjs';
 const MAX_PARSED_TEMPLATES=64,MAX_VISITS=30000,MAX_FINDINGS=256;
 const invalid=()=>{throw new Error('sac-template-bindings-invalid-input');};
 
-function memberNames(ts,ast){
+function memberNames(ts,stmt){
   const names=new Set();
-  for(const stmt of ast.statements){
-    if(!ts.isClassDeclaration(stmt))continue;
-    for(const member of stmt.members){
-      const name=member.name;
-      if(name && (ts.isIdentifier(name)||ts.isStringLiteral(name)))names.add(name.text);
-      if(ts.isConstructorDeclaration(member)){
-        for(const parameter of member.parameters){
-          const flags=parameter.modifiers??[];
-          if(ts.isIdentifier(parameter.name)&&flags.some(f=>[
-            ts.SyntaxKind.PublicKeyword,ts.SyntaxKind.PrivateKeyword,
-            ts.SyntaxKind.ProtectedKeyword,ts.SyntaxKind.ReadonlyKeyword
-          ].includes(f.kind)))names.add(parameter.name.text);
-        }
+  for(const member of stmt.members){
+    const name=member.name;
+    if(name && (ts.isIdentifier(name)||ts.isStringLiteral(name)))names.add(name.text);
+    if(ts.isConstructorDeclaration(member)){
+      for(const parameter of member.parameters){
+        const flags=parameter.modifiers??[];
+        if(ts.isIdentifier(parameter.name)&&flags.some(f=>[
+          ts.SyntaxKind.PublicKeyword,ts.SyntaxKind.PrivateKeyword,
+          ts.SyntaxKind.ProtectedKeyword,ts.SyntaxKind.ReadonlyKeyword
+        ].includes(f.kind)))names.add(parameter.name.text);
       }
     }
   }
   return names;
 }
+function componentSymbols(ts,ast){
+  const direct=new Set(),namespaces=new Set();
+  for(const stmt of ast.statements){
+    if(!ts.isImportDeclaration(stmt)||
+       !ts.isStringLiteralLike(stmt.moduleSpecifier)||
+       stmt.moduleSpecifier.text!=='@angular/core')continue;
+    const clause=stmt.importClause;
+    if(!clause||clause.isTypeOnly||!clause.namedBindings)continue;
+    const b=clause.namedBindings;
+    if(ts.isNamespaceImport(b))namespaces.add(b.name.text);
+    else if(ts.isNamedImports(b))for(const entry of b.elements){
+      if(!entry.isTypeOnly&&(entry.propertyName?.text??entry.name.text)==='Component')
+        direct.add(entry.name.text);
+    }
+  }
+  return {direct,namespaces};
+}
+function isComponent(ts,dec,aliases){
+  const expr=dec.expression;
+  if(!ts.isCallExpression(expr))return false;
+  const target=expr.expression;
+  if(ts.isIdentifier(target))return aliases.direct.has(target.text);
+  return ts.isPropertyAccessExpression(target)&&target.name.text==='Component'&&
+    ts.isIdentifier(target.expression)&&aliases.namespaces.has(target.expression.text);
+}
 function classReferences(ts,files){
-  const byFile=new Map();
-  for(const file of files){
+  // The index must mirror SAC-PRE004: sorted files, decorated classes only.
+  // Never merge members of helper classes: an inherited method is not locally
+  // declared, and its validity must be decided by AOT, not by this analyzer.
+  const byComponent=new Map();
+  let componentIndex=0;
+  for(const file of [...files].sort((a,b)=>a.path.localeCompare(b.path))){
     const ast=ts.createSourceFile(file.path,file.source,ts.ScriptTarget.Latest,true,
       file.path.endsWith('.tsx')?ts.ScriptKind.TSX:ts.ScriptKind.TS);
-    byFile.set(file.path,ast.parseDiagnostics?.length?null:memberNames(ts,ast));
+    if(ast.parseDiagnostics?.length)continue;
+    const aliases=componentSymbols(ts,ast);
+    for(const stmt of ast.statements){
+      if(!ts.isClassDeclaration(stmt))continue;
+      for(const dec of ts.getDecorators(stmt)??[]){
+        if(!isComponent(ts,dec,aliases))continue;
+        componentIndex++;
+        byComponent.set(file.path+':'+componentIndex,memberNames(ts,stmt));
+      }
+    }
   }
-  return byFile;
+  return byComponent;
 }
 function rootMember(node){
   const expr=node?.ast??node;
@@ -91,7 +126,7 @@ export function inspectAngularTemplateBindings({files,templates=[],typescript:ts
   const links=inspectAngularTemplateLinks({files,templates,typescript:ts});
   if(links.external_templates_linked>MAX_PARSED_TEMPLATES)invalid();
   const html=new Map(templates.map(item=>[item.path,item.source]));
-  const byFile=classReferences(ts,files);
+  const byComponent=classReferences(ts,files);
   const totals={visited:0,events:0,properties:0,interpolations:0};
   const findings=[];
   const report=(code,file,component_index)=>{
@@ -117,7 +152,7 @@ export function inspectAngularTemplateBindings({files,templates=[],typescript:ts
         link.component_file,link.component_index);
       continue;
     }
-    const members=byFile.get(link.component_file);
+    const members=byComponent.get(link.component_file+':'+link.component_index);
     const potential={event:false,property:false};
     if(!members || !Array.isArray(parsedTemplate.nodes)){
       report('template-expression-ast-unverified',
