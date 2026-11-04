@@ -25,6 +25,16 @@ const refFiles=[
 const plain=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
 const fail=code=>{throw new Error('sac-lhs-postflight-'+code);};
 const manifestName=/^[a-z][a-z0-9_-]*-[a-z0-9]{6,}\.(?:js|css)$/i;
+async function boundedFile(root,rel,limit=16*1024*1024){
+  if(!refFiles.includes(rel)&&rel!=='index.html'&&rel!=='angular-site-assets.json')
+    fail('unapproved-file');
+  const file=path.join(root,rel),canonical=await realpath(file);
+  if(!canonical.startsWith(root+path.sep))fail('path-outside-dist');
+  const info=await lstat(file);
+  if(!info.isFile()||info.isSymbolicLink()||info.size===0||info.size>limit)
+    fail('resource-invalid');
+  return readFile(file);
+}
 function safeManifest(manifest){
   if(!plain(manifest)||Object.keys(manifest).sort().join(',')!=='files,main,styles,version'||
      manifest.version!==1||!Array.isArray(manifest.files)||
