@@ -4,12 +4,20 @@ on:
     branches: ['feat/sac-pre003-aot-concordance-20261104']
     paths:
       - 'scripts/sac_pre003_lhs_pinned_aot.mjs'
+      - 'scripts/sac_pre004_lhs_template_snapshot.mjs'
+      - 'packages/angular-precompiler/src/template-links.mjs'
+      - 'tests/sac_angular_template_links.test.mjs'
+      - 'docs/SAC_TEMPLATE_LINKS.md'
       - 'packages/angular-precompiler/src/component-wiring.mjs'
       - 'docs/SAC_COMPONENT_WIRING.md'
       - '.github/workflows/sac-pre003-lhs-pinned-aot.yml'
   pull_request:
     paths:
       - 'scripts/sac_pre003_lhs_pinned_aot.mjs'
+      - 'scripts/sac_pre004_lhs_template_snapshot.mjs'
+      - 'packages/angular-precompiler/src/template-links.mjs'
+      - 'tests/sac_angular_template_links.test.mjs'
+      - 'docs/SAC_TEMPLATE_LINKS.md'
       - 'packages/angular-precompiler/src/component-wiring.mjs'
       - 'docs/SAC_COMPONENT_WIRING.md'
       - '.github/workflows/sac-pre003-lhs-pinned-aot.yml'
@@ -48,11 +56,19 @@ jobs:
           node --check packages/angular-precompiler/src/component-wiring.mjs
           node --test tests/sac_angular_component_wiring.test.mjs
           node --check scripts/sac_pre003_lhs_pinned_aot.mjs
+          node --check packages/angular-precompiler/src/template-links.mjs
+          node --test tests/sac_angular_template_links.test.mjs
+          node --check scripts/sac_pre004_lhs_template_snapshot.mjs
       - name: Inspect 45 real Angular TypeScript files before any build
         shell: bash
         run: |
           node scripts/sac_pre003_lhs_pinned_aot.mjs before > "$RUNNER_TEMP/sac-pre003-lhs-before.json"
           cat "$RUNNER_TEMP/sac-pre003-lhs-before.json"
+      - name: Inspect all enumerated Angular HTML references before any build
+        shell: bash
+        run: |
+          node scripts/sac_pre004_lhs_template_snapshot.mjs before > "$RUNNER_TEMP/sac-pre004-lhs-template-before.json"
+          cat "$RUNNER_TEMP/sac-pre004-lhs-template-before.json"
       - name: Install official Angular toolchain from pinned LHS lockfile
         shell: bash
         run: npm ci --prefix .sac-snapshots/lhs/games/lan_house_simulator/frontend-angular --ignore-scripts --no-audit --no-fund
@@ -73,6 +89,11 @@ jobs:
         run: |
           node scripts/sac_pre003_lhs_pinned_aot.mjs after > "$RUNNER_TEMP/sac-pre003-lhs-aot-comparison.json"
           cat "$RUNNER_TEMP/sac-pre003-lhs-aot-comparison.json"
+      - name: Reconcile template links against the two official AOT builds
+        shell: bash
+        run: |
+          node scripts/sac_pre004_lhs_template_snapshot.mjs after > "$RUNNER_TEMP/sac-pre004-lhs-template-aot.json"
+          cat "$RUNNER_TEMP/sac-pre004-lhs-template-aot.json"
       - name: Upload bounded evidence without app source or raw diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -81,5 +102,7 @@ jobs:
           path: |
             ${{ runner.temp }}/sac-pre003-lhs-before.json
             ${{ runner.temp }}/sac-pre003-lhs-aot-comparison.json
+            ${{ runner.temp }}/sac-pre004-lhs-template-before.json
+            ${{ runner.temp }}/sac-pre004-lhs-template-aot.json
           if-no-files-found: ignore
           retention-days: 14
