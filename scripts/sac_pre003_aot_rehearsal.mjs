@@ -113,15 +113,15 @@ try {
       !aotPassed&&spec.diagnostic.test(combined);
     // Fixed, bounded CI diagnostic only: no raw compiler messages or paths.
     if(aotPassed!==(spec.expectedAot==='pass')||!diagnosticMatched) {
-      const knownCodes=[...new Set((combined.match(/\\b(?:TS-?\\d{4,6}|NG\\d{4,6})\\b/g)??[]))].slice(0,12);
+      const knownCodes=[...new Set((combined.match(/\b(?:TS-?\d{4,6}|NG\d{4,6})\b/g)??[]))].slice(0,12);
       process.stderr.write(JSON.stringify({
         case:spec.id,exit_status:output.status,spawn_error:output.error?.code??null,
         signal_present:Boolean(output.signal),diagnostic_codes:knownCodes,
-        missing_angular_core:/cannot find (module|package).*@angular\\/core/i.test(combined),
-        missing_compiler_cli:/cannot find (module|package).*@angular\\/compiler-cli/i.test(combined),
+        missing_angular_core:/cannot find (module|package).*@angular\/core/i.test(combined),
+        missing_compiler_cli:/cannot find (module|package).*@angular\/compiler-cli/i.test(combined),
         no_input_files:/no inputs were found/i.test(combined),
         nonstandalone_diagnostic:/imports.*only valid.*standalone/i.test(combined)
-      })+'\\n');
+      })+'\n');
     }
     results.push(sanitized(spec.id,sac,aotPassed,diagnosticMatched));
     // Keep diagnostic mismatches visible as fixed labels even if AOT fails for
