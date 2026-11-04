@@ -17,7 +17,7 @@ const {chromium}=require('playwright');
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const snapshot=path.join(root,'.sac-snapshots','lhs');
 const output=path.join(snapshot,'games/lan_house_simulator/out/site-clean-angular');
-const pinned='9537faa65c35b357bec49d9a9d76f85311f3be0c';
+const pinned='c5139c2cc5088adc3bbf0bf85d2952e64e2fc5ac';
 const revision=execFileSync('git',['-C',snapshot,'rev-parse','HEAD'],
   {encoding:'utf8',timeout:5000}).trim();
 assert.equal(revision,pinned,'sac-browser-unexpected-source-revision');

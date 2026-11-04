@@ -6,7 +6,7 @@ import {readFile,lstat} from 'node:fs/promises';
 import path from 'node:path';
 import {makeLhsObservationReport} from '../packages/angular-core/src/lhs-observation-report.mjs';
 
-const expectedCommit='9537faa65c35b357bec49d9a9d76f85311f3be0c';
+const expectedCommit='c5139c2cc5088adc3bbf0bf85d2952e64e2fc5ac';
 const expectedFiles=['sac-lhs-dynamic-evidence.json','sac-lhs-browser-evidence.json'];
 const root=process.env.RUNNER_TEMP;
 if(!root||!path.isAbsolute(root)||process.argv.length!==4)
