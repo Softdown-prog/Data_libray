@@ -8,7 +8,25 @@ const invalid = () => { throw new Error('sac-external-runtime-invalid-input'); }
 const fixedString = x => typeof x === 'string' && Buffer.byteLength(x,'utf8') <= MAX_BYTES;
 const hash = x => createHash('sha256').update(x).digest('hex');
 const literal = (text, value) => text.includes(value);
-const hasDynamicImport = text => /\bimport\s*\(/.test(text);
+// A textual "import(" match can be a comment/string, not executable JS.
+const hasDynamicImport = (ts, source) => {
+  if (!/\bimport\s*\(/.test(source)) return false;
+  const ast = ts.createSourceFile('bundle.js',source,ts.ScriptTarget.Latest,true,ts.ScriptKind.JS);
+  if (ast.parseDiagnostics?.length) return false;
+  let found = false;
+  function walk(node) {
+    if (found) return;
+    if (ts.isCallExpression(node) &&
+        node.expression.kind === ts.SyntaxKind.ImportKeyword &&
+        node.arguments.length === 1) {
+      found = true;
+      return;
+    }
+    ts.forEachChild(node,walk);
+  }
+  walk(ast);
+  return found;
+};
 const simplePath = x => typeof x === 'string' && x.length < 150 &&
   /^[A-Za-z0-9][A-Za-z0-9_./-]*\.js$/.test(x) &&
   !x.startsWith('/') && !x.split('/').some(part => part === '..');
@@ -66,8 +84,11 @@ export function inspectLhsRuntimeImports({typescript: ts,sources,bundles,assets}
     const spec = expected[key];
     const sourceUrlObserved = literal(source,spec.marker);
     const sourceDynamicObserved = includesDynamicCall(ts,source,spec.argument);
-    const bundleUrlObserved = emitted.some(x=>literal(x.source,spec.marker));
-    const bundleDynamicObserved = emitted.some(x=>hasDynamicImport(x.source));
+    // Both facts must come from the same emitted JS chunk; otherwise two
+    // unrelated chunks could masquerade as a verified reference.
+    const markerChunks = emitted.filter(x=>literal(x.source,spec.marker));
+    const bundleUrlObserved = markerChunks.length > 0;
+    const bundleDynamicObserved = markerChunks.some(x=>hasDynamicImport(ts,x.source));
     const nativeTargetObserved = native.length > 0;
     return {
       entry:key,
