@@ -7,7 +7,7 @@
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import {realpath,lstat,readFile} from 'node:fs/promises';
-import {parse} from 'parse5';
+import {verifyAngularIslands} from './angular-islands.mjs';
 import {RuleRegistry,execute} from '../../angular-core/src/index.mjs';
 import {registerSACP001} from '../../angular-core/src/sac-p001.mjs';
 
@@ -22,47 +22,9 @@ const refFiles=[
   'js/privacyConsent.js','__angular/main.js','style.css','__angular/styles.css',
   'js/main.js'
 ];
-const hashed=/^(?:[a-z][a-z0-9_-]*-)[a-z0-9]{6,}\.(?:js|css)$/i;
 const plain=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
 const fail=code=>{throw new Error('sac-lhs-postflight-'+code);};
 const manifestName=/^[a-z][a-z0-9_-]*-[a-z0-9]{6,}\.(?:js|css)$/i;
-const attr=(node,name)=>node.attrs?.find(x=>x.name===name)?.value;
-async function boundedFile(root,rel,limit=16*1024*1024){
-  if(!refFiles.includes(rel)&&rel!=='index.html'&&rel!=='angular-site-assets.json')
-    fail('unapproved-file');
-  const file=path.join(root,rel),canonical=await realpath(file);
-  if(!canonical.startsWith(root+path.sep))fail('path-outside-dist');
-  const info=await lstat(file);
-  if(!info.isFile()||info.isSymbolicLink()||info.size===0||info.size>limit)
-    fail('resource-invalid');
-  return readFile(file);
-}
-function documents(html){
-  const nodes=[];
-  const walk=n=>{
-    nodes.push(n);
-    // Template content is inert and intentionally excluded from mounted hosts.
-    if(n.tagName==='template')return;
-    for(const child of n.childNodes??[])walk(child);
-  };
-  walk(parse(html));
-  return nodes;
-}
-function nativeReference(reference){
-  if(typeof reference!=='string'||reference.length>180||
-     /[\\%\x00-\x20\x7f]/.test(reference))fail('url-unsafe');
-  let resolved;
-  try {resolved=new URL(reference,'https://sac.invalid/game/');}
-  catch{fail('url-invalid');}
-  if(resolved.origin!=='https://sac.invalid'||!resolved.pathname.startsWith('/game/'))
-    fail('url-outside-game-mount');
-  const relative=resolved.pathname.slice('/game/'.length);
-  if(!refFiles.includes(relative))fail('unexpected-game-reference');
-  if(resolved.hash)fail('fragment-unsupported');
-  if(resolved.search&&!/^\?v=[a-f0-9]{12}$/.test(resolved.search))
-    fail('revision-unrecognized');
-  return relative;
-}
 function safeManifest(manifest){
   if(!plain(manifest)||Object.keys(manifest).sort().join(',')!=='files,main,styles,version'||
      manifest.version!==1||!Array.isArray(manifest.files)||
@@ -100,39 +62,27 @@ export async function verifyLhsAngularScopes(dist){
     fail('site-sac-p001-not-passed');
   const game=await realpath(path.join(root,'game'));
   if(game!==path.join(root,'game'))fail('game-symlink-unsupported');
-  const html=(await boundedFile(game,'index.html',2*1024*1024)).toString('utf8');
-  const nodes=documents(html);
-  const counts=new Map();
-  for(const n of nodes){
-    const id=attr(n,'id');
-    if(id)counts.set(id,(counts.get(id)??0)+1);
+  const island=await verifyAngularIslands(game,{
+    schema_version:1,index:'index.html',mount:'/game/',
+    host_ids:ids,
+    required_elements:[{tag:'canvas',id:'game'}],forbidden_tags:['lhs-site'],
+    entrypoint_scripts:['__angular/main.js'],
+    allowed_resources:refFiles,
+    required_resources:[
+      '__angular/main.js','__angular/styles.css','style.css','js/privacyConsent.js'
+    ],
+    required_files:refFiles,query_policy:'hex12'
+  });
+  if(island.status!=='pass'){
+    const mapped={
+      'host-id-coverage-invalid':'game-island-id-coverage-failed',
+      'duplicate-dom-id':'game-island-id-coverage-failed',
+      'required-element-missing':'native-game-canvas-missing',
+      'resource-not-allowed':'unexpected-game-reference',
+      'inline-or-missing-resource':'inline-or-empty-game-resource'
+    };
+    fail(mapped[island.code]??'game-island-'+(island.code??'infra-error'));
   }
-  if(ids.some(id=>counts.get(id)!==1)||[...counts.values()].some(n=>n>1))
-    fail('game-island-id-coverage-failed');
-  if(nodes.some(n=>n.tagName==='lhs-site'))fail('game-site-root-duplicated');
-  if(!nodes.some(n=>n.tagName==='canvas'&&attr(n,'id')==='game'))
-    fail('native-game-canvas-missing');
-  const refs=[];
-  for(const n of nodes){
-    const isScript=n.tagName==='script';
-    const isCss=n.tagName==='link'&&(attr(n,'rel')??'').toLowerCase()==='stylesheet';
-    if(!isScript&&!isCss)continue;
-    const raw=attr(n,isScript?'src':'href');
-    if(!raw)fail('inline-or-empty-game-resource');
-    if(isScript&&!['module','text/javascript','application/javascript',''].includes(
-      (attr(n,'type')??'').toLowerCase()))fail('game-script-type-unsupported');
-    const value=nativeReference(raw);
-    if(isScript&&!value.endsWith('.js')||isCss&&!value.endsWith('.css'))
-      fail('game-resource-type-mismatch');
-    refs.push(value);
-  }
-  if(new Set(refs).size!==refs.length||
-     !['__angular/main.js','__angular/styles.css','style.css','js/privacyConsent.js']
-       .every(x=>refs.includes(x))||
-     refs.includes('js/react-entry.js')||
-     !nodes.some(n=>n.tagName==='script'&&nativeReference(attr(n,'src')??'')==='__angular/main.js'))
-    fail('game-entrypoint-incomplete');
-  for(const resource of refFiles)await boundedFile(game,resource);
   // The asset presence is structural evidence. It cannot certify app state.
   const result={
     schema_version:1,report_type:'sac-p001-lhs-scoped-static',
