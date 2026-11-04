@@ -1,0 +1,158 @@
+/**
+ * SAC-PRE005: opt-in bounded Angular template binding/event evidence.
+ *
+ * The Angular parser and the TypeScript AST are supplied by a trusted caller.
+ * Project code and HTML are NEVER imported or evaluated; raw source, member
+ * names, compiler errors and template text never enter returned evidence.
+ *
+ * A parser syntax error is a finding inside an observed template. Undeclared
+ * class member hints are UNVERIFIED (inheritance/template locals can be valid).
+ */
+import {inspectAngularTemplateLinks} from './template-links.mjs';
+
+const MAX_PARSED_TEMPLATES=64,MAX_VISITS=30000,MAX_FINDINGS=256;
+const invalid=()=>{throw new Error('sac-template-bindings-invalid-input');};
+
+function memberNames(ts,ast){
+  const names=new Set();
+  for(const stmt of ast.statements){
+    if(!ts.isClassDeclaration(stmt))continue;
+    for(const member of stmt.members){
+      const name=member.name;
+      if(name && (ts.isIdentifier(name)||ts.isStringLiteral(name)))names.add(name.text);
+      if(ts.isConstructorDeclaration(member)){
+        for(const parameter of member.parameters){
+          const flags=parameter.modifiers??[];
+          if(ts.isIdentifier(parameter.name)&&flags.some(f=>[
+            ts.SyntaxKind.PublicKeyword,ts.SyntaxKind.PrivateKeyword,
+            ts.SyntaxKind.ProtectedKeyword,ts.SyntaxKind.ReadonlyKeyword
+          ].includes(f.kind)))names.add(parameter.name.text);
+        }
+      }
+    }
+  }
+  return names;
+}
+function classReferences(ts,files){
+  const byFile=new Map();
+  for(const file of files){
+    const ast=ts.createSourceFile(file.path,file.source,ts.ScriptTarget.Latest,true,
+      file.path.endsWith('.tsx')?ts.ScriptKind.TSX:ts.ScriptKind.TS);
+    byFile.set(file.path,ast.parseDiagnostics?.length?null:memberNames(ts,ast));
+  }
+  return byFile;
+}
+function rootMember(node){
+  const expr=node?.ast??node;
+  if(!expr || typeof expr!=='object')return null;
+  const kind=expr.constructor?.name;
+  if(kind==='PropertyRead'&&expr.receiver?.constructor?.name==='ImplicitReceiver')
+    return expr.name;
+  return null;
+}
+function directEventMethod(node){
+  const expr=node?.ast??node;
+  if(expr?.constructor?.name!=='Call')return null;
+  return rootMember(expr.receiver);
+}
+function walkTemplate(nodes,members,totals,missing,limit){
+  const visit=(node)=>{
+    if(!node||typeof node!=='object')return;
+    if(++totals.visited>limit)invalid();
+    const kind=node.constructor?.name;
+    if(kind==='BoundEvent'){
+      totals.events++;
+      const name=directEventMethod(node.handler);
+      if(name && !members.has(name))missing.event=true;
+    }else if(kind==='BoundAttribute'){
+      totals.properties++;
+      const name=rootMember(node.value);
+      if(name && !members.has(name))missing.property=true;
+    }else if(kind==='BoundText')totals.interpolations++;
+    // A deliberately restricted walk: Angular has more template AST node
+    // families; counts are lower-bound observations, not total coverage.
+    for(const key of ['children','inputs','outputs','templateAttrs','branches','cases','body']){
+      const children=node[key];
+      if(Array.isArray(children))for(const child of children)visit(child);
+    }
+  };
+  for(const node of nodes)visit(node);
+}
+
+/**
+ * Enforces the same bounded inventory contract as SAC-PRE004 and inspects only
+ * external HTML templates for which that analyzer proved a static link.
+ * The result remains UNVERIFIED even when parser errors are observed, because
+ * the AOT builder alone can prove whether a template is compiled in an app.
+ */
+export function inspectAngularTemplateBindings({files,templates=[],typescript:ts,angularCompiler:ng}={}){
+  if(!ng||typeof ng.parseTemplate!=='function'||
+     !Array.isArray(files)||!Array.isArray(templates))invalid();
+  const links=inspectAngularTemplateLinks({files,templates,typescript:ts});
+  if(links.external_templates_linked>MAX_PARSED_TEMPLATES)invalid();
+  const html=new Map(templates.map(item=>[item.path,item.source]));
+  const byFile=classReferences(ts,files);
+  const totals={visited:0,events:0,properties:0,interpolations:0};
+  const findings=[];
+  const report=(code,file,component_index)=>{
+    if(findings.length>=MAX_FINDINGS)invalid();
+    findings.push({code,file,component_index});
+  };
+  let parsed=0,syntaxErrors=0,uncertainEvent=0,uncertainProperty=0;
+  for(const link of links.links){
+    let parsedTemplate;
+    try{
+      parsedTemplate=ng.parseTemplate(html.get(link.template_file),link.template_file,{
+        preserveWhitespaces:false
+      });
+    }catch{
+      report('angular-template-parser-exception-unverified',
+        link.component_file,link.component_index);
+      continue;
+    }
+    parsed++;
+    if(Array.isArray(parsedTemplate.errors)&&parsedTemplate.errors.length){
+      syntaxErrors+=parsedTemplate.errors.length;
+      report('angular-template-parser-errors-observed',
+        link.component_file,link.component_index);
+      continue;
+    }
+    const members=byFile.get(link.component_file);
+    const potential={event:false,property:false};
+    if(!members || !Array.isArray(parsedTemplate.nodes)){
+      report('template-expression-ast-unverified',
+        link.component_file,link.component_index);
+      continue;
+    }
+    walkTemplate(parsedTemplate.nodes,members,totals,potential,MAX_VISITS);
+    if(potential.event){
+      uncertainEvent++;
+      report('event-handler-member-unverified',
+        link.component_file,link.component_index);
+    }
+    if(potential.property){
+      uncertainProperty++;
+      report('property-binding-member-unverified',
+        link.component_file,link.component_index);
+    }
+  }
+  findings.sort((a,b)=>a.file.localeCompare(b.file)||
+    a.component_index-b.component_index||a.code.localeCompare(b.code));
+  return {
+    schema_version:1,rule_id:'SAC-PRE005',status:'unverified',
+    scope:'enumerated-angular-external-html-template-expressions-only',
+    component_links_observed:links.external_templates_linked,
+    external_templates_parsed:parsed,
+    inline_templates_not_inspected:links.inline_templates_observed,
+    template_parser_error_count:syntaxErrors,
+    bound_events_observed:totals.events,
+    bound_properties_observed:totals.properties,
+    interpolations_observed:totals.interpolations,
+    potential_event_handlers_not_declared_locally:uncertainEvent,
+    potential_property_bindings_not_declared_locally:uncertainProperty,
+    findings,
+    complete_template_ast_coverage:false,
+    aot_verified:false,runtime_verified:false,
+    root_cause_verified:false,deployment_authorized:false
+  };
+}
