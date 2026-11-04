@@ -135,6 +135,8 @@ jobs:
       - name: Verify Chromium dynamic imports, Android-size viewports and reloads
         shell: bash
         run: |
+          sha256sum .sac-snapshots/lhs/games/lan_house_simulator/out/site-clean-angular/game/js/main.js \
+            .sac-snapshots/lhs/games/lan_house_simulator/out/site-clean-angular/game/js/sim/saveTransfer.js
           node --check scripts/sac_lhs_dynamic_browser_probe.mjs
           node scripts/sac_lhs_dynamic_browser_probe.mjs > "$RUNNER_TEMP/sac-lhs-browser-evidence.json"
           cat "$RUNNER_TEMP/sac-lhs-browser-evidence.json"
