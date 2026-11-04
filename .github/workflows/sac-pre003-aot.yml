@@ -1,0 +1,53 @@
+name: SAC-PRE003 Angular AOT Concordance (isolated)
+on:
+  push:
+    branches: ['feat/sac-pre003-aot-concordance-20261104']
+    paths:
+      - 'scripts/sac_pre003_aot_rehearsal.mjs'
+      - 'packages/angular-precompiler/src/component-wiring.mjs'
+      - 'tests/sac_angular_component_wiring.test.mjs'
+      - 'docs/SAC_COMPONENT_WIRING.md'
+      - '.github/workflows/sac-pre003-aot.yml'
+  pull_request:
+    paths:
+      - 'scripts/sac_pre003_aot_rehearsal.mjs'
+      - 'packages/angular-precompiler/src/component-wiring.mjs'
+      - 'tests/sac_angular_component_wiring.test.mjs'
+      - 'docs/SAC_COMPONENT_WIRING.md'
+      - '.github/workflows/sac-pre003-aot.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  aot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout Data Library without retained token
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Use pinned Node runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install trusted official Angular fixture (no lifecycle scripts)
+        run: npm ci --prefix packages/angular-postcompiler/smoke --ignore-scripts --no-audit --no-fund
+      - name: Regression of opt-in component metadata analyzer
+        run: |
+          node --check packages/angular-precompiler/src/component-wiring.mjs
+          node --test tests/sac_angular_component_wiring.test.mjs
+      - name: Compare synthetic SAC-PRE003 findings with official Angular AOT
+        shell: bash
+        run: |
+          node --check scripts/sac_pre003_aot_rehearsal.mjs
+          node scripts/sac_pre003_aot_rehearsal.mjs > "$RUNNER_TEMP/sac-pre003-aot-concordance.json"
+          cat "$RUNNER_TEMP/sac-pre003-aot-concordance.json"
+      - name: Upload sanitized report only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sac-pre003-aot-concordance
+          path: ${{ runner.temp }}/sac-pre003-aot-concordance.json
+          if-no-files-found: ignore
+          retention-days: 14
