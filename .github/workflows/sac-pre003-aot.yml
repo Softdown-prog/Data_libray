@@ -4,6 +4,10 @@ on:
     branches: ['feat/sac-pre003-aot-concordance-20261104']
     paths:
       - 'scripts/sac_pre003_aot_rehearsal.mjs'
+      - 'scripts/sac_pre004_template_aot_rehearsal.mjs'
+      - 'packages/angular-precompiler/src/template-links.mjs'
+      - 'tests/sac_angular_template_links.test.mjs'
+      - 'docs/SAC_TEMPLATE_LINKS.md'
       - 'packages/angular-precompiler/src/component-wiring.mjs'
       - 'tests/sac_angular_component_wiring.test.mjs'
       - 'docs/SAC_COMPONENT_WIRING.md'
@@ -11,6 +15,10 @@ on:
   pull_request:
     paths:
       - 'scripts/sac_pre003_aot_rehearsal.mjs'
+      - 'scripts/sac_pre004_template_aot_rehearsal.mjs'
+      - 'packages/angular-precompiler/src/template-links.mjs'
+      - 'tests/sac_angular_template_links.test.mjs'
+      - 'docs/SAC_TEMPLATE_LINKS.md'
       - 'packages/angular-precompiler/src/component-wiring.mjs'
       - 'tests/sac_angular_component_wiring.test.mjs'
       - 'docs/SAC_COMPONENT_WIRING.md'
@@ -43,11 +51,23 @@ jobs:
           node --check scripts/sac_pre003_aot_rehearsal.mjs
           node scripts/sac_pre003_aot_rehearsal.mjs > "$RUNNER_TEMP/sac-pre003-aot-concordance.json"
           cat "$RUNNER_TEMP/sac-pre003-aot-concordance.json"
+      - name: SAC-PRE004 static template reference regression
+        run: |
+          node --check packages/angular-precompiler/src/template-links.mjs
+          node --test tests/sac_angular_template_links.test.mjs
+      - name: SAC-PRE004 official Angular AOT external HTML comparison
+        shell: bash
+        run: |
+          node --check scripts/sac_pre004_template_aot_rehearsal.mjs
+          node scripts/sac_pre004_template_aot_rehearsal.mjs > "$RUNNER_TEMP/sac-pre004-aot-concordance.json"
+          cat "$RUNNER_TEMP/sac-pre004-aot-concordance.json"
       - name: Upload sanitized report only
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: sac-pre003-aot-concordance
-          path: ${{ runner.temp }}/sac-pre003-aot-concordance.json
+          path: |
+            ${{ runner.temp }}/sac-pre003-aot-concordance.json
+            ${{ runner.temp }}/sac-pre004-aot-concordance.json
           if-no-files-found: ignore
           retention-days: 14
