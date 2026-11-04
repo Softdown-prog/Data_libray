@@ -7,7 +7,7 @@
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import {realpath,lstat,readFile} from 'node:fs/promises';
-import {verifyAngularIslands} from './angular-islands.mjs';
+import {registerSACAngularIslands} from '../../angular-core/src/sac-p001-islands.mjs';
 import {RuleRegistry,execute} from '../../angular-core/src/index.mjs';
 import {registerSACP001} from '../../angular-core/src/sac-p001.mjs';
 
@@ -46,7 +46,9 @@ function safeManifest(manifest){
      !manifest.files.includes(manifest.main)||!manifest.files.includes(manifest.styles))
     fail('manifest-invalid');
 }
-export async function verifyLhsAngularScopes(dist){
+export async function verifyLhsAngularScopes(
+  dist,islandRuntimeEvidence=null,sourceCommit=null,islandInteractionEvidence=null
+){
   const root=await realpath(dist);
   const manifest=JSON.parse((await boundedFile(root,'angular-site-assets.json',16384)).toString('utf8'));
   safeManifest(manifest);
@@ -72,7 +74,7 @@ export async function verifyLhsAngularScopes(dist){
     fail('site-sac-p001-not-passed');
   const game=await realpath(path.join(root,'game'));
   if(game!==path.join(root,'game'))fail('game-symlink-unsupported');
-  const island=await verifyAngularIslands(game,{
+  const islandContract={
     schema_version:1,index:'index.html',mount:'/game/',
     host_ids:ids,
     required_elements:[{tag:'canvas',id:'game'}],forbidden_tags:['lhs-site'],
@@ -82,8 +84,68 @@ export async function verifyLhsAngularScopes(dist){
       '__angular/main.js','__angular/styles.css','style.css','js/privacyConsent.js'
     ],
     required_files:refFiles,query_policy:'hex12'
+  };
+  const islandCore=await execute({
+    registry:registerSACAngularIslands(new RuleRegistry()),
+    profile:{
+      schema_version:1,profile_id:'lhs-pinned-game-islands',
+      angular_version:'22.2.4',capabilities:['angular','angular-islands'],
+      mode:'angular-only',mount:'/game/',bundle_hints:null,
+      rules:[{rule_id:'SAC-P001-ISLAND-EXT',version:'1.0.0',
+        required:true,enforcement:'blocking'}]
+    },
+    resources:{
+      dist:game,islandContract,
+      ...(islandRuntimeEvidence===null?{}:{
+        islandRuntimeEvidence,
+        islandRuntimeExpectation:{
+          source_commit:sourceCommit,entrypoint:'__angular/main.js',
+          viewports:[360,414],phases:['initial','reload'],
+          reactive_host_id:'angular-time-weather',event_name:'lhs:time-weather-updated'
+        },
+        ...(islandInteractionEvidence===null?{}:{
+          islandInteractionEvidence,
+          islandInteractionExpectation:{
+            source_commit:sourceCommit,entrypoint:'__angular/main.js',
+            viewports:[360,414],phases:['initial','reload'],
+            probes:[
+              {id:'notice-inbox',host_id:'angular-notice-inbox',
+                event_name:'lhs:notice-inbox-updated'},
+              {id:'finance-summary',host_id:'angular-finance-workspace',
+                event_name:'lhs:admin-finance-updated'},
+              {id:'finance-navigation',host_id:'angular-finance-workspace',
+                event_name:'lhs:management-page-selected'},
+              {id:'stock-navigation',host_id:'angular-stock-workspace',
+                event_name:'lhs:management-page-selected'}
+            ]
+          }
+        })
+      })
+    }
   });
-  if(island.status!=='pass'){
+  const island=islandCore.results[0];
+  const browserObserved=islandRuntimeEvidence!==null&&
+    island?.evidence?.some(e=>e.assertion==='browser-dom'&&
+      e.status==='pass'&&e.code==='chromium-dom-event-observed')===true;
+  const interactionObserved=islandInteractionEvidence!==null&&
+    island?.evidence?.some(e=>e.assertion==='component-events'&&
+      e.status==='pass'&&e.code==='chromium-component-events-observed')===true;
+  const staticPassed=islandCore.status==='unverified'&&
+    islandCore.promotion_allowed===false&&
+    islandCore.coverage.required===1&&islandCore.coverage.passed===0&&
+    island?.rule_id==='SAC-P001-ISLAND-EXT'&&
+    island.status==='unverified'&&
+    island.evidence.some(e=>e.assertion==='islands-static'&&
+      e.status==='pass'&&e.code==='static-hosts-verified')&&
+    island.evidence.some(e=>e.assertion==='runtime-mount'&&
+      e.status==='unverified'&&
+      (islandRuntimeEvidence===null?
+        e.code==='runtime-not-verified':
+        e.code==='full-runtime-not-verified'))&&
+    (islandRuntimeEvidence===null||browserObserved)&&
+    (islandInteractionEvidence===null||interactionObserved);
+  if(!staticPassed){
+    const code=island?.evidence?.find(e=>e.assertion==='islands-static')?.code;
     const mapped={
       'host-id-coverage-invalid':'game-island-id-coverage-failed',
       'duplicate-dom-id':'game-island-id-coverage-failed',
@@ -91,7 +153,7 @@ export async function verifyLhsAngularScopes(dist){
       'resource-not-allowed':'unexpected-game-reference',
       'inline-or-missing-resource':'inline-or-empty-game-resource'
     };
-    fail(mapped[island.code]??'game-island-'+(island.code??'infra-error'));
+    fail(mapped[code]??'game-island-'+(code??'core-failure'));
   }
   // The asset presence is structural evidence. It cannot certify app state.
   const result={
@@ -100,7 +162,9 @@ export async function verifyLhsAngularScopes(dist){
       angular_entrypoint_observed:true},
     game:{rule_id:'SAC-P001-ISLAND-EXT',status:'pass',mount:'/game/',
       angular_island_count:ids.length,canvas_present:true,
-      angular_entrypoint_observed:true,legacy_react_entrypoint_absent:true},
+      angular_entrypoint_observed:true,legacy_react_entrypoint_absent:true,
+      browser_dom_and_reactivity_observed:browserObserved,
+      component_event_interactions_observed:interactionObserved},
     root_p001_game_status:'not-applicable',
     complete_sac_pipeline_approved:false,deployment_authorized:false
   };

@@ -162,3 +162,15 @@ Vincule com o recibo SAC-004 e Guardian em camadas separadas.
 O LHS é um consumidor dessa função, com seus 13 IDs e caminhos mantidos em
 \`src/lhs-scoped-postflight.mjs\`. Os testes \`test/angular-islands.test.mjs\`
 usam um exemplo de dashboard independente do jogo.
+
+### Ativação por projeto: seleção explícita e bloqueante
+
+A extensão de ilhas tem registro versionado no SAC Core por `registerSACAngularIslands(new RuleRegistry())`, disponível em `packages/angular-core/src/sac-p001-islands.mjs`. O perfil v1 inclui `capabilities: ['angular','angular-islands']`, `mount` idêntico ao contrato e `{rule_id:'SAC-P001-ISLAND-EXT',version:'1.0.0',required:true,enforcement:'blocking'}`. Execute `execute({registry,profile,resources:{dist,islandContract}})`. O contrato não é um novo campo do perfil: é um recurso fornecido pelo host confiável.
+
+Quando a estrutura está correta, o Core conserva `status:'unverified'` e divulga `islands-static:pass` com `runtime-mount:unverified`. Assim não autoriza promoção nem muda o SAC-P001 v1 ou sua CLI. Seleções opcionais ou `observe` são rejeitadas pelo validador para evitar aprovação indireta de outra regra enquanto faltam provas de execução.
+
+### Prova de DOM e reação a eventos em navegador real
+
+A regra versionada `SAC-P001-ISLAND-EXT` agora aceita, opcionalmente, dois recursos fornecidos pelo host: `islandRuntimeEvidence` (observação do Chromium) e `islandRuntimeExpectation` (contrato independente do host: commit esperado, entrypoint, viewports, fases, host reativo e nome do evento). O validador vincula o JSON à lista de hosts e ao SHA-256 do entrypoint **real** no dist; exige todas as fases ordenadas, DOM renderizado e alteração reativa observada. Prova incompleta/forjada reprova; a ausência da prova preserva `unverified`.
+
+Mesmo quando a prova do navegador passa, o Core emite `browser-dom:pass` e mantém `runtime-mount:unverified` e `promotion_allowed:false`. Não é certificado universal de execução Angular, prova de Android real, assinatura do runner nem autorização de deploy.
