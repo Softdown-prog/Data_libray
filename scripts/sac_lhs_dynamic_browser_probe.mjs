@@ -17,7 +17,7 @@ const {chromium}=require('playwright');
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const snapshot=path.join(root,'.sac-snapshots','lhs');
 const output=path.join(snapshot,'games/lan_house_simulator/out/site-clean-angular');
-const pinned='db639a117024b2e14c4af844bfb69b90bef5da20';
+const pinned='c5139c2cc5088adc3bbf0bf85d2952e64e2fc5ac';
 const revision=execFileSync('git',['-C',snapshot,'rev-parse','HEAD'],
   {encoding:'utf8',timeout:5000}).trim();
 assert.equal(revision,pinned,'sac-browser-unexpected-source-revision');
@@ -39,8 +39,8 @@ const mime={
 };
 const sha=x=>createHash('sha256').update(x).digest('hex');
 const tracked={
-  '/game/js/main.js':'a3206e92f6af5934f80c11f39f32ff62c0d8728077626d06e8b81bf647f10bab',
-  '/game/js/sim/saveTransfer.js':'97a78a0494d7b5b2dcb59431046c016ab2a756ec80955dc0af5a8031dda4c3d6'
+  '/game/js/main.js':'caf1f1146933c97ae18ecab7f5968b662e8069bd665df63f346f744db0dfd566',
+  '/game/js/sim/saveTransfer.js':'c2f9fdf590cdcd6c105fbd994272e4d7bcde181af94189ce8a033190d7def47d'
 };
 for(const [url,digest] of Object.entries(tracked)){
   const bytes=await readFile(path.join(output,url.slice(1)));

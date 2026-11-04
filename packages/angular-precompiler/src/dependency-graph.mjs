@@ -228,8 +228,14 @@ function collectImports(ts, sourceFile) {
           names.elements.length > 0 && names.elements.every(e => e.isTypeOnly)));
       add(ts.isStringLiteralLike(node.moduleSpecifier) ? node.moduleSpecifier.text : null, onlyTypes);
     } else if (ts.isExportDeclaration(node) && node.moduleSpecifier) {
-      add(ts.isStringLiteralLike(node.moduleSpecifier) ? node.moduleSpecifier.text : null,
-        Boolean(node.isTypeOnly));
+      const names = node.exportClause;
+      // "export { type Foo } from './x'" has isTypeOnly=false on the
+      // declaration; only its named specifier is type-only. Treat an empty
+      // named reexport as non-runtime, too. Mixed/star reexports remain runtime.
+      const onlyTypes = Boolean(node.isTypeOnly ||
+        (names && ts.isNamedExports(names) &&
+          names.elements.every(element => element.isTypeOnly)));
+      add(ts.isStringLiteralLike(node.moduleSpecifier) ? node.moduleSpecifier.text : null, onlyTypes);
     } else if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference)) {
       const ref = node.moduleReference.expression;
       add(ref && ts.isStringLiteralLike(ref) ? ref.text : null, Boolean(node.isTypeOnly));

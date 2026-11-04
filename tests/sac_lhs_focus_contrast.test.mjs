@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {rgbContrast,verifyLhsFocusContrastEvidence as verify} from
   '../packages/angular-core/src/sac-lhs-focus-contrast.mjs';
 
-const COMMIT='db639a117024b2e14c4af844bfb69b90bef5da20';
+const COMMIT='c5139c2cc5088adc3bbf0bf85d2952e64e2fc5ac';
 const HASH='a'.repeat(64);
 const expected=()=>({source_commit:COMMIT,entrypoint:'__angular/main.js',
   mount:'/game/',host_id:'angular-admin-area-navigation'});

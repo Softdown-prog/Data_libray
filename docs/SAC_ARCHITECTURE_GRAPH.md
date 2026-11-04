@@ -64,7 +64,7 @@ O artefato JSON publicado contém somente hashes, os caminhos fixados, status e 
 
 Dois imports não literais do Lan House Simulator permanecem intencionalmente fora do grafo TypeScript compilado: `src/main.ts` carrega `./js/main.js` via `gameUrl.href`, e `src/site-rewrite/account.ts` carrega `/game/js/sim/saveTransfer.js` via `modulePath`. A opção `@vite-ignore` não resolve o módulo em tempo de compilação. Uma compilação Angular aprovada, portanto, não comprova o carregamento pelo navegador.
 
-O workflow `sac-lhs-dynamic-evidence.yml` usa somente o SHA fixado `db639a117024b2e14c4af844bfb69b90bef5da20`, verifica os Git blobs de ambos os arquivos, instala dependências sem scripts de lifecycle, executa os sete testes sintéticos e constrói a saída estática limpa via `npm run build:site:clean` em runner descartável. Não publica o site, não acessa contas externas, não executa a simulação, não usa a VPS e não modifica repositórios externos.
+O workflow `sac-lhs-dynamic-evidence.yml` usa somente o SHA fixado `c5139c2cc5088adc3bbf0bf85d2952e64e2fc5ac`, verifica os Git blobs de ambos os arquivos, instala dependências sem scripts de lifecycle, executa os sete testes sintéticos e constrói a saída estática limpa via `npm run build:site:clean` em runner descartável. Não publica o site, não acessa contas externas, não executa a simulação, não usa a VPS e não modifica repositórios externos.
 
 O inspetor puro `runtime-external-evidence.mjs` recebe como strings os arquivos de origem, chunks JavaScript Angular e o resultado compilado do jogo. Verifica expressões `import()` não literais na AST de origem, indícios da URL e do import nos chunks emitidos, a presença dos alvos `game/js/main.js` e `game/js/sim/saveTransfer.js` no artefato e a inicialização Angular. Regras de caminho/tamanho e testes negativos evitam aprovações se faltar algum elemento. O relatório em `scripts/sac_lhs_dynamic_build_evidence.mjs` contém somente status, hashes, caminhos fixos, indicadores booleanos e contagens; não exporta código compilado nem conteúdos de contas.
 
@@ -178,3 +178,21 @@ O diagnóstico `sac-lhs-focus-contrast.mjs` aceita uma observação limitada do 
 Ainda na partida descartável de 1998, o navegador verifica que a tarefa de catálogo avançado Angular e seu botão nativo permanecem desabilitados, que o painel bloqueado continua oculto, que `focus()` não leva foco ao botão desabilitado e que `Shift+Tab` não o alcança. Não realiza compras, reset, pagamentos ou ações da economia.
 
 O validador rejeita ciclos incompletos, campos extras, hashes incompatíveis, foco inexistente, largura de contorno menor que 2 px e bloqueio quebrado. Contraste insuficiente gera **finding explícito**, em vez de simular aprovação, e a automação permanece verde somente se a medição e os bloqueios funcionaram. O relatório registra `focus_and_contrast` como **observação** (com possível finding) e `focus_outline_contrast_finding` / `text_contrast_finding` como booleans. `approval:unverified`, `promotion_allowed:false`, `deployment_authorized:false`, `universal_runtime_attested:false` são mantidos. Correção visual do snapshot do jogo não está incluída nesta etapa.
+
+
+### Reteste de contraste — snapshot corrigido em branch (04/11/2026)
+
+O snapshot fixado neste experimento foi atualizado para `c5139c2cc5088adc3bbf0bf85d2952e64e2fc5ac` para testar a correção CSS na branch LHS `feat/lhs-angular-focus-contrast-sac-20261104`; a revisão original permanece rastreável no histórico. Além dos verificadores anteriores, o workflow só aprova sua própria execução quando `provenance.focus_outline_contrast_finding` e `provenance.text_contrast_finding` são ambos `false` no relatório autenticado do Chromium, mantendo `promotion_allowed=false`, `deployment_authorized=false` e `observation_status=unverified`. A amostragem de estilos não é certificação WCAG e nenhuma alteração é enviada ao deploy ou main.
+
+### SAC-PRE002 — correlação conservadora por AST dos chunks emitidos
+
+A inspeção de imports dinâmicos no bundle JavaScript agora analisa a chamada `import()` pela AST do TypeScript confiável, em vez de aceitar somente uma expressão regular. O marcador de URL e a chamada executável precisam ocorrer no **mesmo chunk**. Comentários, strings contendo `import(...)`, JS sintaticamente inválido e a combinação artificial de dois chunks independentes não produzem `bundle_dynamic_import_observed:true`.
+
+Essa é uma prova estática mais restrita de consistência: os dois elementos no mesmo chunk ainda podem não estar conectados pelo fluxo de dados. O status geral continua `unverified`, com `runtime_execution_verified:false` e `deployment_authorized:false`. O Chromium e o recibo de build continuam responsáveis por suas evidências independentes. Os testes negativos de `tests/sac_lhs_runtime_external_evidence.test.mjs` protegem essa distinção.
+
+
+### Distinção entre reexportações de tipos e valores
+
+O grafo agora inspeciona os especificadores de `export {type Foo} from './x'` na AST TypeScript. Essa forma não cria dependência executável, embora o nó `ExportDeclaration.isTypeOnly` possa ser `false`. Também são classificados como não executáveis `export type * from './x'` e `export {} from './x'`; `export {type Foo, valor} from './x'` e `export * from './x'` mantêm arestas runtime. Importações mistas continuam runtime.
+
+A mudança evita falsos diagnósticos `circular-runtime-import` em ciclos compostos apenas por tipos, mas mantém arestas `kind:'type'` para rastreabilidade. Os testes negativos exigem `fail` quando existe ciclo de valores. O escopo continua limitado às fontes enumeradas, com `root_cause_verified=false` e `deployment_authorized=false`.

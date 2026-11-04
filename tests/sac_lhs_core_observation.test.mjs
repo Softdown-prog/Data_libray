@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {makeLhsObservationReport} from '../packages/angular-core/src/lhs-observation-report.mjs';
 import {makeAuthenticatedLhsObservation} from '../packages/angular-core/src/lhs-authenticated-observation.mjs';
 
-const SHA='db639a117024b2e14c4af844bfb69b90bef5da20';
+const SHA='c5139c2cc5088adc3bbf0bf85d2952e64e2fc5ac';
 const A='a'.repeat(64),B='b'.repeat(64);
 function fixture(){
   const hashes=[A,B],targets=[

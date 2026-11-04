@@ -87,3 +87,33 @@ test('report exposes only hashes, fixed paths and boolean evidence',()=>{
   assert.equal(output.includes(secret),false);
   assert.equal(output.includes('export function parseImportedSave'),false);
 });
+
+test('comments and strings containing import syntax do not count as executable imports',()=>{
+  const f=fixture();
+  f.bundles.site[0].source=
+    "const p='/game/js/sim/saveTransfer.js'; const decoy='import(p)'; /* import(p) */";
+  const result=inspectLhsRuntimeImports(f);
+  assert.equal(result.entries[1].bundle_url_observed,true);
+  assert.equal(result.entries[1].bundle_dynamic_import_observed,false);
+  assert.equal(result.emitted_artifacts_consistent,false);
+});
+
+test('marker and dynamic import in separate JS chunks are not linked evidence',()=>{
+  const f=fixture();
+  f.bundles.game=[
+    {path:'main.js',source:"const path='./js/main.js';"},
+    {path:'chunk.js',source:'await import(unrelatedModule);'}
+  ];
+  const result=inspectLhsRuntimeImports(f);
+  assert.equal(result.entries[0].bundle_url_observed,true);
+  assert.equal(result.entries[0].bundle_dynamic_import_observed,false);
+  assert.equal(result.entries[0].artifact_link_evidence,false);
+});
+
+test('malformed emitted JS cannot provide executable import evidence',()=>{
+  const f=fixture();
+  f.bundles.game[0].source="const p='./js/main.js'; import(";
+  const result=inspectLhsRuntimeImports(f);
+  assert.equal(result.entries[0].bundle_dynamic_import_observed,false);
+  assert.equal(result.emitted_artifacts_consistent,false);
+});

@@ -20,7 +20,7 @@ const ids=[
 ];
 const refFiles=[
   'js/privacyConsent.js','__angular/main.js','style.css','__angular/styles.css',
-  'js/main.js'
+  '__angular/compatibility.css','js/main.js'
 ];
 const plain=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
 const fail=code=>{throw new Error('sac-lhs-postflight-'+code);};
@@ -81,7 +81,8 @@ export async function verifyLhsAngularScopes(
     entrypoint_scripts:['__angular/main.js'],
     allowed_resources:refFiles,
     required_resources:[
-      '__angular/main.js','__angular/styles.css','style.css','js/privacyConsent.js'
+      '__angular/main.js','__angular/styles.css','__angular/compatibility.css',
+      'style.css','js/privacyConsent.js'
     ],
     required_files:refFiles,query_policy:'hex12'
   };

@@ -19,7 +19,7 @@ import {makeAuthenticatedLhsObservation} from '../packages/angular-core/src/lhs-
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const snapshot=path.join(root,'.sac-snapshots','lhs');
 const game=path.join(snapshot,'games/lan_house_simulator');
-const pinned='db639a117024b2e14c4af844bfb69b90bef5da20';
+const pinned='c5139c2cc5088adc3bbf0bf85d2952e64e2fc5ac';
 const temp=process.env.RUNNER_TEMP;
 if(!temp||!path.isAbsolute(temp)||!['prepare','verify'].includes(process.argv[2])||
     process.argv.length!==3)
