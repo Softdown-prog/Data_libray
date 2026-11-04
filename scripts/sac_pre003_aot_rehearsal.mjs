@@ -94,7 +94,7 @@ try {
       compilerOptions:{
         target:'ES2022',module:'ESNext',moduleResolution:'bundler',
         experimentalDecorators:true,strict:true,skipLibCheck:true,
-        outDir:'./out',noEmitOnError:true
+        rootDir:'./src',outDir:'./out',noEmitOnError:true
       },
       angularCompilerOptions:{strictTemplates:true,compilationMode:'full'},
       files:['src/child.ts','src/page.ts']
