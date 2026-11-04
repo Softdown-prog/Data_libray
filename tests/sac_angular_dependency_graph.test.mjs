@@ -358,3 +358,53 @@ test('inherited resolveJsonModule is honored, malformed configs leak no source c
   assert.equal(result.status,'pass');
   assert.equal(JSON.stringify(result).includes('DO_NOT_PRINT_PRIVATE'),false);
 });
+
+
+test('named type-only reexports do not fabricate Angular runtime cycles',()=>{
+  const files=[
+    file('src/domain/a.ts',"export { type B } from './b'; export type A = {id: string};"),
+    file('src/domain/b.ts',"export { type A } from './a'; export type B = {id: number};")
+  ];
+  const output=check(files);
+  assert.equal(output.status,'pass');
+  assert.equal(output.deployment_authorized,false);
+  assert.deepEqual(output.edges,[
+    {from:'src/domain/a.ts',to:'src/domain/b.ts',kind:'type'},
+    {from:'src/domain/b.ts',to:'src/domain/a.ts',kind:'type'}
+  ]);
+  assert.equal(output.findings.some(f=>f.code==='circular-runtime-import'),false);
+  assert.deepEqual(check([...files].reverse()),output);
+});
+
+test('explicit export type star and empty named reexports are not runtime edges',()=>{
+  const output=check([
+    file('src/domain/a.ts',"export type * from './b'; export {} from './b';"),
+    file('src/domain/b.ts',"export {type A} from './a'; export type A = {ok:true};")
+  ]);
+  assert.equal(output.status,'pass');
+  assert.equal(output.edges.length,3);
+  assert.ok(output.edges.every(e=>e.kind==='type'));
+});
+
+test('mixed type and value reexports still detect a proven runtime cycle',()=>{
+  const output=check([
+    file('src/domain/a.ts',"export {type B, valueB} from './b'; export const valueA=1;"),
+    file('src/domain/b.ts',"export {valueA} from './a'; export type B={id:number}; export const valueB=2;")
+  ]);
+  assert.equal(output.status,'fail');
+  assert.deepEqual(output.findings.find(f=>f.code==='circular-runtime-import')?.members,
+    ['src/domain/a.ts','src/domain/b.ts']);
+  assert.ok(output.edges.every(e=>e.kind==='runtime'));
+});
+
+test('mixed type and value imports remain runtime while type-only imports do not',()=>{
+  const output=check([
+    file('src/domain/a.ts',"import {type B,valueB} from './b'; export const valueA=valueB;"),
+    file('src/domain/b.ts',"import type {A} from './a'; export type B=A; export type A={ok:true}; export const valueB=1;")
+  ]);
+  assert.equal(output.status,'pass');
+  assert.deepEqual(output.edges,[
+    {from:'src/domain/a.ts',to:'src/domain/b.ts',kind:'runtime'},
+    {from:'src/domain/b.ts',to:'src/domain/a.ts',kind:'type'}
+  ]);
+});
