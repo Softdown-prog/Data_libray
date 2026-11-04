@@ -40,7 +40,7 @@ const mime={
 const sha=x=>createHash('sha256').update(x).digest('hex');
 const tracked={
   '/game/js/main.js':'6bf7418ba17c68b68f71a057d23bba1b5f61b8dac2855363ce59d608a16e4839',
-  '/game/js/sim/saveTransfer.js':'97a78a0494d7b5b2dcb59431046c016ab2a756ec80955dc0af5a8031dda4c3d6'
+  '/game/js/sim/saveTransfer.js':'a954e0ac4418d546c2852b63b7e28116d4ed254d66f2ad57f711c5f4b8e68c72'
 };
 for(const [url,digest] of Object.entries(tracked)){
   const bytes=await readFile(path.join(output,url.slice(1)));
