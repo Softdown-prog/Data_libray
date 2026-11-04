@@ -108,3 +108,57 @@ resultado desta ferramenta deve ser chamado de browser-pass.
 O pacote é privado. Não integra worker, VPS ou deploy. Testes de regressão
 restringem as dependências dos módulos executáveis a parsing e leitura local;
 o CI tem apenas permissão de leitura e upload de evidências no Actions.
+
+
+## Extensão opt-in para ilhas Angular em DOM existente
+
+A função \`verifyAngularIslands(dist, contract)\` de \`src/angular-islands.mjs\`
+permite verificar **estaticamente** hosts Angular como \`<div id="widget-host">\`,
+\`<section id="report-host">\` etc., sem depender de tag customizada.
+O SAC-P001 v1 e a CLI continuam inalterados. A extensão mantém o identificador
+\`SAC-P001-ISLAND-EXT\`, propositalmente distinto do \`SAC-P001\` original.
+
+Contrato **exemplo** para uma aplicação arbitrária servida em \`/dashboard/\`:
+
+\`\`\`js
+import {verifyAngularIslands} from './src/angular-islands.mjs';
+const report=await verifyAngularIslands('/tmp/dashboard-build',{
+  schema_version:1,index:'index.html',mount:'/dashboard/',
+  host_ids:['billing-host','report-host'],
+  required_elements:[{tag:'main',id:'workspace'}],
+  forbidden_tags:['legacy-app'],
+  entrypoint_scripts:['modules/ui.js'],
+  allowed_resources:['modules/ui.js','css/main.css','modules/data.js'],
+  required_resources:['modules/ui.js','css/main.css'],
+  required_files:['modules/data.js'],
+  query_policy:'none'
+});
+\`\`\`
+
+Todos os campos são obrigatórios, listas devem conter valores únicos,
+caminhos são relativos ao dist, \`mount\` deve terminar em \`/\`, e \`query_policy\`
+só aceita \`none\` ou \`hex12\` (exatamente \`?v=\` seguido de 12 hexadecimais).
+\`host_ids\` exige a presença única dos hosts no HTML estático;
+\`required_elements\` exige a tag correta para os IDs declarados;
+\`entrypoint_scripts\` exige referência HTML \`<script src>\`, não apenas
+arquivo existente. \`required_resources\` exige referências HTML;
+\`required_files\` verifica a existência, inclusive para import dinâmico não
+referenciado diretamente no HTML. Apenas recursos na allowlist explícita
+\`allowed_resources\` são aceitos como scripts ou stylesheets.
+
+Hosts ocultos em \`<template>\` não contam; IDs repetidos, JS inline,
+URLs externas, traversal e caminhos percent-encoded falham. Arquivos fora
+da raiz, vazios, symlinks e recursos acima de limites estritos não passam.
+As verificações permitem, no máximo, 128 arquivos, 2 MiB de HTML,
+16 MiB por recurso e 64 MiB totais. O resultado é limitado a
+contagens e códigos fixos, sem devolver HTML, caminhos absolutos ou logs livres.
+
+\`status:'pass'\` **não comprova** que Angular montou componentes, que o JS
+produziu interação, que todos os imports existem, nem que o binário é confiável.
+O retorno sempre inclui \`p001_v1_covered:false\`,
+\`runtime_mount_verified:false\` e \`deployment_authorized:false\`.
+Vincule com o recibo SAC-004 e Guardian em camadas separadas.
+
+O LHS é um consumidor dessa função, com seus 13 IDs e caminhos mantidos em
+\`src/lhs-scoped-postflight.mjs\`. Os testes \`test/angular-islands.test.mjs\`
+usam um exemplo de dashboard independente do jogo.

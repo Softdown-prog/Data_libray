@@ -8,6 +8,12 @@ on:
       - 'scripts/sac_lhs_dynamic_build_evidence.mjs'
       - 'scripts/sac_lhs_dynamic_browser_probe.mjs'
       - 'scripts/sac_lhs_core_observation.mjs'
+      - 'scripts/sac_lhs_authenticated_build.mjs'
+      - 'packages/angular-core/src/lhs-authenticated-observation.mjs'
+      - 'packages/angular-postcompiler/src/lhs-scoped-postflight.mjs'
+      - 'packages/angular-postcompiler/src/angular-islands.mjs'
+      - 'packages/angular-postcompiler/test/angular-islands.test.mjs'
+      - 'tests/sac_lhs_scoped_postflight.test.mjs'
       - 'packages/angular-core/src/lhs-observation-report.mjs'
       - 'tests/sac_lhs_core_observation.test.mjs'
       - '.github/workflows/sac-lhs-dynamic-evidence.yml'
@@ -19,6 +25,12 @@ on:
       - 'scripts/sac_lhs_dynamic_build_evidence.mjs'
       - 'scripts/sac_lhs_dynamic_browser_probe.mjs'
       - 'scripts/sac_lhs_core_observation.mjs'
+      - 'scripts/sac_lhs_authenticated_build.mjs'
+      - 'packages/angular-core/src/lhs-authenticated-observation.mjs'
+      - 'packages/angular-postcompiler/src/lhs-scoped-postflight.mjs'
+      - 'packages/angular-postcompiler/src/angular-islands.mjs'
+      - 'packages/angular-postcompiler/test/angular-islands.test.mjs'
+      - 'tests/sac_lhs_scoped_postflight.test.mjs'
       - 'packages/angular-core/src/lhs-observation-report.mjs'
       - 'tests/sac_lhs_core_observation.test.mjs'
       - '.github/workflows/sac-lhs-dynamic-evidence.yml'
@@ -53,6 +65,11 @@ jobs:
           test "$(git -C .sac-snapshots/lhs hash-object games/lan_house_simulator/frontend-angular/src/site-rewrite/account.ts)" = '73b7159e422338eb4f51583ff6b8fa37fa0e94cf'
       - name: Install trusted TypeScript from Data Library
         run: npm ci --prefix packages/angular-postcompiler/smoke --ignore-scripts --no-audit --no-fund
+      - name: Install SAC Core runtime dependencies before importing report modules
+        run: |
+          npm ci --prefix packages/angular-core --ignore-scripts --no-audit --no-fund
+          npm ci --prefix packages/angular-precompiler --ignore-scripts --no-audit --no-fund
+          npm ci --prefix packages/angular-postcompiler --ignore-scripts --no-audit --no-fund
       - name: Run bounded unit and negative tests
         run: |
           node --check packages/angular-precompiler/src/runtime-external-evidence.mjs
@@ -60,11 +77,21 @@ jobs:
           node --test tests/sac_lhs_runtime_external_evidence.test.mjs
           node --check packages/angular-core/src/lhs-observation-report.mjs
           node --check scripts/sac_lhs_core_observation.mjs
-          node --test tests/sac_lhs_core_observation.test.mjs tests/sac_diagnostic_report.test.mjs
+          node --check packages/angular-core/src/lhs-authenticated-observation.mjs
+          node --check packages/angular-postcompiler/src/lhs-scoped-postflight.mjs
+          node --check packages/angular-postcompiler/src/angular-islands.mjs
+          node --check scripts/sac_lhs_authenticated_build.mjs
+          node --test tests/sac_lhs_core_observation.test.mjs tests/sac_diagnostic_report.test.mjs tests/sac_lhs_scoped_postflight.test.mjs
+          node --test packages/angular-postcompiler/test/postcompiler.test.mjs packages/angular-postcompiler/test/angular-islands.test.mjs
       - name: Install LHS build dependencies without package lifecycle scripts
         run: |
           npm ci --prefix .sac-snapshots/lhs/games/lan_house_simulator --ignore-scripts --no-audit --no-fund
           npm ci --prefix .sac-snapshots/lhs/games/lan_house_simulator/frontend-angular --ignore-scripts --no-audit --no-fund
+      - name: Run SAC-004 HMAC negative regression tests
+        run: node --test packages/angular-pipeline/test/pipeline.test.mjs
+      - name: Capture mandatory SAC preflight before official LHS build
+        run: |
+          node scripts/sac_lhs_authenticated_build.mjs prepare
       - name: Build isolated Angular institutional site and native game
         working-directory: .sac-snapshots/lhs/games/lan_house_simulator
         env:
@@ -85,14 +112,16 @@ jobs:
           node --check scripts/sac_lhs_dynamic_browser_probe.mjs
           node scripts/sac_lhs_dynamic_browser_probe.mjs > "$RUNNER_TEMP/sac-lhs-browser-evidence.json"
           cat "$RUNNER_TEMP/sac-lhs-browser-evidence.json"
-      - name: Consolidate pinned evidence in SAC Core without promotion
+      - name: Authenticate full build dist then reconcile SAC Core observations
         shell: bash
         run: |
-          node scripts/sac_lhs_core_observation.mjs \
-            "$RUNNER_TEMP/sac-lhs-dynamic-evidence.json" \
-            "$RUNNER_TEMP/sac-lhs-browser-evidence.json" \
+          node scripts/sac_lhs_authenticated_build.mjs verify \
             > "$RUNNER_TEMP/sac-lhs-core-observation.json"
           cat "$RUNNER_TEMP/sac-lhs-core-observation.json"
+      - name: Delete any remaining preflight session on failure
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/sac-lhs-auth-session.json"
       - name: Upload sanitized evidence only
         uses: actions/upload-artifact@v4
         with:
