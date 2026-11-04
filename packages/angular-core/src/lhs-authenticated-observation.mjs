@@ -5,6 +5,8 @@
  */
 import {auditPipeline} from '../../angular-pipeline/src/index.mjs';
 import {makeLhsObservationReport} from './lhs-observation-report.mjs';
+import path from 'node:path';
+import {verifyLhsAngularScopes} from '../../angular-postcompiler/src/lhs-scoped-postflight.mjs';
 const hex=/^[0-9a-f]{64}$/;
 const stop=()=>{throw new Error('sac-lhs-authenticated-build-binding-invalid');};
 
@@ -28,6 +30,18 @@ export async function makeAuthenticatedLhsObservation({
      !hex.test(build.artifact_digest??'')||
      receipt.data.artifact_digest!==build.artifact_digest||
      audited.deployment_authorized!==false)stop();
+  // The Core SAC-P001 rule covers the site custom-element root. The game
+  // uses DIV-mounted islands; validate it separately and never label its
+  // structural checks as a universal SAC-P001 pass.
+  const scopedPostflight=await verifyLhsAngularScopes(
+    path.join(resources.workspace,resources.dist)
+  );
+  if(scopedPostflight.site.status!=='pass'||scopedPostflight.site.rule_id!=='SAC-P001'||
+     scopedPostflight.game.status!=='pass'||
+     scopedPostflight.game.rule_id!=='SAC-P001-ISLAND-EXT'||
+     scopedPostflight.root_p001_game_status!=='not-applicable'||
+     scopedPostflight.complete_sac_pipeline_approved!==false||
+     scopedPostflight.deployment_authorized!==false)stop();
   // The published hash binds the entire dist, while the two asset hashes
   // remain independently tied to the browser response hashes.
   const report={
@@ -35,13 +49,19 @@ export async function makeAuthenticatedLhsObservation({
     checks:{
       ...base.checks,
       build:{...base.checks.build,
-        detail:'authenticated-sac004-host-build-and-full-dist-verified'}
+        detail:'authenticated-sac004-host-build-and-full-dist-verified'},
+      site_postcompile:{observation:'observed',approval:'unverified',
+        detail:'sac-p001-v1-site-custom-element-static-pass'},
+      game_islands_postcompile:{observation:'observed',approval:'unverified',
+        detail:'bounded-island-static-check-not-p001-v1'}
     },
     provenance:{
       ...base.provenance,
       official_build_receipt_verified:true,
       full_dist_digest:build.artifact_digest,
-      source_manifest_exhaustive_verified:false
+      source_manifest_exhaustive_verified:false,
+      site_p001_static_verified:true,game_island_static_verified:true,
+      complete_sac_p001_coverage_verified:false
     }
   };
   if(report.observation_status!=='unverified'||report.promotion_allowed!==false||
