@@ -58,3 +58,17 @@ node scripts/sac_pre003_aot_rehearsal.mjs
 ```
 
 O escopo continua intencionalmente estreito: esses cinco testes de concordância não comprovam template checking universal, injeção de dependências, estado reativo, navegabilidade ou ausência de regressões nos jogos e painéis. A evolução posterior deve ampliar as fixtures somente após revisão explícita, preservando o uso do AOT oficial como referência independente.
+
+## Regressão observacional em snapshot real do Lan House Simulator
+
+O workflow `.github/workflows/sac-pre003-lhs-pinned-aot.yml` estende as cinco fixtures artificiais com uma comparação sobre o **repositório real**, fixado no commit `c5139c2cc5088adc3bbf0bf85d2952e64e2fc5ac`. O checkout é efetuado em `.sac-snapshots/lhs`, sem token persistente. O workflow verifica o SHA do commit e o blob Git de `frontend-angular/src/main.ts`.
+
+Antes de instalar a toolchain de projeto ou compilar, `scripts/sac_pre003_lhs_pinned_aot.mjs before` examina, por AST TypeScript fornecida pelo Data Library, todos os **45 arquivos `.ts/.tsx`** do diretório `games/lan_house_simulator/frontend-angular/src`. Não importa nem executa nenhum desses arquivos. Confere limites de diretórios, bytes, ausência de symlinks e determinismo com a ordem invertida. O relatório omite textos de fonte, segredos e caminhos arbitrários.
+
+A verificação inicial registrou **45 componentes `@Component` identificados, 45 metadados observados, 17 entradas em `imports`, nenhum finding e status `unverified`**. Esse zero significa ausência de achados *nas duas regras específicas verificadas*, não ausência geral de bugs ou aprovação Angular.
+
+Em seguida, a pipeline instala as dependências de `frontend-angular/package-lock.json` sem lifecycle scripts e executa **dois builds AOT oficiais de produção do próprio snapshot**, `npm run build` (app `game-ui`) e `npm run build:site-rewrite` (site institucional). `after` confere que os comandos AOT passaram, que cada aplicação emitiu `index.html` e bundle `main*.js`, e que os arquivos-fonte versionados em `src` não foram alterados pelo processo.
+
+Resultados da execução inicial de referência: [GitHub Actions 41921930569](https://github.com/Softdown-prog/Data_libray/actions/runs/41921930569), com **ambos os builds aprovados** e `observational_concordance: no-proven-contradiction`. Se o detector encontrar `fail` com builds aprovados, a etapa de conciliação **falha** e preserva o relatório, sinalizando divergência a investigar.
+
+**Limites:** a inspeção estática cobre os 45 arquivos enumerados, mas os builds AOT seguem o grafo de cada entrypoint: isso **não prova** que todo arquivo enumerado participa dos dois builds. Nem um AOT verde comprova renderização, navegação, estado, regras de negócio, acessibilidade, ou comportamento Android. Relatórios mantêm `static_analysis_aot_verified:false`, `full_runtime_verified:false`, `production_aot_verified:false` e `deployment_authorized:false`. Os arquivos gerados e instalações ficam no checkout descartável do runner; não há alterações no repositório do jogo, main, VPS ou deploy.
