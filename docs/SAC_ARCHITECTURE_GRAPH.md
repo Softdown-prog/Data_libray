@@ -183,3 +183,9 @@ O validador rejeita ciclos incompletos, campos extras, hashes incompatíveis, fo
 ### Reteste de contraste — snapshot corrigido em branch (04/11/2026)
 
 O snapshot fixado neste experimento foi atualizado para `c5139c2cc5088adc3bbf0bf85d2952e64e2fc5ac` para testar a correção CSS na branch LHS `feat/lhs-angular-focus-contrast-sac-20261104`; a revisão original permanece rastreável no histórico. Além dos verificadores anteriores, o workflow só aprova sua própria execução quando `provenance.focus_outline_contrast_finding` e `provenance.text_contrast_finding` são ambos `false` no relatório autenticado do Chromium, mantendo `promotion_allowed=false`, `deployment_authorized=false` e `observation_status=unverified`. A amostragem de estilos não é certificação WCAG e nenhuma alteração é enviada ao deploy ou main.
+
+### SAC-PRE002 — correlação conservadora por AST dos chunks emitidos
+
+A inspeção de imports dinâmicos no bundle JavaScript agora analisa a chamada `import()` pela AST do TypeScript confiável, em vez de aceitar somente uma expressão regular. O marcador de URL e a chamada executável precisam ocorrer no **mesmo chunk**. Comentários, strings contendo `import(...)`, JS sintaticamente inválido e a combinação artificial de dois chunks independentes não produzem `bundle_dynamic_import_observed:true`.
+
+Essa é uma prova estática mais restrita de consistência: os dois elementos no mesmo chunk ainda podem não estar conectados pelo fluxo de dados. O status geral continua `unverified`, com `runtime_execution_verified:false` e `deployment_authorized:false`. O Chromium e o recibo de build continuam responsáveis por suas evidências independentes. Os testes negativos de `tests/sac_lhs_runtime_external_evidence.test.mjs` protegem essa distinção.
