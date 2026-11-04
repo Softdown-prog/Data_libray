@@ -5,6 +5,10 @@ on:
     paths:
       - 'scripts/sac_pre003_lhs_pinned_aot.mjs'
       - 'scripts/sac_pre004_lhs_template_snapshot.mjs'
+      - 'scripts/sac_pre005_lhs_template_bindings.mjs'
+      - 'packages/angular-precompiler/src/template-binding-evidence.mjs'
+      - 'tests/sac_angular_template_bindings.test.mjs'
+      - 'docs/SAC_TEMPLATE_BINDINGS.md'
       - 'packages/angular-precompiler/src/template-links.mjs'
       - 'tests/sac_angular_template_links.test.mjs'
       - 'docs/SAC_TEMPLATE_LINKS.md'
@@ -15,6 +19,10 @@ on:
     paths:
       - 'scripts/sac_pre003_lhs_pinned_aot.mjs'
       - 'scripts/sac_pre004_lhs_template_snapshot.mjs'
+      - 'scripts/sac_pre005_lhs_template_bindings.mjs'
+      - 'packages/angular-precompiler/src/template-binding-evidence.mjs'
+      - 'tests/sac_angular_template_bindings.test.mjs'
+      - 'docs/SAC_TEMPLATE_BINDINGS.md'
       - 'packages/angular-precompiler/src/template-links.mjs'
       - 'tests/sac_angular_template_links.test.mjs'
       - 'docs/SAC_TEMPLATE_LINKS.md'
@@ -59,6 +67,9 @@ jobs:
           node --check packages/angular-precompiler/src/template-links.mjs
           node --test tests/sac_angular_template_links.test.mjs
           node --check scripts/sac_pre004_lhs_template_snapshot.mjs
+          node --check packages/angular-precompiler/src/template-binding-evidence.mjs
+          node --test tests/sac_angular_template_bindings.test.mjs
+          node --check scripts/sac_pre005_lhs_template_bindings.mjs
       - name: Inspect 45 real Angular TypeScript files before any build
         shell: bash
         run: |
@@ -69,6 +80,11 @@ jobs:
         run: |
           node scripts/sac_pre004_lhs_template_snapshot.mjs before > "$RUNNER_TEMP/sac-pre004-lhs-template-before.json"
           cat "$RUNNER_TEMP/sac-pre004-lhs-template-before.json"
+      - name: Observe Angular event and property bindings in pinned real templates
+        shell: bash
+        run: |
+          node scripts/sac_pre005_lhs_template_bindings.mjs before > "$RUNNER_TEMP/sac-pre005-lhs-bindings-before.json"
+          cat "$RUNNER_TEMP/sac-pre005-lhs-bindings-before.json"
       - name: Install official Angular toolchain from pinned LHS lockfile
         shell: bash
         run: npm ci --prefix .sac-snapshots/lhs/games/lan_house_simulator/frontend-angular --ignore-scripts --no-audit --no-fund
@@ -94,6 +110,11 @@ jobs:
         run: |
           node scripts/sac_pre004_lhs_template_snapshot.mjs after > "$RUNNER_TEMP/sac-pre004-lhs-template-aot.json"
           cat "$RUNNER_TEMP/sac-pre004-lhs-template-aot.json"
+      - name: Correlate parsed Angular binding evidence with both official AOT builds
+        shell: bash
+        run: |
+          node scripts/sac_pre005_lhs_template_bindings.mjs after > "$RUNNER_TEMP/sac-pre005-lhs-bindings-aot.json"
+          cat "$RUNNER_TEMP/sac-pre005-lhs-bindings-aot.json"
       - name: Upload bounded evidence without app source or raw diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -104,5 +125,7 @@ jobs:
             ${{ runner.temp }}/sac-pre003-lhs-aot-comparison.json
             ${{ runner.temp }}/sac-pre004-lhs-template-before.json
             ${{ runner.temp }}/sac-pre004-lhs-template-aot.json
+            ${{ runner.temp }}/sac-pre005-lhs-bindings-before.json
+            ${{ runner.temp }}/sac-pre005-lhs-bindings-aot.json
           if-no-files-found: ignore
           retention-days: 14
