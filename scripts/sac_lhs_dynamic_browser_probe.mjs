@@ -321,6 +321,78 @@ async function probeIslandComponentInteractions(page,phase,width){
 }
 
 /**
+ * Accessibility smoke (not a full WCAG or screen-reader certification).
+ * Real key presses activate Angular tab handlers. The existing native
+ * controller must remain the only authority for selected admin sections.
+ */
+async function probeAdminKeyboardAccessibility(page,phase,width){
+  const selector='#angular-admin-area-navigation nav[role="tablist"]';
+  assert.equal(await page.locator(selector).count(),1,
+    'sac-a11y-tablist-semantic-role-missing');
+  const tab=area=>page.locator(
+    '#angular-admin-area-navigation [data-angular-admin-tab="'+area+'"]');
+  async function expectSelection(area,keyboard){
+    await page.waitForFunction(({area,keyboard})=>{
+      const root=document.getElementById('angular-admin-area-navigation');
+      const tabs=Array.from(root?.querySelectorAll('button[role="tab"]')??[]);
+      const selected=tabs.filter(t=>t.getAttribute('aria-selected')==='true');
+      const focus=selected[0];
+      const native=document.querySelector(
+        '#admin .admin-tabs button[data-admin-tab="'+area+'"]');
+      const section=document.getElementById('section-'+area);
+      const responsive=document.getElementById('admin-area');
+      return tabs.length>=6&&selected.length===1&&
+        focus?.dataset.angularAdminTab===area&&
+        tabs.filter(t=>t.tabIndex===0).length===1&&
+        tabs.every(t=>t.getAttribute('aria-controls')&&
+          document.getElementById(t.getAttribute('aria-controls')))&&
+        tabs.every(t=>t.getAttribute('role')==='tab')&&
+        native?.getAttribute('aria-selected')==='true'&&
+        section?.hidden===false&&responsive?.value===area&&
+        (!keyboard||document.activeElement===focus);
+    },{area,keyboard},{timeout:8000});
+  }
+  const finance=tab('finance');
+  await finance.focus();
+  await page.keyboard.press('Home');
+  await expectSelection('prices',true);
+  await page.keyboard.press('End');
+  await expectSelection('finance',true);
+  await page.keyboard.press('ArrowLeft');
+  await expectSelection('consoles',true);
+  await page.keyboard.press('ArrowRight');
+  await expectSelection('finance',true);
+  const select=page.locator('#admin-area');
+  assert.equal(await select.isVisible(),true,'sac-a11y-responsive-admin-select-hidden');
+  await select.selectOption('stock');
+  await expectSelection('stock',false);
+  await select.selectOption('finance');
+  await expectSelection('finance',false);
+  const a11y=await page.evaluate(()=>{
+    const tabs=Array.from(document.querySelectorAll(
+      '#angular-admin-area-navigation button[role="tab"]'));
+    const active=tabs.find(t=>t.getAttribute('aria-selected')==='true');
+    return {
+      keyboard_home_end_arrows:true,
+      focus_follows_keyboard:true,
+      roving_tabindex:tabs.filter(t=>t.tabIndex===0).length===1&&
+        active?.tabIndex===0,
+      aria_controls_connected:tabs.every(t=>!!t.getAttribute('aria-controls')&&
+        !!document.getElementById(t.getAttribute('aria-controls'))),
+      native_angular_sync:true,
+      responsive_selector_synced:
+        document.getElementById('admin-area')?.value==='finance'
+    };
+  });
+  assert.deepEqual(a11y,{
+    keyboard_home_end_arrows:true,focus_follows_keyboard:true,
+    roving_tabindex:true,aria_controls_connected:true,
+    native_angular_sync:true,responsive_selector_synced:true
+  },'sac-a11y-focus-aria-or-native-sync-invalid');
+  return {viewport_width:width,phase,...a11y};
+}
+
+/**
  * Real Angular buttons -> native panels and native button -> Angular status.
  * This only changes navigation of an ephemeral local game in Chromium.
  * No restart, catalog purchase, inventory action, payment or save mutation.
@@ -390,13 +462,14 @@ async function probeAdminNavigation(page,phase,width){
     'sac-navigation-locked-catalog-became-enabled');
   assert.equal(await page.locator('#admin').isVisible(),true,
     'sac-navigation-admin-closed-unexpectedly');
+  const accessibility=await probeAdminKeyboardAccessibility(page,phase,width);
   await page.locator('#close-admin').tap({timeout:12000});
   await page.waitForFunction(()=>document.getElementById('admin')?.hidden===true,
     null,{timeout:8000});
-  return [
+  return {navigationProbes:[
     {id:'finance-navigation',dom_updated:true},
     {id:'stock-navigation',dom_updated:true}
-  ];
+  ],accessibility};
 }
 
 /** Interaction smoke: only presentational buttons plus creating an isolated local test save. */
@@ -452,7 +525,7 @@ async function exerciseMobileControls(page,phase,width){
   assert.ok(Number.isFinite(numeric(fitted))&&numeric(fitted)>=60&&numeric(fitted)<=300,
     'sac-touch-fit-invalid-zoom');
 
-  const navigationProbes=await probeAdminNavigation(page,phase,width);
+  const {navigationProbes,accessibility}=await probeAdminNavigation(page,phase,width);
   // Returning to the menu is safe and exercises the native control binding.
   await page.locator('#open-menu').tap({timeout:12000});
   await page.waitForFunction(()=>document.getElementById('start-screen')?.hidden===false
@@ -462,11 +535,11 @@ async function exerciseMobileControls(page,phase,width){
     game_started:phase==='initial',saved_game_continued:phase==='reload',
     zoom_in_and_out:true,fit_scene:true,returned_to_menu:true,
     canvas_swipe:swipeEvidence};
-  return {control:result,navigationProbes};
+  return {control:result,navigationProbes,accessibility};
 }
 
 async function runMobileReloads(){
-  const widths=[360,414], outcome=[],islandCycles=[],interactionCycles=[];
+  const widths=[360,414], outcome=[],islandCycles=[],interactionCycles=[],accessibilityCycles=[];
   for(const width of widths){
     const ctx=await isolated(width);
     try{
@@ -514,7 +587,8 @@ async function runMobileReloads(){
           horizontal_overflow_px:visible.horizontalOverflow,
           pageerror_count:pageErrors.length
         });
-        const {control,navigationProbes}=await exerciseMobileControls(page,phase,width);
+        const {control,navigationProbes,accessibility}=await exerciseMobileControls(page,phase,width);
+        accessibilityCycles.push(accessibility);
         controls.push(control);
         interactionCycles.push({...componentInteractions,
           probes:[...componentInteractions.probes,...navigationProbes]});
@@ -552,7 +626,7 @@ async function runMobileReloads(){
         no_page_errors:pageErrors.length===0});
     } finally {await ctx.close();}
   }
-  return {mobileReloads:outcome,islandCycles,interactionCycles};
+  return {mobileReloads:outcome,islandCycles,interactionCycles,accessibilityCycles};
 }
 
 let report;
@@ -623,7 +697,7 @@ try {
   const negativeTests={missing_module_rejected:await negative('missing'),
     incorrect_mime_rejected:await negative('mime'),
     restrictive_csp_rejected:await negative('csp')};
-  const {mobileReloads,islandCycles,interactionCycles}=await runMobileReloads();
+  const {mobileReloads,islandCycles,interactionCycles,accessibilityCycles}=await runMobileReloads();
   const islandRuntimeEvidence={
     schema_version:1,source_commit:pinned,browser:'chromium',
     scope:'isolated-loopback-dom-events',mount:'/game/',
@@ -647,6 +721,12 @@ try {
     ],
     cycles:interactionCycles
   };
+  const adminAccessibilityEvidence={
+    schema_version:1,source_commit:pinned,browser:'chromium',
+    scope:'isolated-loopback-admin-keyboard',mount:'/game/',
+    entrypoint:'__angular/main.js',entrypoint_sha256:angularEntrypointSha,
+    host_id:'angular-admin-area-navigation',cycles:accessibilityCycles
+  };
   report={schema_version:1,rule_id:'SAC-PRE002-EXT-BROWSER',
     source_commit:pinned,scope:'isolated-loopback-browser-dynamic-imports',
     browser:'chromium',server:'127.0.0.1',game,
@@ -655,6 +735,7 @@ try {
     mobile_reload_evidence:mobileReloads,
     island_runtime_evidence:islandRuntimeEvidence,
     island_interaction_evidence:islandInteractionEvidence,
+    admin_accessibility_evidence:adminAccessibilityEvidence,
     external_network_blocked_count:blockedExternal,
     browser_module_load_verified:true,gameplay_verified:false,
     authentication_attempted:false,payment_attempted:false,

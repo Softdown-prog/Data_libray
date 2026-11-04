@@ -7,6 +7,7 @@ import {auditPipeline} from '../../angular-pipeline/src/index.mjs';
 import {makeLhsObservationReport} from './lhs-observation-report.mjs';
 import path from 'node:path';
 import {verifyLhsAngularScopes} from '../../angular-postcompiler/src/lhs-scoped-postflight.mjs';
+import {verifyLhsAdminAccessibilityEvidence} from './sac-lhs-admin-accessibility.mjs';
 const hex=/^[0-9a-f]{64}$/;
 const stop=()=>{throw new Error('sac-lhs-authenticated-build-binding-invalid');};
 
@@ -46,6 +47,16 @@ export async function makeAuthenticatedLhsObservation({
      scopedPostflight.root_p001_game_status!=='not-applicable'||
      scopedPostflight.complete_sac_pipeline_approved!==false||
      scopedPostflight.deployment_authorized!==false)stop();
+  // The authenticated dist and the independently verified Chromium island
+  // baseline must both precede this bounded keyboard/ARIA observation.
+  const accessibility=verifyLhsAdminAccessibilityEvidence(
+    browserEvidence.island_runtime_evidence,
+    browserEvidence.admin_accessibility_evidence,
+    {source_commit:sourceCommit,mount:'/game/',
+      entrypoint:'__angular/main.js',host_id:'angular-admin-area-navigation'}
+  );
+  if(accessibility.observed!==true||
+     accessibility.code!=='chromium-admin-keyboard-observed')stop();
   // The published hash binds the entire dist, while the two asset hashes
   // remain independently tied to the browser response hashes.
   const report={
@@ -63,7 +74,9 @@ export async function makeAuthenticatedLhsObservation({
       component_interactions:{observation:'observed',approval:'unverified',
         detail:'chromium-notice-inbox-and-finance-summary-dom-events'},
       admin_navigation:{observation:'observed',approval:'unverified',
-        detail:'chromium-angular-native-finance-stock-page-synchronization'}
+        detail:'chromium-angular-native-finance-stock-page-synchronization'},
+      admin_keyboard_accessibility:{observation:'observed',approval:'unverified',
+        detail:'chromium-home-end-arrows-focus-aria-and-responsive-selection'}
     },
     provenance:{
       ...base.provenance,
@@ -73,7 +86,8 @@ export async function makeAuthenticatedLhsObservation({
       site_p001_static_verified:true,game_island_static_verified:true,
       game_island_dom_reactivity_observed:true,
       component_event_interactions_observed:true,
-      admin_navigation_observed:true,universal_runtime_attested:false,
+      admin_navigation_observed:true,admin_keyboard_accessibility_observed:true,
+      universal_runtime_attested:false,
       complete_sac_p001_coverage_verified:false
     }
   };
