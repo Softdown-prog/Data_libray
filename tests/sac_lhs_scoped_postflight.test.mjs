@@ -17,6 +17,7 @@ function site(){return '<!doctype html><base href="/"><lhs-site></lhs-site>'+
  '<link rel="stylesheet" href="/assets/site/styles-a1b2c3.css">';}
 function game(){return '<!doctype html><link rel="stylesheet" href="./style.css">'+
  '<link rel="stylesheet" href="./__angular/styles.css">'+
+ '<link rel="stylesheet" href="./__angular/compatibility.css">'+
  '<script type="module" src="./js/privacyConsent.js"></script>'+
  '<script type="module" src="./__angular/main.js"></script>'+
  islands.map(id=>'<div id="'+id+'"></div>').join('')+
@@ -39,6 +40,7 @@ async function fixture(t){
   'game/index.html':game(),
   'game/__angular/main.js':'export const ui=true',
   'game/__angular/styles.css':'body{margin:0}',
+  'game/__angular/compatibility.css':'#shop-catalog{display:none!important}',
   'game/style.css':'body{margin:0}',
   'game/js/privacyConsent.js':'export const consent=true',
   'game/js/main.js':'export const game=true'
@@ -115,4 +117,14 @@ test('inline executable scripts are never mistaken for approved Angular bootstra
  const f=await fixture(t);
  await f.create('game/index.html',game()+'<script>window.malicious=1</script>');
  await assert.rejects(verifyLhsAngularScopes(f.dist),/inline-or-empty-game-resource/);
+});
+
+test('externalized compatibility CSS is explicitly required and bounded',async t=>{
+ const f=await fixture(t);
+ await unlink(path.join(f.dist,'game/__angular/compatibility.css'));
+ await assert.rejects(verifyLhsAngularScopes(f.dist),/game-island-|sac-lhs-postflight/);
+ const g=await fixture(t);
+ await g.create('game/index.html',game()+
+  '<link rel="stylesheet" href="./__angular/arbitrary.css">');
+ await assert.rejects(verifyLhsAngularScopes(g.dist),/unexpected-game-reference/);
 });
