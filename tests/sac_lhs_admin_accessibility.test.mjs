@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {verifyLhsAdminAccessibilityEvidence as verify} from '../packages/angular-core/src/sac-lhs-admin-accessibility.mjs';
 
-const sha='db639a117024b2e14c4af844bfb69b90bef5da20';
+const sha='9537faa65c35b357bec49d9a9d76f85311f3be0c';
 const hash='a'.repeat(64);
 const widths=[360,414], phases=['initial','reload'];
 const expected=()=>({source_commit:sha,mount:'/game/',entrypoint:'__angular/main.js',

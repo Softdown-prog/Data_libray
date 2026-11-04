@@ -72,13 +72,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: Softdown-prog/A7-forge-2D-
-          ref: db639a117024b2e14c4af844bfb69b90bef5da20
+          ref: 9537faa65c35b357bec49d9a9d76f85311f3be0c
           path: .sac-snapshots/lhs
           persist-credentials: false
       - name: Verify source revision and fixed import entrypoints
         shell: bash
         run: |
-          test "$(git -C .sac-snapshots/lhs rev-parse HEAD)" = 'db639a117024b2e14c4af844bfb69b90bef5da20'
+          test "$(git -C .sac-snapshots/lhs rev-parse HEAD)" = '9537faa65c35b357bec49d9a9d76f85311f3be0c'
           test "$(git -C .sac-snapshots/lhs hash-object games/lan_house_simulator/frontend-angular/src/main.ts)" = '0b3411c903ebfeddb021cf4afa69fe5389d4637d'
           test "$(git -C .sac-snapshots/lhs hash-object games/lan_house_simulator/frontend-angular/src/site-rewrite/account.ts)" = '73b7159e422338eb4f51583ff6b8fa37fa0e94cf'
       - name: Install trusted TypeScript from Data Library
@@ -144,6 +144,23 @@ jobs:
           node scripts/sac_lhs_authenticated_build.mjs verify \
             > "$RUNNER_TEMP/sac-lhs-core-observation.json"
           cat "$RUNNER_TEMP/sac-lhs-core-observation.json"
+      - name: Require corrected CSS contrast evidence (not global approval)
+        shell: bash
+        run: |
+          node --input-type=module -e '
+            import assert from "node:assert/strict";
+            import {readFileSync} from "node:fs";
+            const r=JSON.parse(readFileSync(process.argv[1],"utf8"));
+            assert.equal(r.source.commit,"9537faa65c35b357bec49d9a9d76f85311f3be0c");
+            assert.equal(r.provenance.focus_visual_style_observed,true);
+            assert.equal(r.provenance.focus_outline_contrast_finding,false,
+              "Focus outline still fails sampled contrast");
+            assert.equal(r.provenance.text_contrast_finding,false,
+              "Tab text still fails sampled contrast");
+            assert.equal(r.promotion_allowed,false);
+            assert.equal(r.deployment_authorized,false);
+            assert.equal(r.observation_status,"unverified");
+          ' "$RUNNER_TEMP/sac-lhs-core-observation.json"
       - name: Delete any remaining preflight session on failure
         if: always()
         shell: bash

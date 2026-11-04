@@ -18,7 +18,7 @@ const repo=path.join(root,'.sac-snapshots','lhs');
 const project=path.join(repo,'games','lan_house_simulator');
 const angular=path.join(project,'frontend-angular');
 const output=path.join(project,'out','site-clean-angular');
-const pinned='db639a117024b2e14c4af844bfb69b90bef5da20';
+const pinned='9537faa65c35b357bec49d9a9d76f85311f3be0c';
 const MAX_FILE=3*1024*1024;
 const allowedRelative = x => typeof x==='string' && x.length<=160 &&
   /^(?:[a-zA-Z0-9_-]+\/)*[a-zA-Z0-9_-][a-zA-Z0-9_.-]*$/.test(x) &&
