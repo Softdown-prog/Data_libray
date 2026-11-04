@@ -189,3 +189,10 @@ O snapshot fixado neste experimento foi atualizado para `c5139c2cc5088adc3bbf0bf
 A inspeção de imports dinâmicos no bundle JavaScript agora analisa a chamada `import()` pela AST do TypeScript confiável, em vez de aceitar somente uma expressão regular. O marcador de URL e a chamada executável precisam ocorrer no **mesmo chunk**. Comentários, strings contendo `import(...)`, JS sintaticamente inválido e a combinação artificial de dois chunks independentes não produzem `bundle_dynamic_import_observed:true`.
 
 Essa é uma prova estática mais restrita de consistência: os dois elementos no mesmo chunk ainda podem não estar conectados pelo fluxo de dados. O status geral continua `unverified`, com `runtime_execution_verified:false` e `deployment_authorized:false`. O Chromium e o recibo de build continuam responsáveis por suas evidências independentes. Os testes negativos de `tests/sac_lhs_runtime_external_evidence.test.mjs` protegem essa distinção.
+
+
+### Distinção entre reexportações de tipos e valores
+
+O grafo agora inspeciona os especificadores de `export {type Foo} from './x'` na AST TypeScript. Essa forma não cria dependência executável, embora o nó `ExportDeclaration.isTypeOnly` possa ser `false`. Também são classificados como não executáveis `export type * from './x'` e `export {} from './x'`; `export {type Foo, valor} from './x'` e `export * from './x'` mantêm arestas runtime. Importações mistas continuam runtime.
+
+A mudança evita falsos diagnósticos `circular-runtime-import` em ciclos compostos apenas por tipos, mas mantém arestas `kind:'type'` para rastreabilidade. Os testes negativos exigem `fail` quando existe ciclo de valores. O escopo continua limitado às fontes enumeradas, com `root_cause_verified=false` e `deployment_authorized=false`.
