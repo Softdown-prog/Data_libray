@@ -18,8 +18,9 @@ const samples=()=>[360,414].flatMap(viewport_width=>['initial','reload'].map(pha
   locked_disabled:true,locked_native_disabled:true,
   locked_unfocusable:true,locked_pane_hidden:true
 })));
+const baselineFields=()=>{const v=fields();delete v.host_id;return v;};
 const baseline=()=>({
-  ...fields(),scope:'isolated-loopback-dom-events',
+  ...baselineFields(),scope:'isolated-loopback-dom-events',
   host_ids:['angular-time-weather','angular-stock-workspace'],
   reactive_host_id:'angular-time-weather',event_name:'lhs:time-weather-updated',
   cycles:samples().map(v=>({
