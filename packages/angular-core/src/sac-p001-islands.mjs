@@ -5,6 +5,7 @@
  * SAC-P001 v1, the Angular compiler and all deploy gates are unchanged.
  */
 import {verifyAngularIslands} from '../../angular-postcompiler/src/angular-islands.mjs';
+import {verifyIslandRuntimeEvidence} from './sac-island-runtime-evidence.mjs';
 
 const evidence=(assertion,status,code)=>({assertion,status,code});
 const allowedFailures=new Set([
@@ -38,9 +39,30 @@ export function registerSACAngularIslands(registry){
         ]};
       const checked=await verifyAngularIslands(resources.dist,resources.islandContract);
       if(checked.status==='pass'){
+        const staticObserved=evidence('islands-static','pass','static-hosts-verified');
+        // Runtime evidence is optional, but when provided it must be bound
+        // to an independent host expectation and the actual compiled module.
+        if(resources.islandRuntimeEvidence!==undefined||
+           resources.islandRuntimeExpectation!==undefined){
+          const runtime=await verifyIslandRuntimeEvidence(
+            resources.dist,resources.islandContract,
+            resources.islandRuntimeEvidence,resources.islandRuntimeExpectation
+          );
+          if(!runtime.observed){
+            return {status:'fail',evidence:[
+              staticObserved,evidence('browser-dom','fail',runtime.code)
+            ]};
+          }
+          // Never promote a static + sampled-browser observation to the
+          // universally attested runtime mount of every Angular component.
+          return {status:'unverified',evidence:[
+            staticObserved,
+            evidence('browser-dom','pass','chromium-dom-event-observed'),
+            evidence('runtime-mount','unverified','full-runtime-not-verified')
+          ]};
+        }
         return {status:'unverified',evidence:[
-          evidence('islands-static','pass','static-hosts-verified'),
-          evidence('runtime-mount','unverified','runtime-not-verified')
+          staticObserved,evidence('runtime-mount','unverified','runtime-not-verified')
         ]};
       }
       if(checked.status==='fail'){

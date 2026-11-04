@@ -46,7 +46,7 @@ function safeManifest(manifest){
      !manifest.files.includes(manifest.main)||!manifest.files.includes(manifest.styles))
     fail('manifest-invalid');
 }
-export async function verifyLhsAngularScopes(dist){
+export async function verifyLhsAngularScopes(dist,islandRuntimeEvidence=null,sourceCommit=null){
   const root=await realpath(dist);
   const manifest=JSON.parse((await boundedFile(root,'angular-site-assets.json',16384)).toString('utf8'));
   safeManifest(manifest);
@@ -92,9 +92,22 @@ export async function verifyLhsAngularScopes(dist){
       rules:[{rule_id:'SAC-P001-ISLAND-EXT',version:'1.0.0',
         required:true,enforcement:'blocking'}]
     },
-    resources:{dist:game,islandContract}
+    resources:{
+      dist:game,islandContract,
+      ...(islandRuntimeEvidence===null?{}:{
+        islandRuntimeEvidence,
+        islandRuntimeExpectation:{
+          source_commit:sourceCommit,entrypoint:'__angular/main.js',
+          viewports:[360,414],phases:['initial','reload'],
+          reactive_host_id:'angular-time-weather',event_name:'lhs:time-weather-updated'
+        }
+      })
+    }
   });
   const island=islandCore.results[0];
+  const browserObserved=islandRuntimeEvidence!==null&&
+    island?.evidence?.some(e=>e.assertion==='browser-dom'&&
+      e.status==='pass'&&e.code==='chromium-dom-event-observed')===true;
   const staticPassed=islandCore.status==='unverified'&&
     islandCore.promotion_allowed===false&&
     islandCore.coverage.required===1&&islandCore.coverage.passed===0&&
@@ -103,7 +116,11 @@ export async function verifyLhsAngularScopes(dist){
     island.evidence.some(e=>e.assertion==='islands-static'&&
       e.status==='pass'&&e.code==='static-hosts-verified')&&
     island.evidence.some(e=>e.assertion==='runtime-mount'&&
-      e.status==='unverified'&&e.code==='runtime-not-verified');
+      e.status==='unverified'&&
+      (islandRuntimeEvidence===null?
+        e.code==='runtime-not-verified':
+        e.code==='full-runtime-not-verified'))&&
+    (islandRuntimeEvidence===null||browserObserved);
   if(!staticPassed){
     const code=island?.evidence?.find(e=>e.assertion==='islands-static')?.code;
     const mapped={
@@ -122,7 +139,8 @@ export async function verifyLhsAngularScopes(dist){
       angular_entrypoint_observed:true},
     game:{rule_id:'SAC-P001-ISLAND-EXT',status:'pass',mount:'/game/',
       angular_island_count:ids.length,canvas_present:true,
-      angular_entrypoint_observed:true,legacy_react_entrypoint_absent:true},
+      angular_entrypoint_observed:true,legacy_react_entrypoint_absent:true,
+      browser_dom_and_reactivity_observed:browserObserved},
     root_p001_game_status:'not-applicable',
     complete_sac_pipeline_approved:false,deployment_authorized:false
   };

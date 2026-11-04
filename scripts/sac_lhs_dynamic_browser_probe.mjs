@@ -47,6 +47,15 @@ for(const [url,digest] of Object.entries(tracked)){
   assert.equal(sha(bytes),digest,'sac-browser-native-module-content-drift');
 }
 
+const islandHostIds=Object.freeze([
+  'angular-save-transfer','angular-menu-preferences','angular-notice-inbox',
+  'angular-time-weather','angular-player-account','angular-shop-overview',
+  'angular-shop-catalog','angular-stock-workspace','angular-merchandise-catalog',
+  'angular-finance-workspace','angular-prices-workspace',
+  'angular-licenses-workspace','angular-consoles-workspace'
+]);
+const angularEntrypointSha=sha(await readFile(path.join(output,'game/__angular/main.js')));
+
 const probePath='/__sac__/probe';
 const server=createServer(async (req,res)=>{
   try {
@@ -216,6 +225,48 @@ async function probeSwipeDoesNotSelect(page){
     synthetic_post_drag_click_blocked:true};
 }
 
+/**
+ * Read-only DOM inspection of every known cutover host, plus a disposable
+ * Angular signal update through the actual document event listener.
+ * Does not prove Angular ownership of arbitrary HTML, all UI interactions,
+ * game simulation correctness, or a real Android device.
+ */
+async function probeAngularIslandRuntime(page,phase,width){
+  await page.waitForFunction(ids=>ids.every(id=>{
+    const host=document.getElementById(id);
+    return host instanceof HTMLElement && host.childElementCount>0;
+  }),islandHostIds,{timeout:18000});
+  const landmarks=await page.evaluate(ids=>{
+    const has=(host,selector)=>!!document.getElementById(host)?.querySelector(selector);
+    return {
+      allRendered:ids.every(id=>document.getElementById(id)?.childElementCount>0),
+      prefs:has('angular-menu-preferences','#menu-settings'),
+      calendar:has('angular-time-weather','#time-weather-date'),
+      catalog:has('angular-shop-catalog','.angular-catalog'),
+      finance:has('angular-finance-workspace','[data-angular-workspace="finance"]')
+    };
+  },islandHostIds);
+  assert.deepEqual(landmarks,{allRendered:true,prefs:true,calendar:true,
+    catalog:true,finance:true},'sac-islands-rendered-content-missing');
+  const marker='SAC-CHROMIUM-DATE-ONLY';
+  await page.evaluate(value=>{
+    // This signal only affects a throwaway UI view, not game state, purchases,
+    // persistence or account data.
+    document.dispatchEvent(new CustomEvent('lhs:time-weather-updated',{
+      detail:{day:1,date:value,time:'10:00',weekday:'test',
+        nightActive:false,ended:false,weather:'Tempo firme',
+        weatherIcon:'sun',impact:'',outlook:''}
+    }));
+  },marker);
+  await page.waitForFunction(value=>
+    document.querySelector('#angular-time-weather #time-weather-date')?.textContent?.trim()===value,
+    marker,{timeout:8000});
+  assert.equal((await page.locator('#angular-time-weather #time-weather-date').innerText()).trim(),
+    marker,'sac-islands-reactive-update-did-not-render');
+  return {viewport_width:width,phase,host_count:islandHostIds.length,
+    rendered:true,reactive_dom_updated:true,no_page_errors:true};
+}
+
 /** Interaction smoke: only presentational buttons plus creating an isolated local test save. */
 async function exerciseMobileControls(page,phase,width){
   await page.waitForFunction(()=>document.documentElement.dataset.gameReady==='true',
@@ -282,7 +333,7 @@ async function exerciseMobileControls(page,phase,width){
 }
 
 async function runMobileReloads(){
-  const widths=[360,414], outcome=[];
+  const widths=[360,414], outcome=[],islandCycles=[];
   for(const width of widths){
     const ctx=await isolated(width);
     try{
@@ -293,11 +344,17 @@ async function runMobileReloads(){
       for(const phase of ['initial','reload']){
         const canvasRequest=page.waitForResponse(
           res=>new URL(res.url()).pathname==='/game/js/main.js',{timeout:20000});
+        const angularRequest=page.waitForResponse(
+          res=>new URL(res.url()).pathname==='/game/__angular/main.js',{timeout:20000});
         const navigation=phase==='initial'
           ? await page.goto(origin+'/game/',{waitUntil:'domcontentloaded',timeout:20000})
           : await page.reload({waitUntil:'domcontentloaded',timeout:20000});
         assert.equal(navigation?.status(),200,'sac-mobile-game-navigation-failed');
         const response=await canvasRequest;
+        const angularResponse=await angularRequest;
+        assert.equal(angularResponse.status(),200,'sac-islands-angular-module-404');
+        assert.equal(sha(await angularResponse.body()),angularEntrypointSha,
+          'sac-islands-angular-module-content-drift');
         assert.equal(response.status(),200,'sac-mobile-canvas-import-404');
         assert.match(response.headers()['content-type']??'',/^text\/javascript/,
           'sac-mobile-canvas-import-mime-error');
@@ -315,6 +372,8 @@ async function runMobileReloads(){
         assert.equal(visible.hasTouch,true,'sac-mobile-touch-not-emulated');
         await page.waitForTimeout(350);
         assert.deepEqual(pageErrors,[],'sac-mobile-game-pageerror');
+        islandCycles.push(await probeAngularIslandRuntime(page,phase,width));
+        assert.deepEqual(pageErrors,[],'sac-islands-reactivity-triggered-pageerror');
         cycles.push({
           phase,navigation_status:navigation.status(),canvas_import_status:response.status(),
           angular_bootstrap:true,touch_emulation:true,
@@ -356,7 +415,7 @@ async function runMobileReloads(){
         no_page_errors:pageErrors.length===0});
     } finally {await ctx.close();}
   }
-  return outcome;
+  return {mobileReloads:outcome,islandCycles};
 }
 
 let report;
@@ -427,13 +486,21 @@ try {
   const negativeTests={missing_module_rejected:await negative('missing'),
     incorrect_mime_rejected:await negative('mime'),
     restrictive_csp_rejected:await negative('csp')};
-  const mobileReloads=await runMobileReloads();
+  const {mobileReloads,islandCycles}=await runMobileReloads();
+  const islandRuntimeEvidence={
+    schema_version:1,source_commit:pinned,browser:'chromium',
+    scope:'isolated-loopback-dom-events',mount:'/game/',
+    entrypoint:'__angular/main.js',entrypoint_sha256:angularEntrypointSha,
+    host_ids:islandHostIds,reactive_host_id:'angular-time-weather',
+    event_name:'lhs:time-weather-updated',cycles:islandCycles
+  };
   report={schema_version:1,rule_id:'SAC-PRE002-EXT-BROWSER',
     source_commit:pinned,scope:'isolated-loopback-browser-dynamic-imports',
     browser:'chromium',server:'127.0.0.1',game,
     save:{dynamic_import_executed:true,export_detected:true,...saveHttp},
     negative_tests:negativeTests,
     mobile_reload_evidence:mobileReloads,
+    island_runtime_evidence:islandRuntimeEvidence,
     external_network_blocked_count:blockedExternal,
     browser_module_load_verified:true,gameplay_verified:false,
     authentication_attempted:false,payment_attempted:false,

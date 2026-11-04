@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {mkdtemp,mkdir,writeFile,unlink,rm} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import {createHash} from 'node:crypto';
 import {RuleRegistry,execute,validateProfile} from '../src/index.mjs';
 import {registerSACAngularIslands} from '../src/sac-p001-islands.mjs';
 
@@ -142,4 +143,99 @@ test('host adapter does not use shell, network, repositories or mutation',async(
   const source=await readFile(new URL('../src/sac-p001-islands.mjs',import.meta.url),'utf8');
   assert.doesNotMatch(source,/node:(child_process|https?|net|tls)|\b(fetch|eval|exec|spawn|writeFile)\s*\(/);
   assert.doesNotMatch(source,/git\s+(push|merge|checkout)|npm\s+publish/);
+});
+
+const COMMIT='db639a117024b2e14c4af844bfb69b90bef5da20';
+const expectation=()=>({
+  source_commit:COMMIT,entrypoint:'ui.js',
+  viewports:[360,414],phases:['initial','reload'],
+  reactive_host_id:'billing-host',event_name:'lhs:time-weather-updated'
+});
+async function browserProof(dist){
+  const bytes=await (await import('node:fs/promises')).readFile(path.join(dist,'ui.js'));
+  const digest=createHash('sha256').update(bytes).digest('hex');
+  return {schema_version:1,source_commit:COMMIT,browser:'chromium',
+    scope:'isolated-loopback-dom-events',mount:'/dashboard/',
+    entrypoint:'ui.js',entrypoint_sha256:digest,
+    host_ids:['billing-host','reports-host'],
+    reactive_host_id:'billing-host',event_name:'lhs:time-weather-updated',
+    cycles:[360,414].flatMap(viewport_width=>
+      ['initial','reload'].map(phase=>({
+        viewport_width,phase,host_count:2,rendered:true,
+        reactive_dom_updated:true,no_page_errors:true
+      })))
+  };
+}
+test('bounded browser DOM and reactive event evidence is attached without promoting',async t=>{
+  const {dist}=await fixture(t);
+  const got=await run({dist,islandContract:contract(),
+    islandRuntimeEvidence:await browserProof(dist),
+    islandRuntimeExpectation:expectation()});
+  assert.equal(got.status,'unverified');
+  assert.deepEqual(got.coverage,{required:1,passed:0});
+  assert.equal(got.promotion_allowed,false);
+  assert.deepEqual(got.results[0].evidence,[
+    {assertion:'islands-static',status:'pass',code:'static-hosts-verified'},
+    {assertion:'browser-dom',status:'pass',code:'chromium-dom-event-observed'},
+    {assertion:'runtime-mount',status:'unverified',code:'full-runtime-not-verified'}
+  ]);
+});
+test('missing cycles, duplicate phases and simulated reactivity failure cannot pass',async t=>{
+  const {dist}=await fixture(t);
+  for(const broken of [
+    proof=>proof.cycles.pop(),
+    proof=>{proof.cycles[2].phase='initial';},
+    proof=>{proof.cycles[0].reactive_dom_updated=false;},
+    proof=>{proof.cycles[1].rendered=false;},
+    proof=>{proof.cycles[3].host_count=1;},
+    proof=>{proof.cycles[0].no_page_errors=false;}
+  ]){
+    const proof=await browserProof(dist);broken(proof);
+    const got=await run({dist,islandContract:contract(),
+      islandRuntimeEvidence:proof,islandRuntimeExpectation:expectation()});
+    assert.equal(got.status,'fail');
+    assert.equal(got.promotion_allowed,false);
+    assert.equal(got.results[0].evidence[1].code,
+      proof.cycles.length!==4?'runtime-proof-invalid':'runtime-cycle-invalid');
+  }
+});
+test('forged source, module digest, host membership and browser type are rejected',async t=>{
+  const {dist}=await fixture(t);
+  for(const broken of [
+    proof=>{proof.source_commit='f'.repeat(40);},
+    proof=>{proof.entrypoint_sha256='b'.repeat(64);},
+    proof=>{proof.host_ids[0]='other-host';},
+    proof=>{proof.browser='not-chromium';},
+    proof=>{proof.untrusted='PRIVATE-TOKEN';}
+  ]){
+    const proof=await browserProof(dist);broken(proof);
+    const got=await run({dist,islandContract:contract(),
+      islandRuntimeEvidence:proof,islandRuntimeExpectation:expectation()});
+    assert.equal(got.status,'fail');
+    assert.equal(got.promotion_allowed,false);
+    assert.doesNotMatch(JSON.stringify(got),/PRIVATE-TOKEN/);
+  }
+});
+test('bad independent expected source and missing expectations cannot authenticate browser claims',async t=>{
+  const {dist}=await fixture(t),proof=await browserProof(dist);
+  for(const value of [
+    {...expectation(),source_commit:'0'.repeat(40)},
+    {...expectation(),entrypoint:'unlisted.js'},
+    {...expectation(),viewports:[360,360]},
+    null
+  ]){
+    const got=await run({dist,islandContract:contract(),
+      islandRuntimeEvidence:proof,islandRuntimeExpectation:value});
+    assert.equal(got.status,'fail');
+    assert.equal(got.promotion_allowed,false);
+  }
+});
+test('the browser proof digest is bound to the real local module',async t=>{
+  const {dist}=await fixture(t),proof=await browserProof(dist);
+  await writeFile(path.join(dist,'ui.js'),'export const replaced=true;');
+  const got=await run({dist,islandContract:contract(),
+    islandRuntimeEvidence:proof,islandRuntimeExpectation:expectation()});
+  assert.equal(got.status,'fail');
+  assert.equal(got.results[0].evidence[1].code,'runtime-entry-digest-mismatch');
+  assert.equal(got.promotion_allowed,false);
 });
