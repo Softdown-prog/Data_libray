@@ -184,7 +184,7 @@ test('missing cycles, duplicate phases and simulated reactivity failure cannot p
   const {dist}=await fixture(t);
   for(const broken of [
     proof=>proof.cycles.pop(),
-    proof=>{proof.cycles[2].phase='initial';},
+    proof=>{proof.cycles[2].phase='reload';},
     proof=>{proof.cycles[0].reactive_dom_updated=false;},
     proof=>{proof.cycles[1].rendered=false;},
     proof=>{proof.cycles[3].host_count=1;},
