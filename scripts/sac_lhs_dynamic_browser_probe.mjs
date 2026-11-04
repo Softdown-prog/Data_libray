@@ -393,6 +393,85 @@ async function probeAdminKeyboardAccessibility(page,phase,width){
 }
 
 /**
+ * Non-destructive browser measurement of a real :focus-visible outline,
+ * foreground/background RGB and the locked 1998 catalog behavior.
+ * Samples CSS only; this is not a screenshot or WCAG certification.
+ */
+async function probeFocusContrastAndLockedKeyboard(page,phase,width){
+  const tab=area=>page.locator(
+    '#angular-admin-area-navigation [data-angular-admin-tab="'+area+'"]');
+  await tab('finance').focus();
+  await page.keyboard.press('Home');
+  await page.keyboard.press('End');
+  await page.waitForFunction(()=>{
+    const node=document.querySelector(
+      '#angular-admin-area-navigation [data-angular-admin-tab="finance"]');
+    return node?.matches(':focus-visible')===true&&
+      document.activeElement===node&&
+      node.getAttribute('aria-selected')==='true';
+  },null,{timeout:8000});
+  const sample=await page.evaluate(()=>{
+    const focused=document.querySelector(
+      '#angular-admin-area-navigation [data-angular-admin-tab="finance"]');
+    const inactive=document.querySelector(
+      '#angular-admin-area-navigation [data-angular-admin-tab="prices"]');
+    const nav=document.querySelector('#angular-admin-area-navigation nav');
+    if(!focused||!inactive||!nav)throw Error('focus-target-absent');
+    const a=getComputedStyle(focused),b=getComputedStyle(inactive),n=getComputedStyle(nav);
+    const parseRgb=v=>{
+      const m=/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(v);
+      if(!m)throw Error('opaque-computed-rgb-required');
+      return m.slice(1,4).map(Number);
+    };
+    return {
+      focus_visible:focused.matches(':focus-visible')&&
+        document.activeElement===focused,
+      outline_width_px:Number.parseFloat(a.outlineWidth),
+      outline_style:a.outlineStyle,
+      focus_outline_rgb:parseRgb(a.outlineColor),
+      adjacent_nav_rgb:parseRgb(n.backgroundColor),
+      selected_text_rgb:parseRgb(a.color),
+      selected_background_rgb:parseRgb(a.backgroundColor),
+      inactive_text_rgb:parseRgb(b.color),
+      inactive_background_rgb:parseRgb(b.backgroundColor)
+    };
+  });
+  await page.locator('#admin-area').selectOption('stock');
+  await page.waitForFunction(()=>{
+    const t=document.querySelector(
+      '#angular-admin-area-navigation [data-angular-admin-tab="stock"]');
+    return t?.getAttribute('aria-selected')==='true'&&
+      document.getElementById('section-stock')?.hidden===false;
+  },null,{timeout:8000});
+  const disabled=await page.evaluate(()=>{
+    const catalog=document.querySelector(
+      '#angular-stock-workspace [data-angular-task="catalog"]');
+    const native=document.querySelector(
+      '#section-stock [data-panel-choice="catalog"]');
+    const pane=document.getElementById('page-stock-catalog');
+    if(!(catalog instanceof HTMLButtonElement)||
+       !(native instanceof HTMLButtonElement)||!pane)
+      throw Error('catalog-lock-target-absent');
+    catalog.focus();
+    return {
+      locked_disabled:catalog.disabled,
+      locked_native_disabled:native.disabled,
+      locked_unfocusable:document.activeElement!==catalog,
+      locked_pane_hidden:pane.hidden
+    };
+  });
+  // Tab traversal must not land on the disabled catalog.
+  await page.locator('#angular-stock-workspace [data-angular-task="suppliers"]').focus();
+  await page.keyboard.press('Shift+Tab');
+  assert.equal(await page.evaluate(()=>document.activeElement?.getAttribute(
+    'data-angular-task')==='catalog'),false,
+    'sac-visual-disabled-catalog-keyboard-focus');
+  assert.ok(Object.values(disabled).every(x=>x===true),
+    'sac-visual-disabled-catalog-lock-failed');
+  return {viewport_width:width,phase,...sample,...disabled};
+}
+
+/**
  * Real Angular buttons -> native panels and native button -> Angular status.
  * This only changes navigation of an ephemeral local game in Chromium.
  * No restart, catalog purchase, inventory action, payment or save mutation.
@@ -463,13 +542,14 @@ async function probeAdminNavigation(page,phase,width){
   assert.equal(await page.locator('#admin').isVisible(),true,
     'sac-navigation-admin-closed-unexpectedly');
   const accessibility=await probeAdminKeyboardAccessibility(page,phase,width);
+  const visual=await probeFocusContrastAndLockedKeyboard(page,phase,width);
   await page.locator('#close-admin').tap({timeout:12000});
   await page.waitForFunction(()=>document.getElementById('admin')?.hidden===true,
     null,{timeout:8000});
   return {navigationProbes:[
     {id:'finance-navigation',dom_updated:true},
     {id:'stock-navigation',dom_updated:true}
-  ],accessibility};
+  ],accessibility,visual};
 }
 
 /** Interaction smoke: only presentational buttons plus creating an isolated local test save. */
@@ -525,7 +605,7 @@ async function exerciseMobileControls(page,phase,width){
   assert.ok(Number.isFinite(numeric(fitted))&&numeric(fitted)>=60&&numeric(fitted)<=300,
     'sac-touch-fit-invalid-zoom');
 
-  const {navigationProbes,accessibility}=await probeAdminNavigation(page,phase,width);
+  const {navigationProbes,accessibility,visual}=await probeAdminNavigation(page,phase,width);
   // Returning to the menu is safe and exercises the native control binding.
   await page.locator('#open-menu').tap({timeout:12000});
   await page.waitForFunction(()=>document.getElementById('start-screen')?.hidden===false
@@ -535,11 +615,11 @@ async function exerciseMobileControls(page,phase,width){
     game_started:phase==='initial',saved_game_continued:phase==='reload',
     zoom_in_and_out:true,fit_scene:true,returned_to_menu:true,
     canvas_swipe:swipeEvidence};
-  return {control:result,navigationProbes,accessibility};
+  return {control:result,navigationProbes,accessibility,visual};
 }
 
 async function runMobileReloads(){
-  const widths=[360,414], outcome=[],islandCycles=[],interactionCycles=[],accessibilityCycles=[];
+  const widths=[360,414], outcome=[],islandCycles=[],interactionCycles=[],accessibilityCycles=[],visualCycles=[];
   for(const width of widths){
     const ctx=await isolated(width);
     try{
@@ -587,8 +667,9 @@ async function runMobileReloads(){
           horizontal_overflow_px:visible.horizontalOverflow,
           pageerror_count:pageErrors.length
         });
-        const {control,navigationProbes,accessibility}=await exerciseMobileControls(page,phase,width);
+        const {control,navigationProbes,accessibility,visual}=await exerciseMobileControls(page,phase,width);
         accessibilityCycles.push(accessibility);
+        visualCycles.push(visual);
         controls.push(control);
         interactionCycles.push({...componentInteractions,
           probes:[...componentInteractions.probes,...navigationProbes]});
@@ -626,7 +707,7 @@ async function runMobileReloads(){
         no_page_errors:pageErrors.length===0});
     } finally {await ctx.close();}
   }
-  return {mobileReloads:outcome,islandCycles,interactionCycles,accessibilityCycles};
+  return {mobileReloads:outcome,islandCycles,interactionCycles,accessibilityCycles,visualCycles};
 }
 
 let report;
@@ -697,7 +778,7 @@ try {
   const negativeTests={missing_module_rejected:await negative('missing'),
     incorrect_mime_rejected:await negative('mime'),
     restrictive_csp_rejected:await negative('csp')};
-  const {mobileReloads,islandCycles,interactionCycles,accessibilityCycles}=await runMobileReloads();
+  const {mobileReloads,islandCycles,interactionCycles,accessibilityCycles,visualCycles}=await runMobileReloads();
   const islandRuntimeEvidence={
     schema_version:1,source_commit:pinned,browser:'chromium',
     scope:'isolated-loopback-dom-events',mount:'/game/',
@@ -727,6 +808,12 @@ try {
     entrypoint:'__angular/main.js',entrypoint_sha256:angularEntrypointSha,
     host_id:'angular-admin-area-navigation',cycles:accessibilityCycles
   };
+  const focusContrastEvidence={
+    schema_version:1,source_commit:pinned,browser:'chromium',
+    scope:'isolated-loopback-focus-and-contrast',mount:'/game/',
+    entrypoint:'__angular/main.js',entrypoint_sha256:angularEntrypointSha,
+    host_id:'angular-admin-area-navigation',cycles:visualCycles
+  };
   report={schema_version:1,rule_id:'SAC-PRE002-EXT-BROWSER',
     source_commit:pinned,scope:'isolated-loopback-browser-dynamic-imports',
     browser:'chromium',server:'127.0.0.1',game,
@@ -736,6 +823,7 @@ try {
     island_runtime_evidence:islandRuntimeEvidence,
     island_interaction_evidence:islandInteractionEvidence,
     admin_accessibility_evidence:adminAccessibilityEvidence,
+    focus_contrast_evidence:focusContrastEvidence,
     external_network_blocked_count:blockedExternal,
     browser_module_load_verified:true,gameplay_verified:false,
     authentication_attempted:false,payment_attempted:false,

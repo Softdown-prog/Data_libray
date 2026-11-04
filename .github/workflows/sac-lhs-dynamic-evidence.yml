@@ -17,6 +17,8 @@ on:
       - 'packages/angular-core/src/sac-island-interaction-evidence.mjs'
       - 'packages/angular-core/src/sac-lhs-admin-accessibility.mjs'
       - 'tests/sac_lhs_admin_accessibility.test.mjs'
+      - 'packages/angular-core/src/sac-lhs-focus-contrast.mjs'
+      - 'tests/sac_lhs_focus_contrast.test.mjs'
       - 'packages/angular-core/src/index.mjs'
       - 'packages/angular-core/test/islands-rule.test.mjs'
       - 'packages/angular-postcompiler/test/angular-islands.test.mjs'
@@ -41,6 +43,8 @@ on:
       - 'packages/angular-core/src/sac-island-interaction-evidence.mjs'
       - 'packages/angular-core/src/sac-lhs-admin-accessibility.mjs'
       - 'tests/sac_lhs_admin_accessibility.test.mjs'
+      - 'packages/angular-core/src/sac-lhs-focus-contrast.mjs'
+      - 'tests/sac_lhs_focus_contrast.test.mjs'
       - 'packages/angular-core/src/index.mjs'
       - 'packages/angular-core/test/islands-rule.test.mjs'
       - 'packages/angular-postcompiler/test/angular-islands.test.mjs'
@@ -99,6 +103,8 @@ jobs:
           node --check packages/angular-core/src/sac-island-interaction-evidence.mjs
           node --check packages/angular-core/src/sac-lhs-admin-accessibility.mjs
           node --test tests/sac_lhs_admin_accessibility.test.mjs
+          node --check packages/angular-core/src/sac-lhs-focus-contrast.mjs
+          node --test tests/sac_lhs_focus_contrast.test.mjs
           node --test packages/angular-core/test/*.test.mjs
           node --check scripts/sac_lhs_authenticated_build.mjs
           node --test tests/sac_lhs_core_observation.test.mjs tests/sac_diagnostic_report.test.mjs tests/sac_lhs_scoped_postflight.test.mjs
