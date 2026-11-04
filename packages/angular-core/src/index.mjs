@@ -15,6 +15,11 @@ const freeze = value => {
 export function validateProfile(profile) {
   if (!validate(profile)) throw new Error('Invalid profile v1');
   if (new Set(profile.rules.map(r => r.rule_id)).size !== profile.rules.length) throw new Error('Duplicate selected rule');
+  // Angular-island HTML-only evidence must never be an optional shortcut around
+  // runtime attestation. Preserve profile schema v1 and existing rule behavior.
+  if (profile.rules.some(r => r.rule_id === 'SAC-P001-ISLAND-EXT' &&
+      (r.required !== true || r.enforcement !== 'blocking')))
+    throw new Error('Angular islands require an explicit blocking selection');
   if (profile.mode !== 'non-angular' && (!profile.angular_version || !profile.capabilities.includes('angular') || (profile.capabilities.includes('static-dist') && !profile.bundle_hints))) throw new Error('Incomplete Angular profile');
   if (profile.mode === 'non-angular' && (profile.angular_version !== null || profile.bundle_hints !== null || profile.capabilities.includes('angular'))) throw new Error('Conflicting non-Angular profile');
   if (profile.bundle_hints?.angular_entrypoints.some(p => profile.bundle_hints.legacy_react_entrypoints.includes(p))) throw new Error('Conflicting bundle hints');

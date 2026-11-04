@@ -162,3 +162,9 @@ Vincule com o recibo SAC-004 e Guardian em camadas separadas.
 O LHS é um consumidor dessa função, com seus 13 IDs e caminhos mantidos em
 \`src/lhs-scoped-postflight.mjs\`. Os testes \`test/angular-islands.test.mjs\`
 usam um exemplo de dashboard independente do jogo.
+
+### Ativação por projeto: seleção explícita e bloqueante
+
+A extensão de ilhas tem registro versionado no SAC Core por `registerSACAngularIslands(new RuleRegistry())`, disponível em `packages/angular-core/src/sac-p001-islands.mjs`. O perfil v1 inclui `capabilities: ['angular','angular-islands']`, `mount` idêntico ao contrato e `{rule_id:'SAC-P001-ISLAND-EXT',version:'1.0.0',required:true,enforcement:'blocking'}`. Execute `execute({registry,profile,resources:{dist,islandContract}})`. O contrato não é um novo campo do perfil: é um recurso fornecido pelo host confiável.
+
+Quando a estrutura está correta, o Core conserva `status:'unverified'` e divulga `islands-static:pass` com `runtime-mount:unverified`. Assim não autoriza promoção nem muda o SAC-P001 v1 ou sua CLI. Seleções opcionais ou `observe` são rejeitadas pelo validador para evitar aprovação indireta de outra regra enquanto faltam provas de execução.
