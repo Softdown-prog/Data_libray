@@ -6,6 +6,7 @@
  */
 import {verifyAngularIslands} from '../../angular-postcompiler/src/angular-islands.mjs';
 import {verifyIslandRuntimeEvidence} from './sac-island-runtime-evidence.mjs';
+import {verifyIslandComponentInteractions} from './sac-island-interaction-evidence.mjs';
 
 const evidence=(assertion,status,code)=>({assertion,status,code});
 const allowedFailures=new Set([
@@ -62,11 +63,24 @@ export function registerSACAngularIslands(registry){
               staticObserved,evidence('browser-dom','fail',runtime.code)
             ]};
           }
-          // Never promote a static + sampled-browser observation to the
-          // universally attested runtime mount of every Angular component.
+          const browserObserved=evidence('browser-dom','pass','chromium-dom-event-observed');
+          let componentEvidence=[];
+          if(resources.islandInteractionEvidence!==undefined||
+             resources.islandInteractionExpectation!==undefined){
+            const observed=verifyIslandComponentInteractions(
+              resources.islandContract,resources.islandRuntimeEvidence,
+              resources.islandInteractionEvidence,resources.islandInteractionExpectation
+            );
+            if(!observed.observed){
+              return {status:'fail',evidence:[staticObserved,browserObserved,
+                evidence('component-events','fail',observed.code)]};
+            }
+            componentEvidence=[evidence('component-events','pass',
+              'chromium-component-events-observed')];
+          }
+          // Sampled browser UI does not attest universal runtime correctness.
           return {status:'unverified',evidence:[
-            staticObserved,
-            evidence('browser-dom','pass','chromium-dom-event-observed'),
+            staticObserved,browserObserved,...componentEvidence,
             evidence('runtime-mount','unverified','full-runtime-not-verified')
           ]};
         }
