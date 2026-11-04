@@ -40,6 +40,15 @@ export function registerSACAngularIslands(registry){
       const checked=await verifyAngularIslands(resources.dist,resources.islandContract);
       if(checked.status==='pass'){
         const staticObserved=evidence('islands-static','pass','static-hosts-verified');
+        // An interaction assertion without the baseline runtime proof is an
+        // invalid partial claim, not a reason to silently skip the check.
+        if((resources.islandInteractionEvidence!==undefined||
+            resources.islandInteractionExpectation!==undefined)&&
+           (resources.islandRuntimeEvidence===undefined||
+            resources.islandRuntimeExpectation===undefined)){
+          return {status:'fail',evidence:[staticObserved,
+            evidence('component-events','fail','interaction-baseline-missing')]};
+        }
         // Runtime evidence is optional, but when provided it must be bound
         // to an independent host expectation and the actual compiled module.
         if(resources.islandRuntimeEvidence!==undefined||

@@ -239,3 +239,98 @@ test('the browser proof digest is bound to the real local module',async t=>{
   assert.equal(got.results[0].evidence[1].code,'runtime-entry-digest-mismatch');
   assert.equal(got.promotion_allowed,false);
 });
+
+
+const interactionExpectation=()=>({
+  source_commit:COMMIT,entrypoint:'ui.js',
+  viewports:[360,414],phases:['initial','reload'],
+  probes:[
+    {id:'inbox-view',host_id:'billing-host',event_name:'lhs:notice-inbox-updated'},
+    {id:'summary-view',host_id:'reports-host',event_name:'lhs:admin-finance-updated'}
+  ]
+});
+async function interactionProof(dist){
+  const base=await browserProof(dist);
+  return {
+    schema_version:1,source_commit:COMMIT,browser:'chromium',
+    scope:'isolated-loopback-component-events',mount:'/dashboard/',
+    entrypoint:'ui.js',entrypoint_sha256:base.entrypoint_sha256,
+    probes:interactionExpectation().probes,
+    cycles:[360,414].flatMap(viewport_width=>
+      ['initial','reload'].map(phase=>({
+        viewport_width,phase,
+        probes:[{id:'inbox-view',dom_updated:true},{id:'summary-view',dom_updated:true}]
+      })))
+  };
+}
+test('two component events observed in four browser cycles never authorize promotion',async t=>{
+  const {dist}=await fixture(t);
+  const result=await run({
+    dist,islandContract:contract(),
+    islandRuntimeEvidence:await browserProof(dist),
+    islandRuntimeExpectation:expectation(),
+    islandInteractionEvidence:await interactionProof(dist),
+    islandInteractionExpectation:interactionExpectation()
+  });
+  assert.equal(result.status,'unverified');
+  assert.equal(result.promotion_allowed,false);
+  assert.deepEqual(result.coverage,{required:1,passed:0});
+  assert.deepEqual(result.results[0].evidence,[
+    {assertion:'islands-static',status:'pass',code:'static-hosts-verified'},
+    {assertion:'browser-dom',status:'pass',code:'chromium-dom-event-observed'},
+    {assertion:'component-events',status:'pass',code:'chromium-component-events-observed'},
+    {assertion:'runtime-mount',status:'unverified',code:'full-runtime-not-verified'}
+  ]);
+});
+test('missing baseline cannot silently skip component interaction claim',async t=>{
+  const {dist}=await fixture(t);
+  const got=await run({dist,islandContract:contract(),
+    islandInteractionEvidence:await interactionProof(dist),
+    islandInteractionExpectation:interactionExpectation()});
+  assert.equal(got.status,'fail');
+  assert.equal(got.promotion_allowed,false);
+  assert.equal(got.results[0].evidence[1].code,'interaction-baseline-missing');
+});
+test('missing, duplicated, tampered or false component cycles are rejected',async t=>{
+  const {dist}=await fixture(t);
+  for(const modify of [
+    p=>p.cycles.pop(),
+    p=>{p.cycles[1].phase='initial';},
+    p=>{p.cycles[0].probes[0].dom_updated=false;},
+    p=>{p.cycles[2].probes[1].id='not-in-contract';},
+    p=>{p.probes[1].host_id='unknown-host';},
+    p=>{p.entrypoint_sha256='f'.repeat(64);},
+    p=>{p.source_commit='0'.repeat(40);},
+    p=>{p.extraneous='secret-input-marker';}
+  ]){
+    const proof=await interactionProof(dist);modify(proof);
+    const got=await run({dist,islandContract:contract(),
+      islandRuntimeEvidence:await browserProof(dist),
+      islandRuntimeExpectation:expectation(),
+      islandInteractionEvidence:proof,
+      islandInteractionExpectation:interactionExpectation()});
+    assert.equal(got.status,'fail');
+    assert.equal(got.promotion_allowed,false);
+    assert.ok(!JSON.stringify(got).includes('secret-input-marker'));
+  }
+});
+test('independent host interaction expectations cannot be forged by browser data',async t=>{
+  const {dist}=await fixture(t);
+  for(const exp of [
+    {...interactionExpectation(),source_commit:'f'.repeat(40)},
+    {...interactionExpectation(),probes:[{id:'missing',host_id:'billing-host',event_name:'lhs:any'}]},
+    {...interactionExpectation(),probes:[
+      interactionExpectation().probes[0],interactionExpectation().probes[0]
+    ]},
+    {...interactionExpectation(),entrypoint:'not-allowed.js'},
+    null
+  ]){
+    const got=await run({dist,islandContract:contract(),
+      islandRuntimeEvidence:await browserProof(dist),
+      islandRuntimeExpectation:expectation(),
+      islandInteractionEvidence:await interactionProof(dist),
+      islandInteractionExpectation:exp});
+    assert.equal(got.status,'fail');
+    assert.equal(got.promotion_allowed,false);
+  }
+});

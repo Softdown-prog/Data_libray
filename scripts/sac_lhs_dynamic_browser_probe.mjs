@@ -267,6 +267,59 @@ async function probeAngularIslandRuntime(page,phase,width){
     rendered:true,reactive_dom_updated:true,no_page_errors:true};
 }
 
+/**
+ * Two independent UI-only probes. The native game emits these events to
+ * present state; no action button is clicked and no persistent API is called.
+ * All expectations are read from DOM after Angular reacts to the event.
+ */
+async function probeIslandComponentInteractions(page,phase,width){
+  const noticeTitle='SAC-CHROMIUM-INBOX-ONLY';
+  await page.evaluate(title=>{
+    document.dispatchEvent(new CustomEvent('lhs:notice-inbox-updated',{
+      detail:{letters:[{title,body:'Isolated UI smoke only',day:1,
+        severity:'info',read:false,items:[]}]}
+    }));
+  },noticeTitle);
+  await page.waitForFunction(title=>
+    document.querySelector('#angular-notice-inbox #notices-list .notice-letter h3')
+      ?.textContent?.includes(title)===true,
+    noticeTitle,{timeout:8000});
+  assert.equal(await page.locator('#angular-notice-inbox #notices-list .notice-letter').count(),1,
+    'sac-inbox-angular-render-count-mismatch');
+  // Verify state can be cleared; the inbox dialog remains hidden and no
+  // notice action is clicked.
+  await page.evaluate(()=>document.dispatchEvent(new CustomEvent(
+    'lhs:notice-inbox-updated',{detail:{letters:[]}}
+  )));
+  await page.waitForFunction(()=>
+    document.querySelector('#angular-notice-inbox #notices-list')?.textContent
+      ?.includes('Nenhuma mensagem recebida por enquanto.')===true,
+    null,{timeout:8000});
+  const noticeCleared=await page.locator(
+    '#angular-notice-inbox #notices-list .notice-letter'
+  ).count()===0;
+  assert.equal(noticeCleared,true,'sac-inbox-angular-clear-not-rendered');
+
+  const money='SAC-CHROMIUM-CASH-VIEW-ONLY';
+  await page.evaluate(cash=>{
+    document.dispatchEvent(new CustomEvent('lhs:admin-finance-updated',{
+      detail:{cash,bills:'0',served:'0'}
+    }));
+  },money);
+  await page.waitForFunction(cash=>
+    document.querySelector('#angular-finance-workspace .angular-workspace-live')
+      ?.textContent?.includes(cash)===true,
+    money,{timeout:8000});
+  assert.match(await page.locator(
+    '#angular-finance-workspace .angular-workspace-live'
+  ).textContent(),/SAC-CHROMIUM-CASH-VIEW-ONLY/);
+  // No finance task, restart, purchase, save or account action is invoked.
+  return {viewport_width:width,phase,probes:[
+    {id:'notice-inbox',dom_updated:true},
+    {id:'finance-summary',dom_updated:true}
+  ]};
+}
+
 /** Interaction smoke: only presentational buttons plus creating an isolated local test save. */
 async function exerciseMobileControls(page,phase,width){
   await page.waitForFunction(()=>document.documentElement.dataset.gameReady==='true',
@@ -333,7 +386,7 @@ async function exerciseMobileControls(page,phase,width){
 }
 
 async function runMobileReloads(){
-  const widths=[360,414], outcome=[],islandCycles=[];
+  const widths=[360,414], outcome=[],islandCycles=[],interactionCycles=[];
   for(const width of widths){
     const ctx=await isolated(width);
     try{
@@ -373,6 +426,7 @@ async function runMobileReloads(){
         await page.waitForTimeout(350);
         assert.deepEqual(pageErrors,[],'sac-mobile-game-pageerror');
         islandCycles.push(await probeAngularIslandRuntime(page,phase,width));
+        interactionCycles.push(await probeIslandComponentInteractions(page,phase,width));
         assert.deepEqual(pageErrors,[],'sac-islands-reactivity-triggered-pageerror');
         cycles.push({
           phase,navigation_status:navigation.status(),canvas_import_status:response.status(),
@@ -415,7 +469,7 @@ async function runMobileReloads(){
         no_page_errors:pageErrors.length===0});
     } finally {await ctx.close();}
   }
-  return {mobileReloads:outcome,islandCycles};
+  return {mobileReloads:outcome,islandCycles,interactionCycles};
 }
 
 let report;
@@ -486,13 +540,25 @@ try {
   const negativeTests={missing_module_rejected:await negative('missing'),
     incorrect_mime_rejected:await negative('mime'),
     restrictive_csp_rejected:await negative('csp')};
-  const {mobileReloads,islandCycles}=await runMobileReloads();
+  const {mobileReloads,islandCycles,interactionCycles}=await runMobileReloads();
   const islandRuntimeEvidence={
     schema_version:1,source_commit:pinned,browser:'chromium',
     scope:'isolated-loopback-dom-events',mount:'/game/',
     entrypoint:'__angular/main.js',entrypoint_sha256:angularEntrypointSha,
     host_ids:islandHostIds,reactive_host_id:'angular-time-weather',
     event_name:'lhs:time-weather-updated',cycles:islandCycles
+  };
+  const islandInteractionEvidence={
+    schema_version:1,source_commit:pinned,browser:'chromium',
+    scope:'isolated-loopback-component-events',mount:'/game/',
+    entrypoint:'__angular/main.js',entrypoint_sha256:angularEntrypointSha,
+    probes:[
+      {id:'notice-inbox',host_id:'angular-notice-inbox',
+        event_name:'lhs:notice-inbox-updated'},
+      {id:'finance-summary',host_id:'angular-finance-workspace',
+        event_name:'lhs:admin-finance-updated'}
+    ],
+    cycles:interactionCycles
   };
   report={schema_version:1,rule_id:'SAC-PRE002-EXT-BROWSER',
     source_commit:pinned,scope:'isolated-loopback-browser-dynamic-imports',
@@ -501,6 +567,7 @@ try {
     negative_tests:negativeTests,
     mobile_reload_evidence:mobileReloads,
     island_runtime_evidence:islandRuntimeEvidence,
+    island_interaction_evidence:islandInteractionEvidence,
     external_network_blocked_count:blockedExternal,
     browser_module_load_verified:true,gameplay_verified:false,
     authentication_attempted:false,payment_attempted:false,

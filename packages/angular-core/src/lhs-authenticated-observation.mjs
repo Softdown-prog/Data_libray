@@ -35,12 +35,14 @@ export async function makeAuthenticatedLhsObservation({
   // structural checks as a universal SAC-P001 pass.
   const scopedPostflight=await verifyLhsAngularScopes(
     path.join(resources.workspace,resources.dist),
-    browserEvidence.island_runtime_evidence,sourceCommit
+    browserEvidence.island_runtime_evidence,sourceCommit,
+    browserEvidence.island_interaction_evidence
   );
   if(scopedPostflight.site.status!=='pass'||scopedPostflight.site.rule_id!=='SAC-P001'||
      scopedPostflight.game.status!=='pass'||
      scopedPostflight.game.rule_id!=='SAC-P001-ISLAND-EXT'||
      scopedPostflight.game.browser_dom_and_reactivity_observed!==true||
+     scopedPostflight.game.component_event_interactions_observed!==true||
      scopedPostflight.root_p001_game_status!=='not-applicable'||
      scopedPostflight.complete_sac_pipeline_approved!==false||
      scopedPostflight.deployment_authorized!==false)stop();
@@ -57,7 +59,9 @@ export async function makeAuthenticatedLhsObservation({
       game_islands_postcompile:{observation:'observed',approval:'unverified',
         detail:'bounded-island-static-check-not-p001-v1'},
       game_islands_browser:{observation:'observed',approval:'unverified',
-        detail:'pinned-chromium-rendered-13-hosts-and-reactive-calendar-event'}
+        detail:'pinned-chromium-rendered-13-hosts-and-reactive-calendar-event'},
+      component_interactions:{observation:'observed',approval:'unverified',
+        detail:'chromium-notice-inbox-and-finance-summary-dom-events'}
     },
     provenance:{
       ...base.provenance,
@@ -65,7 +69,8 @@ export async function makeAuthenticatedLhsObservation({
       full_dist_digest:build.artifact_digest,
       source_manifest_exhaustive_verified:false,
       site_p001_static_verified:true,game_island_static_verified:true,
-      game_island_dom_reactivity_observed:true,universal_runtime_attested:false,
+      game_island_dom_reactivity_observed:true,
+      component_event_interactions_observed:true,universal_runtime_attested:false,
       complete_sac_p001_coverage_verified:false
     }
   };

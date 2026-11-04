@@ -46,7 +46,9 @@ function safeManifest(manifest){
      !manifest.files.includes(manifest.main)||!manifest.files.includes(manifest.styles))
     fail('manifest-invalid');
 }
-export async function verifyLhsAngularScopes(dist,islandRuntimeEvidence=null,sourceCommit=null){
+export async function verifyLhsAngularScopes(
+  dist,islandRuntimeEvidence=null,sourceCommit=null,islandInteractionEvidence=null
+){
   const root=await realpath(dist);
   const manifest=JSON.parse((await boundedFile(root,'angular-site-assets.json',16384)).toString('utf8'));
   safeManifest(manifest);
@@ -100,7 +102,20 @@ export async function verifyLhsAngularScopes(dist,islandRuntimeEvidence=null,sou
           source_commit:sourceCommit,entrypoint:'__angular/main.js',
           viewports:[360,414],phases:['initial','reload'],
           reactive_host_id:'angular-time-weather',event_name:'lhs:time-weather-updated'
-        }
+        },
+        ...(islandInteractionEvidence===null?{}:{
+          islandInteractionEvidence,
+          islandInteractionExpectation:{
+            source_commit:sourceCommit,entrypoint:'__angular/main.js',
+            viewports:[360,414],phases:['initial','reload'],
+            probes:[
+              {id:'notice-inbox',host_id:'angular-notice-inbox',
+                event_name:'lhs:notice-inbox-updated'},
+              {id:'finance-summary',host_id:'angular-finance-workspace',
+                event_name:'lhs:admin-finance-updated'}
+            ]
+          }
+        })
       })
     }
   });
@@ -108,6 +123,9 @@ export async function verifyLhsAngularScopes(dist,islandRuntimeEvidence=null,sou
   const browserObserved=islandRuntimeEvidence!==null&&
     island?.evidence?.some(e=>e.assertion==='browser-dom'&&
       e.status==='pass'&&e.code==='chromium-dom-event-observed')===true;
+  const interactionObserved=islandInteractionEvidence!==null&&
+    island?.evidence?.some(e=>e.assertion==='component-events'&&
+      e.status==='pass'&&e.code==='chromium-component-events-observed')===true;
   const staticPassed=islandCore.status==='unverified'&&
     islandCore.promotion_allowed===false&&
     islandCore.coverage.required===1&&islandCore.coverage.passed===0&&
@@ -120,7 +138,8 @@ export async function verifyLhsAngularScopes(dist,islandRuntimeEvidence=null,sou
       (islandRuntimeEvidence===null?
         e.code==='runtime-not-verified':
         e.code==='full-runtime-not-verified'))&&
-    (islandRuntimeEvidence===null||browserObserved);
+    (islandRuntimeEvidence===null||browserObserved)&&
+    (islandInteractionEvidence===null||interactionObserved);
   if(!staticPassed){
     const code=island?.evidence?.find(e=>e.assertion==='islands-static')?.code;
     const mapped={
@@ -140,7 +159,8 @@ export async function verifyLhsAngularScopes(dist,islandRuntimeEvidence=null,sou
     game:{rule_id:'SAC-P001-ISLAND-EXT',status:'pass',mount:'/game/',
       angular_island_count:ids.length,canvas_present:true,
       angular_entrypoint_observed:true,legacy_react_entrypoint_absent:true,
-      browser_dom_and_reactivity_observed:browserObserved},
+      browser_dom_and_reactivity_observed:browserObserved,
+      component_event_interactions_observed:interactionObserved},
     root_p001_game_status:'not-applicable',
     complete_sac_pipeline_approved:false,deployment_authorized:false
   };
