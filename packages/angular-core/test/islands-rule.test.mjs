@@ -334,3 +334,50 @@ test('independent host interaction expectations cannot be forged by browser data
     assert.equal(got.promotion_allowed,false);
   }
 });
+
+
+test('four UI probes including finance and stock navigation keep promotion blocked',async t=>{
+  const {dist}=await fixture(t);
+  const expected=interactionExpectation();
+  const additional=[
+    {id:'finance-navigation',host_id:'reports-host',
+      event_name:'lhs:management-page-selected'},
+    {id:'stock-navigation',host_id:'billing-host',
+      event_name:'lhs:management-page-selected'}
+  ];
+  expected.probes.push(...additional);
+  const complete=await interactionProof(dist);
+  complete.probes.push(...additional);
+  complete.cycles.forEach(c=>c.probes.push(
+    {id:'finance-navigation',dom_updated:true},
+    {id:'stock-navigation',dom_updated:true}
+  ));
+  const inputs={dist,islandContract:contract(),
+    islandRuntimeEvidence:await browserProof(dist),
+    islandRuntimeExpectation:expectation(),
+    islandInteractionEvidence:complete,
+    islandInteractionExpectation:expected};
+  const good=await run(inputs);
+  assert.equal(good.status,'unverified');
+  assert.equal(good.promotion_allowed,false);
+  assert.equal(good.coverage.passed,0);
+  assert.deepEqual(good.results[0].evidence.map(e=>e.code),[
+    'static-hosts-verified','chromium-dom-event-observed',
+    'chromium-component-events-observed','full-runtime-not-verified'
+  ]);
+  for(const mutate of [
+    p=>p.cycles[0].probes.pop(),
+    p=>{p.cycles[2].probes[3].dom_updated=false;},
+    p=>{p.cycles[1].probes[2].id='stock-navigation';},
+    p=>{p.probes[3].event_name='lhs:admin-finance-updated';},
+    p=>{p.probes[2].host_id='other-host';},
+    p=>{p.cycles[3].probes.reverse();}
+  ]){
+    const proof=structuredClone(complete);
+    mutate(proof);
+    const bad=await run({...inputs,islandInteractionEvidence:proof});
+    assert.equal(bad.status,'fail');
+    assert.equal(bad.promotion_allowed,false);
+    assert.equal(bad.results[0].evidence.find(e=>e.assertion==='component-events')?.status,'fail');
+  }
+});

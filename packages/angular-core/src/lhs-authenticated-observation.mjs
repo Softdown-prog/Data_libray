@@ -61,7 +61,9 @@ export async function makeAuthenticatedLhsObservation({
       game_islands_browser:{observation:'observed',approval:'unverified',
         detail:'pinned-chromium-rendered-13-hosts-and-reactive-calendar-event'},
       component_interactions:{observation:'observed',approval:'unverified',
-        detail:'chromium-notice-inbox-and-finance-summary-dom-events'}
+        detail:'chromium-notice-inbox-and-finance-summary-dom-events'},
+      admin_navigation:{observation:'observed',approval:'unverified',
+        detail:'chromium-angular-native-finance-stock-page-synchronization'}
     },
     provenance:{
       ...base.provenance,
@@ -70,7 +72,8 @@ export async function makeAuthenticatedLhsObservation({
       source_manifest_exhaustive_verified:false,
       site_p001_static_verified:true,game_island_static_verified:true,
       game_island_dom_reactivity_observed:true,
-      component_event_interactions_observed:true,universal_runtime_attested:false,
+      component_event_interactions_observed:true,
+      admin_navigation_observed:true,universal_runtime_attested:false,
       complete_sac_p001_coverage_verified:false
     }
   };

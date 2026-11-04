@@ -320,6 +320,85 @@ async function probeIslandComponentInteractions(page,phase,width){
   ]};
 }
 
+/**
+ * Real Angular buttons -> native panels and native button -> Angular status.
+ * This only changes navigation of an ephemeral local game in Chromium.
+ * No restart, catalog purchase, inventory action, payment or save mutation.
+ */
+async function probeAdminNavigation(page,phase,width){
+  await page.locator('#open-admin').tap({timeout:12000});
+  await page.waitForFunction(()=>document.getElementById('admin')?.hidden===false,
+    null,{timeout:12000});
+  const angularTab=area=>page.locator(
+    '#angular-admin-area-navigation [data-angular-admin-tab="'+area+'"]');
+  async function verifyArea(area){
+    await page.waitForFunction(area=>{
+      const native=document.querySelector('#admin .admin-tabs [data-admin-tab="'+area+'"]');
+      const angular=document.querySelector(
+        '#angular-admin-area-navigation [data-angular-admin-tab="'+area+'"]');
+      const section=document.getElementById('section-'+area);
+      const select=document.getElementById('admin-area');
+      return native?.getAttribute('aria-selected')==='true'&&
+        angular?.getAttribute('aria-selected')==='true'&&
+        section?.hidden===false&&select?.value===area;
+    },area,{timeout:8000});
+  }
+  async function verifyPage(area,task){
+    await page.waitForFunction(({area,task})=>{
+      const native=document.querySelector(
+        '#section-'+area+' .management-pages [data-panel-choice="'+task+'"]');
+      const angular=document.querySelector(
+        '#angular-'+(area==='finance'?'finance':'stock')+
+        '-workspace [data-angular-task="'+task+'"]');
+      const pane=document.getElementById('page-'+area+'-'+task);
+      return native?.getAttribute('aria-pressed')==='true'&&
+        angular?.getAttribute('aria-pressed')==='true'&&
+        pane?.hidden===false;
+    },{area,task},{timeout:8000});
+  }
+  await angularTab('finance').tap({timeout:12000});
+  await verifyArea('finance');
+  await page.locator('#angular-finance-workspace [data-angular-task="usage"]')
+    .tap({timeout:12000});
+  await verifyPage('finance','usage');
+  // The original native controls may be visually suppressed by Angular.
+  // The real controller click listener is exercised, without a fake event.
+  await page.locator(
+    '#section-finance .management-pages [data-panel-choice="balance"]'
+  ).evaluate(button=>button.click());
+  await verifyPage('finance','balance');
+
+  await angularTab('stock').tap({timeout:12000});
+  await verifyArea('stock');
+  await page.locator('#angular-stock-workspace [data-angular-task="orders"]')
+    .tap({timeout:12000});
+  await verifyPage('stock','orders');
+  await page.locator(
+    '#section-stock .management-pages [data-panel-choice="suppliers"]'
+  ).evaluate(button=>button.click());
+  await verifyPage('stock','suppliers');
+  // The advanced catalogue is locked in the pinned 1998 scenario.
+  const lock=await page.evaluate(()=>{
+    const native=document.querySelector(
+      '#section-stock .management-pages [data-panel-choice="catalog"]');
+    const angular=document.querySelector(
+      '#angular-stock-workspace [data-angular-task="catalog"]');
+    return {native:native?.disabled,angular:angular?.disabled,
+      catalogHidden:document.getElementById('page-stock-catalog')?.hidden};
+  });
+  assert.deepEqual(lock,{native:true,angular:true,catalogHidden:true},
+    'sac-navigation-locked-catalog-became-enabled');
+  assert.equal(await page.locator('#admin').isVisible(),true,
+    'sac-navigation-admin-closed-unexpectedly');
+  await page.locator('#close-admin').tap({timeout:12000});
+  await page.waitForFunction(()=>document.getElementById('admin')?.hidden===true,
+    null,{timeout:8000});
+  return [
+    {id:'finance-navigation',dom_updated:true},
+    {id:'stock-navigation',dom_updated:true}
+  ];
+}
+
 /** Interaction smoke: only presentational buttons plus creating an isolated local test save. */
 async function exerciseMobileControls(page,phase,width){
   await page.waitForFunction(()=>document.documentElement.dataset.gameReady==='true',
@@ -373,6 +452,7 @@ async function exerciseMobileControls(page,phase,width){
   assert.ok(Number.isFinite(numeric(fitted))&&numeric(fitted)>=60&&numeric(fitted)<=300,
     'sac-touch-fit-invalid-zoom');
 
+  const navigationProbes=await probeAdminNavigation(page,phase,width);
   // Returning to the menu is safe and exercises the native control binding.
   await page.locator('#open-menu').tap({timeout:12000});
   await page.waitForFunction(()=>document.getElementById('start-screen')?.hidden===false
@@ -382,7 +462,7 @@ async function exerciseMobileControls(page,phase,width){
     game_started:phase==='initial',saved_game_continued:phase==='reload',
     zoom_in_and_out:true,fit_scene:true,returned_to_menu:true,
     canvas_swipe:swipeEvidence};
-  return result;
+  return {control:result,navigationProbes};
 }
 
 async function runMobileReloads(){
@@ -426,7 +506,7 @@ async function runMobileReloads(){
         await page.waitForTimeout(350);
         assert.deepEqual(pageErrors,[],'sac-mobile-game-pageerror');
         islandCycles.push(await probeAngularIslandRuntime(page,phase,width));
-        interactionCycles.push(await probeIslandComponentInteractions(page,phase,width));
+        const componentInteractions=await probeIslandComponentInteractions(page,phase,width);
         assert.deepEqual(pageErrors,[],'sac-islands-reactivity-triggered-pageerror');
         cycles.push({
           phase,navigation_status:navigation.status(),canvas_import_status:response.status(),
@@ -434,7 +514,10 @@ async function runMobileReloads(){
           horizontal_overflow_px:visible.horizontalOverflow,
           pageerror_count:pageErrors.length
         });
-        controls.push(await exerciseMobileControls(page,phase,width));
+        const {control,navigationProbes}=await exerciseMobileControls(page,phase,width);
+        controls.push(control);
+        interactionCycles.push({...componentInteractions,
+          probes:[...componentInteractions.probes,...navigationProbes]});
         assert.deepEqual(pageErrors,[],'sac-mobile-controls-triggered-pageerror');
       }
       // The save module is imported by an isolated page; no account or
@@ -556,7 +639,11 @@ try {
       {id:'notice-inbox',host_id:'angular-notice-inbox',
         event_name:'lhs:notice-inbox-updated'},
       {id:'finance-summary',host_id:'angular-finance-workspace',
-        event_name:'lhs:admin-finance-updated'}
+        event_name:'lhs:admin-finance-updated'},
+      {id:'finance-navigation',host_id:'angular-finance-workspace',
+        event_name:'lhs:management-page-selected'},
+      {id:'stock-navigation',host_id:'angular-stock-workspace',
+        event_name:'lhs:management-page-selected'}
     ],
     cycles:interactionCycles
   };

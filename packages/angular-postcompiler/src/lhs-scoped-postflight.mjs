@@ -112,7 +112,11 @@ export async function verifyLhsAngularScopes(
               {id:'notice-inbox',host_id:'angular-notice-inbox',
                 event_name:'lhs:notice-inbox-updated'},
               {id:'finance-summary',host_id:'angular-finance-workspace',
-                event_name:'lhs:admin-finance-updated'}
+                event_name:'lhs:admin-finance-updated'},
+              {id:'finance-navigation',host_id:'angular-finance-workspace',
+                event_name:'lhs:management-page-selected'},
+              {id:'stock-navigation',host_id:'angular-stock-workspace',
+                event_name:'lhs:management-page-selected'}
             ]
           }
         })
