@@ -2,7 +2,7 @@
  * SAC-PRE005: opt-in bounded Angular template binding/event evidence.
  *
  * The Angular parser and the TypeScript AST are supplied by a trusted caller.
- * Project code and HTML are NEVER imported or evaluated; raw source, member
+ * Project code, HTML and inline template text are NEVER executed; raw source, member
  * names, compiler errors and template text never enter returned evidence.
  *
  * A parser syntax error is a finding inside an observed template. Undeclared
@@ -90,11 +90,23 @@ function isComponent(ts,dec,aliases){
   return ts.isPropertyAccessExpression(target)&&target.name.text==='Component'&&
     ts.isIdentifier(target.expression)&&aliases.namespaces.has(target.expression.text);
 }
+function inlineTemplateSource(ts,dec){
+  const args=dec.expression.arguments;
+  if(args.length!==1||!ts.isObjectLiteralExpression(args[0]))return null;
+  const meta=args[0];
+  if(meta.properties.some(p=>ts.isSpreadAssignment(p)||
+    (ts.isPropertyAssignment(p)&&ts.isComputedPropertyName(p.name))))return null;
+  const named=(name)=>meta.properties.filter(p=>ts.isPropertyAssignment(p)&&
+    (ts.isIdentifier(p.name)||ts.isStringLiteral(p.name))&&p.name.text===name);
+  const tpl=named('template'),url=named('templateUrl');
+  if(tpl.length!==1||url.length!==0)return null;
+  return ts.isStringLiteralLike(tpl[0].initializer)?tpl[0].initializer.text:null;
+}
 function classReferences(ts,files){
   // The index must mirror SAC-PRE004: sorted files, decorated classes only.
   // Never merge members of helper classes: an inherited method is not locally
   // declared, and its validity must be decided by AOT, not by this analyzer.
-  const byComponent=new Map();
+  const byComponent=new Map(),inline=[];
   let componentIndex=0;
   for(const file of [...files].sort((a,b)=>a.path.localeCompare(b.path))){
     const ast=ts.createSourceFile(file.path,file.source,ts.ScriptTarget.Latest,true,
@@ -112,10 +124,14 @@ function classReferences(ts,files){
           own:memberNames(ts,stmt),
           inherited:sameFileAncestors(ts,stmt,classes)
         });
+        const source=inlineTemplateSource(ts,dec);
+        if(source!==null)inline.push({
+          component_file:file.path,component_index:componentIndex,source
+        });
       }
     }
   }
-  return byComponent;
+  return {byComponent,inline};
 }
 function rootMember(node){
   const expr=node?.ast??node;
@@ -195,7 +211,7 @@ function walkTemplate(nodes,members,totals,missing,limit){
 
 /**
  * Enforces the same bounded inventory contract as SAC-PRE004 and inspects only
- * external HTML templates for which that analyzer proved a static link.
+ * external HTML templates with a static link and literal inline templates.
  * The result remains UNVERIFIED even when parser errors are observed, because
  * the AOT builder alone can prove whether a template is compiled in an app.
  */
@@ -203,9 +219,15 @@ export function inspectAngularTemplateBindings({files,templates=[],typescript:ts
   if(!ng||typeof ng.parseTemplate!=='function'||
      !Array.isArray(files)||!Array.isArray(templates))invalid();
   const links=inspectAngularTemplateLinks({files,templates,typescript:ts});
-  if(links.external_templates_linked>MAX_PARSED_TEMPLATES)invalid();
   const html=new Map(templates.map(item=>[item.path,item.source]));
-  const byComponent=classReferences(ts,files);
+  const {byComponent,inline}=classReferences(ts,files);
+  if(links.external_templates_linked+inline.length>MAX_PARSED_TEMPLATES)invalid();
+  // The source is passed to the trusted Angular parser only; never returned.
+  const entries=[
+    ...links.links.map(link=>({...link,source:html.get(link.template_file),kind:'external'})),
+    ...inline.map(link=>({...link,kind:'inline'}))
+  ].sort((a,b)=>a.component_file.localeCompare(b.component_file)||
+    a.component_index-b.component_index);
   const totals={visited:0,events:0,properties:0,interpolations:0,
     sameFileInheritedEventCalls:0,sameFileInheritedPropertyReads:0,
     templateLocalEventCalls:0,templateLocalPropertyReads:0};
@@ -214,11 +236,11 @@ export function inspectAngularTemplateBindings({files,templates=[],typescript:ts
     if(findings.length>=MAX_FINDINGS)invalid();
     findings.push({code,file,component_index});
   };
-  let parsed=0,syntaxErrors=0,uncertainEvent=0,uncertainProperty=0;
-  for(const link of links.links){
+  let parsed=0,inlineParsed=0,syntaxErrors=0,uncertainEvent=0,uncertainProperty=0;
+  for(const link of entries){
     let parsedTemplate;
     try{
-      parsedTemplate=ng.parseTemplate(html.get(link.template_file),link.template_file,{
+      parsedTemplate=ng.parseTemplate(link.source,link.template_file??link.component_file,{
         preserveWhitespaces:false
       });
     }catch{
@@ -226,7 +248,8 @@ export function inspectAngularTemplateBindings({files,templates=[],typescript:ts
         link.component_file,link.component_index);
       continue;
     }
-    parsed++;
+    if(link.kind==='inline')inlineParsed++;
+    else parsed++;
     if(Array.isArray(parsedTemplate.errors)&&parsedTemplate.errors.length){
       syntaxErrors+=parsedTemplate.errors.length;
       report('angular-template-parser-errors-observed',
@@ -259,7 +282,9 @@ export function inspectAngularTemplateBindings({files,templates=[],typescript:ts
     scope:'enumerated-angular-external-html-template-expressions-only',
     component_links_observed:links.external_templates_linked,
     external_templates_parsed:parsed,
-    inline_templates_not_inspected:links.inline_templates_observed,
+    inline_templates_parsed:inlineParsed,
+    templates_total_parsed:parsed+inlineParsed,
+    inline_templates_not_inspected:links.inline_templates_observed-inlineParsed,
     template_parser_error_count:syntaxErrors,
     bound_events_observed:totals.events,
     bound_properties_observed:totals.properties,
