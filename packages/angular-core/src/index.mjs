@@ -1,4 +1,5 @@
 import Ajv from 'ajv';
+import { assessRuleApplicability, describeSACCapabilities } from './capabilities.mjs';
 import schema from '../schemas/profile.v1.json' with { type: 'json' };
 
 const validate = new Ajv({ strict: true }).compile(schema);
@@ -44,6 +45,14 @@ export class RuleRegistry {
     const { run, ...metadata } = rule;
     this.#rules.set(rule.rule_id, Object.freeze({ ...freeze(structuredClone(metadata)), run }));
     return this;
+  }
+  capabilities(profile) {
+    // Only validated profiles and registered rule descriptors are considered.
+    // This does NOT prove that capabilities are available at runtime.
+    return describeSACCapabilities({
+      profile:validateProfile(profile),
+      registeredRules:[...this.#rules.values()]
+    });
   }
   plan(selections) {
     const selected = new Map(selections.map(s => [s.rule_id, s]));
@@ -100,10 +109,8 @@ export async function execute({ registry, profile, resources = {}, analysis = {}
   const projectResources = Object.freeze({ ...resources });
   for (const rule of plan) {
     const selection = p.rules.find(s => s.rule_id === rule.rule_id);
-    const when = rule.applies_when;
     let result;
-    if (!when.capabilities.every(c => p.capabilities.includes(c)) || (when.modes.length && !when.modes.includes(p.mode)) ||
-      (when.angular_majors.length && !when.angular_majors.includes(Number(p.angular_version?.split('.')[0])))) {
+    if (!assessRuleApplicability(p,rule).matches) {
       result = { status: 'not-applicable', evidence: [evidence('applicability', 'not-applicable', 'profile-out-of-scope')] };
     } else if (rule.dependencies.some(d => completed.get(d).status !== 'pass')) {
       result = { status: 'unverified', evidence: [evidence('dependencies', 'unverified', 'dependency-not-passed')] };

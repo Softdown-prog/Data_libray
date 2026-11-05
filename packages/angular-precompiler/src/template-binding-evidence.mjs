@@ -2,7 +2,7 @@
  * SAC-PRE005: opt-in bounded Angular template binding/event evidence.
  *
  * The Angular parser and the TypeScript AST are supplied by a trusted caller.
- * Project code and HTML are NEVER imported or evaluated; raw source, member
+ * Project code, HTML and inline template text are NEVER executed; raw source, member
  * names, compiler errors and template text never enter returned evidence.
  *
  * A parser syntax error is a finding inside an observed template. Undeclared
@@ -90,11 +90,23 @@ function isComponent(ts,dec,aliases){
   return ts.isPropertyAccessExpression(target)&&target.name.text==='Component'&&
     ts.isIdentifier(target.expression)&&aliases.namespaces.has(target.expression.text);
 }
+function inlineTemplateSource(ts,dec){
+  const args=dec.expression.arguments;
+  if(args.length!==1||!ts.isObjectLiteralExpression(args[0]))return null;
+  const meta=args[0];
+  if(meta.properties.some(p=>ts.isSpreadAssignment(p)||
+    (ts.isPropertyAssignment(p)&&ts.isComputedPropertyName(p.name))))return null;
+  const named=(name)=>meta.properties.filter(p=>ts.isPropertyAssignment(p)&&
+    (ts.isIdentifier(p.name)||ts.isStringLiteral(p.name))&&p.name.text===name);
+  const tpl=named('template'),url=named('templateUrl');
+  if(tpl.length!==1||url.length!==0)return null;
+  return ts.isStringLiteralLike(tpl[0].initializer)?tpl[0].initializer.text:null;
+}
 function classReferences(ts,files){
   // The index must mirror SAC-PRE004: sorted files, decorated classes only.
   // Never merge members of helper classes: an inherited method is not locally
   // declared, and its validity must be decided by AOT, not by this analyzer.
-  const byComponent=new Map();
+  const byComponent=new Map(),inline=[];
   let componentIndex=0;
   for(const file of [...files].sort((a,b)=>a.path.localeCompare(b.path))){
     const ast=ts.createSourceFile(file.path,file.source,ts.ScriptTarget.Latest,true,
@@ -112,10 +124,14 @@ function classReferences(ts,files){
           own:memberNames(ts,stmt),
           inherited:sameFileAncestors(ts,stmt,classes)
         });
+        const source=inlineTemplateSource(ts,dec);
+        if(source!==null)inline.push({
+          component_file:file.path,component_index:componentIndex,source
+        });
       }
     }
   }
-  return byComponent;
+  return {byComponent,inline};
 }
 function rootMember(node){
   const expr=node?.ast??node;
@@ -184,7 +200,26 @@ function walkTemplate(nodes,members,totals,missing,limit){
           totals.sameFileInheritedPropertyReads++;
         else if(!members.own.has(name))missing.property=true;
       }
-    }else if(kind==='BoundText')totals.interpolations++;
+    }else if(kind==='BoundText'){
+      totals.interpolations++;
+      // Deliberately only direct ImplicitReceiver reads, e.g. {{ label }}.
+      // Nested, piped, safe navigation and method-call expressions require
+      // full Angular binder semantics and are left unverified.
+      const interpolation=node.value?.ast??node.value;
+      if(interpolation?.constructor?.name==='Interpolation'&&
+          Array.isArray(interpolation.expressions)){
+        for(const expression of interpolation.expressions){
+          if(++totals.visited>limit)invalid();
+          const name=rootMember(expression);
+          if(!name)continue;
+          totals.simpleInterpolationReads++;
+          if(scope.has(name))totals.templateLocalInterpolationReads++;
+          else if(members.inherited.has(name)&&!members.own.has(name))
+            totals.sameFileInheritedInterpolationReads++;
+          else if(!members.own.has(name))missing.interpolation=true;
+        }
+      }
+    }
     for(const key of ['children','inputs','outputs','templateAttrs','branches','cases','body']){
       const children=node[key];
       if(Array.isArray(children))visitArray(children,scope);
@@ -195,7 +230,7 @@ function walkTemplate(nodes,members,totals,missing,limit){
 
 /**
  * Enforces the same bounded inventory contract as SAC-PRE004 and inspects only
- * external HTML templates for which that analyzer proved a static link.
+ * external HTML templates with a static link and literal inline templates.
  * The result remains UNVERIFIED even when parser errors are observed, because
  * the AOT builder alone can prove whether a template is compiled in an app.
  */
@@ -203,10 +238,18 @@ export function inspectAngularTemplateBindings({files,templates=[],typescript:ts
   if(!ng||typeof ng.parseTemplate!=='function'||
      !Array.isArray(files)||!Array.isArray(templates))invalid();
   const links=inspectAngularTemplateLinks({files,templates,typescript:ts});
-  if(links.external_templates_linked>MAX_PARSED_TEMPLATES)invalid();
   const html=new Map(templates.map(item=>[item.path,item.source]));
-  const byComponent=classReferences(ts,files);
+  const {byComponent,inline}=classReferences(ts,files);
+  if(links.external_templates_linked+inline.length>MAX_PARSED_TEMPLATES)invalid();
+  // The source is passed to the trusted Angular parser only; never returned.
+  const entries=[
+    ...links.links.map(link=>({...link,source:html.get(link.template_file),kind:'external'})),
+    ...inline.map(link=>({...link,kind:'inline'}))
+  ].sort((a,b)=>a.component_file.localeCompare(b.component_file)||
+    a.component_index-b.component_index);
   const totals={visited:0,events:0,properties:0,interpolations:0,
+    simpleInterpolationReads:0,templateLocalInterpolationReads:0,
+    sameFileInheritedInterpolationReads:0,
     sameFileInheritedEventCalls:0,sameFileInheritedPropertyReads:0,
     templateLocalEventCalls:0,templateLocalPropertyReads:0};
   const findings=[];
@@ -214,11 +257,11 @@ export function inspectAngularTemplateBindings({files,templates=[],typescript:ts
     if(findings.length>=MAX_FINDINGS)invalid();
     findings.push({code,file,component_index});
   };
-  let parsed=0,syntaxErrors=0,uncertainEvent=0,uncertainProperty=0;
-  for(const link of links.links){
+  let parsed=0,inlineParsed=0,syntaxErrors=0,uncertainEvent=0,uncertainProperty=0,uncertainInterpolation=0;
+  for(const link of entries){
     let parsedTemplate;
     try{
-      parsedTemplate=ng.parseTemplate(html.get(link.template_file),link.template_file,{
+      parsedTemplate=ng.parseTemplate(link.source,link.template_file??link.component_file,{
         preserveWhitespaces:false
       });
     }catch{
@@ -226,7 +269,8 @@ export function inspectAngularTemplateBindings({files,templates=[],typescript:ts
         link.component_file,link.component_index);
       continue;
     }
-    parsed++;
+    if(link.kind==='inline')inlineParsed++;
+    else parsed++;
     if(Array.isArray(parsedTemplate.errors)&&parsedTemplate.errors.length){
       syntaxErrors+=parsedTemplate.errors.length;
       report('angular-template-parser-errors-observed',
@@ -234,7 +278,7 @@ export function inspectAngularTemplateBindings({files,templates=[],typescript:ts
       continue;
     }
     const members=byComponent.get(link.component_file+':'+link.component_index);
-    const potential={event:false,property:false};
+    const potential={event:false,property:false,interpolation:false};
     if(!members || !Array.isArray(parsedTemplate.nodes)){
       report('template-expression-ast-unverified',
         link.component_file,link.component_index);
@@ -251,6 +295,11 @@ export function inspectAngularTemplateBindings({files,templates=[],typescript:ts
       report('property-binding-member-unverified',
         link.component_file,link.component_index);
     }
+    if(potential.interpolation){
+      uncertainInterpolation++;
+      report('interpolation-member-unverified',
+        link.component_file,link.component_index);
+    }
   }
   findings.sort((a,b)=>a.file.localeCompare(b.file)||
     a.component_index-b.component_index||a.code.localeCompare(b.code));
@@ -259,11 +308,17 @@ export function inspectAngularTemplateBindings({files,templates=[],typescript:ts
     scope:'enumerated-angular-external-html-template-expressions-only',
     component_links_observed:links.external_templates_linked,
     external_templates_parsed:parsed,
-    inline_templates_not_inspected:links.inline_templates_observed,
+    inline_templates_parsed:inlineParsed,
+    templates_total_parsed:parsed+inlineParsed,
+    inline_templates_not_inspected:links.inline_templates_observed-inlineParsed,
     template_parser_error_count:syntaxErrors,
     bound_events_observed:totals.events,
     bound_properties_observed:totals.properties,
     interpolations_observed:totals.interpolations,
+    simple_interpolation_reads_observed:totals.simpleInterpolationReads,
+    template_local_interpolation_reads_observed:totals.templateLocalInterpolationReads,
+    same_file_inherited_interpolation_reads_observed:totals.sameFileInheritedInterpolationReads,
+    potential_interpolation_members_not_declared_locally:uncertainInterpolation,
     same_file_inherited_event_calls_observed:totals.sameFileInheritedEventCalls,
     same_file_inherited_property_reads_observed:totals.sameFileInheritedPropertyReads,
     template_local_event_calls_observed:totals.templateLocalEventCalls,
