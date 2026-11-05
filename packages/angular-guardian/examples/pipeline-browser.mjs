@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
 import { prepareBuild, sealBuild, auditPipeline } from '../../angular-pipeline/src/index.mjs';
 import { verifyPipelineBrowser } from '../src/pipeline.mjs';
+import { observeSACCapabilityEvidence } from '../src/capabilities.mjs';
 import { verifyPipelineBrowserSandbox } from '../src/sandbox.mjs';
 const containerMode = process.env.SAC_CONTAINER_MODE === '1';
 const verifyBrowser = containerMode ? verifyPipelineBrowserSandbox : verifyPipelineBrowser;
@@ -30,7 +31,23 @@ for (const [name, mount, mode, hybrid] of [['root', '/', 'positive', false], ['s
   }
   pipeline.receipt = await sealBuild({ ...pipeline, session, buildStatus: 'pass' });
   assert.equal((await auditPipeline(pipeline)).static_pipeline_pass, true);
-  const result = await verifyBrowser({ pipeline, guardian });
+  // Real Chromium (not an injected runner) must provide the positive
+  // capability-evidence example. Sandbox mode keeps its existing Docker path.
+  const observed=(name==='root'&&!containerMode)
+    ?await observeSACCapabilityEvidence({pipeline,guardian})
+    :null;
+  const result=observed?.result??await verifyBrowser({pipeline,guardian});
+  if(observed){
+    assert.equal(observed.capabilities.observations.preflight,'observed-pass');
+    assert.equal(observed.capabilities.observations.authenticated_build_claim,'authenticated-host-claim');
+    assert.equal(observed.capabilities.observations.postflight,'observed-pass');
+    assert.equal(observed.capabilities.observations.guardian_contract,'observed-contract-pass');
+    assert.equal(observed.capabilities.angular_toolchain_metadata_verified,true);
+    assert.equal(observed.capabilities.angular_cli_execution_verified,false);
+    assert.equal(observed.capabilities.official_aot_verified,false);
+    assert.equal(observed.capabilities.deployment_authorized,false);
+    reports.push({name:'root-capabilities',result:observed.capabilities});
+  }
   reports.push({ name, result });
   assert.equal(result.static_pipeline_pass, true);
   assert.equal(result.browser_pass, mode === 'positive', JSON.stringify(result));
