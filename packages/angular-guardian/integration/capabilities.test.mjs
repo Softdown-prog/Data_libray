@@ -120,3 +120,60 @@ test('invalid profile produces only sanitized, non-executed unverified status',a
   assert.equal(r.result,null);
   assert.equal(JSON.stringify(r).includes('NEVER-LEAK'),false);
 });
+
+for(const change of ['compiled-artifact','source-after-build']){
+  test('capability evidence invalidates stale build/postflight when '+change+
+    ' changes during Guardian',async t=>{
+    const pipeline=await setup(t);
+    const originalWorkspace=pipeline.resources.workspace;
+    const {capabilities,result}=await observeSACCapabilityEvidence({
+      pipeline,guardian:makeContract(),
+      runBrowser:async({contract})=>{
+        if(change==='compiled-artifact'){
+          await writeFile(path.join(originalWorkspace,pipeline.resources.dist,'main.js'),
+            '// mutated after the first successful audit');
+        }else{
+          await writeFile(path.join(originalWorkspace,'app.ts'),
+            '// changed source revision after the first successful audit');
+        }
+        return {
+          status:'pass',executed:true,
+          cases:contract.cases.map(c=>({id:c.id,status:'pass',codes:[]}))
+        };
+      }
+    });
+    // The initially valid, authenticated snapshot alone is insufficient.
+    assert.equal(result.static_pipeline_pass,true);
+    assert.equal(result.browser_pass,false);
+    assert.equal(result.browser.status,'fail');
+    assert.equal(result.browser.code,'artifact-mutated-during-browser');
+    assert.deepEqual(capabilities.observations,{
+      preflight:'observed-pass',
+      authenticated_build_claim:'invalidated-after-browser',
+      postflight:'invalidated-after-browser',
+      guardian_contract:'observed-nonpass'
+    });
+    assert.equal(capabilities.angular_toolchain_metadata_verified,true);
+    assert.equal(capabilities.angular_cli_execution_verified,false);
+    assert.equal(capabilities.official_aot_verified,false);
+    assert.equal(capabilities.full_runtime_verified,false);
+    assert.equal(capabilities.deployment_authorized,false);
+    assert.equal(JSON.stringify(capabilities).includes(originalWorkspace),false);
+  });
+}
+test('a browser failure without mutation preserves valid earlier build evidence',async t=>{
+  const pipeline=await setup(t);
+  const {capabilities,result}=await observeSACCapabilityEvidence({
+    pipeline,guardian:makeContract(),
+    runBrowser:async({contract})=>({
+      status:'fail',executed:true,
+      cases:contract.cases.map(c=>({id:c.id,status:'fail',codes:['expected-failure']}))
+    })
+  });
+  assert.equal(result.browser.status,'fail');
+  assert.equal(result.browser.code,undefined);
+  assert.equal(capabilities.observations.authenticated_build_claim,'authenticated-host-claim');
+  assert.equal(capabilities.observations.postflight,'observed-pass');
+  assert.equal(capabilities.observations.guardian_contract,'observed-nonpass');
+  assert.equal(capabilities.deployment_authorized,false);
+});
