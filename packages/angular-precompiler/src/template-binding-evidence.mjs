@@ -30,6 +30,41 @@ function memberNames(ts,stmt){
   }
   return names;
 }
+function sameFileAncestors(ts,stmt,classes){
+  // Syntactic evidence only. No imported bases, mixins, getters evaluated,
+  // private/static members or TypeScript type-program assumptions.
+  const inherited=new Set(),visited=new Set([stmt]);
+  let current=stmt;
+  for(let depth=0;depth<8;depth++){
+    const extendsClause=current.heritageClauses?.find(
+      c=>c.token===ts.SyntaxKind.ExtendsKeyword);
+    const base=extendsClause?.types?.[0]?.expression;
+    if(!base||!ts.isIdentifier(base))break;
+    const ancestor=classes.get(base.text);
+    if(!ancestor||visited.has(ancestor))break;
+    visited.add(ancestor);
+    for(const member of ancestor.members){
+      const mods=member.modifiers??[];
+      if(mods.some(m=>m.kind===ts.SyntaxKind.PrivateKeyword||
+        m.kind===ts.SyntaxKind.StaticKeyword))continue;
+      const name=member.name;
+      if(name && (ts.isIdentifier(name)||ts.isStringLiteral(name)))
+        inherited.add(name.text);
+      if(ts.isConstructorDeclaration(member)){
+        for(const param of member.parameters){
+          const flags=param.modifiers??[];
+          if(ts.isIdentifier(param.name)&&
+            flags.some(m=>m.kind===ts.SyntaxKind.PublicKeyword||
+              m.kind===ts.SyntaxKind.ProtectedKeyword)&&
+            !flags.some(m=>m.kind===ts.SyntaxKind.PrivateKeyword))
+            inherited.add(param.name.text);
+        }
+      }
+    }
+    current=ancestor;
+  }
+  return inherited;
+}
 function componentSymbols(ts,ast){
   const direct=new Set(),namespaces=new Set();
   for(const stmt of ast.statements){
@@ -66,12 +101,17 @@ function classReferences(ts,files){
       file.path.endsWith('.tsx')?ts.ScriptKind.TSX:ts.ScriptKind.TS);
     if(ast.parseDiagnostics?.length)continue;
     const aliases=componentSymbols(ts,ast);
+    const classes=new Map(ast.statements.filter(stmt=>
+      ts.isClassDeclaration(stmt)&&stmt.name).map(stmt=>[stmt.name.text,stmt]));
     for(const stmt of ast.statements){
       if(!ts.isClassDeclaration(stmt))continue;
       for(const dec of ts.getDecorators(stmt)??[]){
         if(!isComponent(ts,dec,aliases))continue;
         componentIndex++;
-        byComponent.set(file.path+':'+componentIndex,memberNames(ts,stmt));
+        byComponent.set(file.path+':'+componentIndex,{
+          own:memberNames(ts,stmt),
+          inherited:sameFileAncestors(ts,stmt,classes)
+        });
       }
     }
   }
@@ -91,27 +131,66 @@ function directEventMethod(node){
   return rootMember(expr.receiver);
 }
 function walkTemplate(nodes,members,totals,missing,limit){
-  const visit=(node)=>{
+  // Traversal keeps lexical variables inside the branch/template where Angular
+  // introduces them. It is intentionally partial, NOT a full Angular binder.
+  const visitArray=(items,scope)=>{
+    const siblings=new Set(scope);
+    for(const node of items){
+      visit(node,siblings);
+      // @let is visible only after its declaration in the same view.
+      if(node?.constructor?.name==='LetDeclaration'&&typeof node.name==='string')
+        siblings.add(node.name);
+    }
+  };
+  const visit=(node,parent)=>{
     if(!node||typeof node!=='object')return;
     if(++totals.visited>limit)invalid();
     const kind=node.constructor?.name;
+    const scope=new Set(parent);
+    if(kind==='ForLoopBlock'){
+      if(typeof node.item?.name==='string')scope.add(node.item.name);
+      if(Array.isArray(node.contextVariables)){
+        for(const variable of node.contextVariables)
+          if(typeof variable?.name==='string')scope.add(variable.name);
+      }
+    }
+    if(kind==='Template'&&Array.isArray(node.variables)){
+      for(const variable of node.variables)
+        if(typeof variable?.name==='string')scope.add(variable.name);
+    }
+    if(kind==='IfBlockBranch'&&typeof node.expressionAlias?.name==='string')
+      scope.add(node.expressionAlias.name);
+    // Element refs are only recognized within this element's subtree;
+    // cross-sibling/angular-exportAs scope needs the full binder.
+    if(kind==='Element'&&Array.isArray(node.references)){
+      for(const ref of node.references)
+        if(typeof ref?.name==='string')scope.add(ref.name);
+    }
     if(kind==='BoundEvent'){
       totals.events++;
       const name=directEventMethod(node.handler);
-      if(name && !members.has(name))missing.event=true;
+      if(name){
+        if(scope.has(name))totals.templateLocalEventCalls++;
+        else if(members.inherited.has(name)&&!members.own.has(name))
+          totals.sameFileInheritedEventCalls++;
+        else if(!members.own.has(name))missing.event=true;
+      }
     }else if(kind==='BoundAttribute'){
       totals.properties++;
       const name=rootMember(node.value);
-      if(name && !members.has(name))missing.property=true;
+      if(name){
+        if(scope.has(name))totals.templateLocalPropertyReads++;
+        else if(members.inherited.has(name)&&!members.own.has(name))
+          totals.sameFileInheritedPropertyReads++;
+        else if(!members.own.has(name))missing.property=true;
+      }
     }else if(kind==='BoundText')totals.interpolations++;
-    // A deliberately restricted walk: Angular has more template AST node
-    // families; counts are lower-bound observations, not total coverage.
     for(const key of ['children','inputs','outputs','templateAttrs','branches','cases','body']){
       const children=node[key];
-      if(Array.isArray(children))for(const child of children)visit(child);
+      if(Array.isArray(children))visitArray(children,scope);
     }
   };
-  for(const node of nodes)visit(node);
+  visitArray(nodes,new Set());
 }
 
 /**
@@ -127,7 +206,9 @@ export function inspectAngularTemplateBindings({files,templates=[],typescript:ts
   if(links.external_templates_linked>MAX_PARSED_TEMPLATES)invalid();
   const html=new Map(templates.map(item=>[item.path,item.source]));
   const byComponent=classReferences(ts,files);
-  const totals={visited:0,events:0,properties:0,interpolations:0};
+  const totals={visited:0,events:0,properties:0,interpolations:0,
+    sameFileInheritedEventCalls:0,sameFileInheritedPropertyReads:0,
+    templateLocalEventCalls:0,templateLocalPropertyReads:0};
   const findings=[];
   const report=(code,file,component_index)=>{
     if(findings.length>=MAX_FINDINGS)invalid();
@@ -183,6 +264,10 @@ export function inspectAngularTemplateBindings({files,templates=[],typescript:ts
     bound_events_observed:totals.events,
     bound_properties_observed:totals.properties,
     interpolations_observed:totals.interpolations,
+    same_file_inherited_event_calls_observed:totals.sameFileInheritedEventCalls,
+    same_file_inherited_property_reads_observed:totals.sameFileInheritedPropertyReads,
+    template_local_event_calls_observed:totals.templateLocalEventCalls,
+    template_local_property_reads_observed:totals.templateLocalPropertyReads,
     potential_event_handlers_not_declared_locally:uncertainEvent,
     potential_property_bindings_not_declared_locally:uncertainProperty,
     findings,
