@@ -71,7 +71,9 @@ const cases=[
       '<span [title]="item">out</span>',
     events:0,properties:2,uncertainEvent:0,uncertainProperty:1,
     localProperty:1,
-    parseError:false,aot:'fail',diagnostic:/\bTS2339\b/
+    // TS2551 is an official TypeScript suggestion variant of unknown symbol
+    // (e.g., "Did you mean items?"); TS2339 is also valid for this case.
+    parseError:false,aot:'fail',diagnostic:/\bTS(?:2339|2551)\b/
   },
   {
     id:'malformed-property-expression',
