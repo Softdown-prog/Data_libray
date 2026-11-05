@@ -52,19 +52,26 @@ export async function observeSACCapabilityEvidence({pipeline,guardian,timeoutMs,
   const postPass=buildClaim&&phases?.post?.executed===true&&
     phases.post.status==='pass'&&phases.post.promotion_allowed===true&&
     staticResult.static_pipeline_pass===true&&result.static_pipeline_pass===true;
+  // verifyPipelineBrowser re-audits source, profile and artifact after the
+  // browser step. Its integrity failure invalidates *current* build/post
+  // evidence even when the earlier static snapshot was a successful pass.
+  // Historical preflight metadata remains a separate observation.
+  const integrityIssue=result.browser?.code==='artifact-mutated-during-browser'&&
+    result.browser?.status==='fail'&&result.browser_pass===false;
   const browserClaim=postPass&&result.browser_pass===true&&
     result.browser?.executed===true&&result.browser.status==='pass'&&
     result.status==='pass'&&result.binding?.artifact_digest===phases.build.artifact_digest;
-  const integrityIssue=result.browser?.code==='artifact-mutated-during-browser';
   const browserPass=browserClaim&&!isInjected&&!integrityIssue;
   const browserStatus=browserPass?'observed-contract-pass':
     browserClaim&&isInjected?'caller-runner-claimed-pass':
     state(false,result.browser?.executed===true&&result.browser?.status==='fail');
   const observations={
     preflight:state(prePass,preFailed),
-    authenticated_build_claim:buildClaim?'authenticated-host-claim':
+    authenticated_build_claim:integrityIssue?'invalidated-after-browser':
+      buildClaim?'authenticated-host-claim':
       state(false,phases?.build?.status==='fail'),
-    postflight:state(postPass,phases?.post?.executed===true&&phases.post.status==='fail'),
+    postflight:integrityIssue?'invalidated-after-browser':
+      state(postPass,phases?.post?.executed===true&&phases.post.status==='fail'),
     guardian_contract:browserStatus
   };
   const capabilities={
