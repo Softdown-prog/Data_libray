@@ -36,7 +36,7 @@ As quatro fixtures adicionais para esta microetapa comparam o suporte a template
 | Template inline com expressão malformada | Erro do parser observado | Falha: NG5002 / TS-995002 |
 | `template: SHARED` com constante válida | Inline dinâmico não analisado, `unverified` | Passa |
 
-O caso de herança explicita como uma referência inicialmente suspeita pode ser validada por uma declaração em classe-base do mesmo arquivo; o caso de variável fora do `@for` prova que o escopo não vaza para elementos irmãos. Isso não valida herança entre arquivos nem todos os escopos do Angular. Execução de referência: [GitHub Actions 41941954990](https://github.com/Softdown-prog/Data_libray/actions/runs/41941954990), com 14 testes de regressão e oito fixtures AOT aprovadas **na versão anterior**. O suporte a inline adiciona novos casos e precisa de uma nova execução antes de ser considerado validado.
+O caso de herança explicita como uma referência inicialmente suspeita pode ser validada por uma declaração em classe-base do mesmo arquivo; o caso de variável fora do `@for` prova que o escopo não vaza para elementos irmãos. Isso não valida herança entre arquivos nem todos os escopos do Angular. Execução de referência: [GitHub Actions 41941954990](https://github.com/Softdown-prog/Data_libray/actions/runs/41941954990), com 20 testes de regressão e doze fixtures AOT aprovadas na extensão inline: [execução 41951805197](https://github.com/Softdown-prog/Data_libray/actions/runs/41951805197).
 
 ## Snapshot real fixado do Lan House Simulator
 
@@ -48,19 +48,19 @@ O workflow `.github/workflows/sac-pre003-lhs-pinned-aot.yml` reutiliza a revisã
 | Arquivos HTML enumerados | 44 |
 | Templates externos inspecionados | 43 |
 | Templates inline literais parseados (nova microetapa) | 2 |
-| Eventos observados | 53 |
-| Bindings de propriedades observados | 130 |
-| Interpolações observadas | 134 |
+| Eventos observados | 56 |
+| Bindings de propriedades observados | 137 |
+| Interpolações observadas | 141 |
 | Chamadas de handlers herdados de classe-base no mesmo arquivo | 7 |
 | Handlers ainda sem correspondência (somente suspeitas) | 0 |
-| Variáveis locais observadas em eventos / propriedades | 0 / 0 |
+| Variáveis locais observadas em eventos / propriedades | 0 / 1 |
 | Propriedades não declaradas localmente (somente suspeitas) | 0 |
 | Erros do parser Angular | 0 |
 | Builds AOT oficiais concluídos | 2 de 2 |
 
-Na medição anterior, as sete chamadas foram sinalizadas como `event-handler-member-unverified`. Após a verificação sintática limitada de classes-base **no mesmo arquivo**, todas as sete foram reclassificadas como referências herdadas observadas; restaram **zero** alertas dessa categoria. Não foram encontradas referências locais de `@for`/`@let` nesse conjunto específico de eventos e propriedades. A compilação AOT real de jogo e site continuou aprovada. Na nova microetapa, os dois templates inline também entram na observação estática. Em ambos os momentos a análise permanece `unverified`, sem atestar runtime, templates fora dos dois grafos nem aptidão para deploy.
+Na medição anterior, as sete chamadas foram sinalizadas como `event-handler-member-unverified`. Após a verificação sintática limitada de classes-base **no mesmo arquivo**, todas as sete foram reclassificadas como referências herdadas observadas; restaram **zero** alertas dessa categoria. Com a leitura dos templates inline foi observada uma leitura adicional de variável local em binding, sem nova suspeita. A compilação AOT real de jogo e site continuou aprovada. Na nova microetapa, os dois templates inline também entram na observação estática. Em ambos os momentos a análise permanece `unverified`, sem atestar runtime, templates fora dos dois grafos nem aptidão para deploy.
 
-Execução real após refinamento: [GitHub Actions 41941874342](https://github.com/Softdown-prog/Data_libray/actions/runs/41941874342).
+Execução real da extensão inline: [GitHub Actions 41951805170](https://github.com/Softdown-prog/Data_libray/actions/runs/41951805170).
 
 ## Testes
 
