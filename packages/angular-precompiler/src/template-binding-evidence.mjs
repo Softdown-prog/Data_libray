@@ -200,7 +200,26 @@ function walkTemplate(nodes,members,totals,missing,limit){
           totals.sameFileInheritedPropertyReads++;
         else if(!members.own.has(name))missing.property=true;
       }
-    }else if(kind==='BoundText')totals.interpolations++;
+    }else if(kind==='BoundText'){
+      totals.interpolations++;
+      // Deliberately only direct ImplicitReceiver reads, e.g. {{ label }}.
+      // Nested, piped, safe navigation and method-call expressions require
+      // full Angular binder semantics and are left unverified.
+      const interpolation=node.value?.ast??node.value;
+      if(interpolation?.constructor?.name==='Interpolation'&&
+          Array.isArray(interpolation.expressions)){
+        for(const expression of interpolation.expressions){
+          if(++totals.visited>limit)invalid();
+          const name=rootMember(expression);
+          if(!name)continue;
+          totals.simpleInterpolationReads++;
+          if(scope.has(name))totals.templateLocalInterpolationReads++;
+          else if(members.inherited.has(name)&&!members.own.has(name))
+            totals.sameFileInheritedInterpolationReads++;
+          else if(!members.own.has(name))missing.interpolation=true;
+        }
+      }
+    }
     for(const key of ['children','inputs','outputs','templateAttrs','branches','cases','body']){
       const children=node[key];
       if(Array.isArray(children))visitArray(children,scope);
@@ -229,6 +248,8 @@ export function inspectAngularTemplateBindings({files,templates=[],typescript:ts
   ].sort((a,b)=>a.component_file.localeCompare(b.component_file)||
     a.component_index-b.component_index);
   const totals={visited:0,events:0,properties:0,interpolations:0,
+    simpleInterpolationReads:0,templateLocalInterpolationReads:0,
+    sameFileInheritedInterpolationReads:0,
     sameFileInheritedEventCalls:0,sameFileInheritedPropertyReads:0,
     templateLocalEventCalls:0,templateLocalPropertyReads:0};
   const findings=[];
@@ -236,7 +257,7 @@ export function inspectAngularTemplateBindings({files,templates=[],typescript:ts
     if(findings.length>=MAX_FINDINGS)invalid();
     findings.push({code,file,component_index});
   };
-  let parsed=0,inlineParsed=0,syntaxErrors=0,uncertainEvent=0,uncertainProperty=0;
+  let parsed=0,inlineParsed=0,syntaxErrors=0,uncertainEvent=0,uncertainProperty=0,uncertainInterpolation=0;
   for(const link of entries){
     let parsedTemplate;
     try{
@@ -257,7 +278,7 @@ export function inspectAngularTemplateBindings({files,templates=[],typescript:ts
       continue;
     }
     const members=byComponent.get(link.component_file+':'+link.component_index);
-    const potential={event:false,property:false};
+    const potential={event:false,property:false,interpolation:false};
     if(!members || !Array.isArray(parsedTemplate.nodes)){
       report('template-expression-ast-unverified',
         link.component_file,link.component_index);
@@ -272,6 +293,11 @@ export function inspectAngularTemplateBindings({files,templates=[],typescript:ts
     if(potential.property){
       uncertainProperty++;
       report('property-binding-member-unverified',
+        link.component_file,link.component_index);
+    }
+    if(potential.interpolation){
+      uncertainInterpolation++;
+      report('interpolation-member-unverified',
         link.component_file,link.component_index);
     }
   }
@@ -289,6 +315,10 @@ export function inspectAngularTemplateBindings({files,templates=[],typescript:ts
     bound_events_observed:totals.events,
     bound_properties_observed:totals.properties,
     interpolations_observed:totals.interpolations,
+    simple_interpolation_reads_observed:totals.simpleInterpolationReads,
+    template_local_interpolation_reads_observed:totals.templateLocalInterpolationReads,
+    same_file_inherited_interpolation_reads_observed:totals.sameFileInheritedInterpolationReads,
+    potential_interpolation_members_not_declared_locally:uncertainInterpolation,
     same_file_inherited_event_calls_observed:totals.sameFileInheritedEventCalls,
     same_file_inherited_property_reads_observed:totals.sameFileInheritedPropertyReads,
     template_local_event_calls_observed:totals.templateLocalEventCalls,
