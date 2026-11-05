@@ -44,8 +44,34 @@ const cases=[
     id:'valid-inherited-event-handler',
     source:prefix+'class Base{save():void{}}\n'+decorator+'export class Page extends Base{}',
     html:'<button (click)="save()">Save</button>',
-    events:1,properties:0,uncertainEvent:1,uncertainProperty:0,
+    events:1,properties:0,uncertainEvent:0,uncertainProperty:0,
+    inheritedEvent:1,
     parseError:false,aot:'pass',diagnostic:null
+  },
+  {
+    id:'valid-for-loop-local-property',
+    source:prefix+decorator+'export class Page{items=["one"]}',
+    html:'@for (item of items; track item) {<span [title]="item">x</span>}',
+    events:0,properties:1,uncertainEvent:0,uncertainProperty:0,
+    localProperty:1,
+    parseError:false,aot:'pass',diagnostic:null
+  },
+  {
+    id:'valid-let-local-event',
+    source:prefix+decorator+'export class Page{save():void{}}',
+    html:'@let action = save; <button (click)="action()">Save</button>',
+    events:1,properties:0,uncertainEvent:0,uncertainProperty:0,
+    localEvent:1,
+    parseError:false,aot:'pass',diagnostic:null
+  },
+  {
+    id:'for-loop-local-not-in-sibling-scope',
+    source:prefix+decorator+'export class Page{items=["one"]}',
+    html:'@for (item of items; track item) {<span [title]="item">x</span>}' +
+      '<span [title]="item">out</span>',
+    events:0,properties:2,uncertainEvent:0,uncertainProperty:1,
+    localProperty:1,
+    parseError:false,aot:'fail',diagnostic:/\bTS2339\b/
   },
   {
     id:'malformed-property-expression',
@@ -85,6 +111,12 @@ try{
       'pre005-uncertain-event-'+spec.id);
     assert.equal(report.potential_property_bindings_not_declared_locally,spec.uncertainProperty,
       'pre005-uncertain-property-'+spec.id);
+    assert.equal(report.same_file_inherited_event_calls_observed,spec.inheritedEvent??0,
+      'pre005-inherited-event-'+spec.id);
+    assert.equal(report.template_local_property_reads_observed,spec.localProperty??0,
+      'pre005-template-local-property-'+spec.id);
+    assert.equal(report.template_local_event_calls_observed,spec.localEvent??0,
+      'pre005-template-local-event-'+spec.id);
     assert.equal(report.template_parser_error_count>0,spec.parseError,'pre005-syntax-'+spec.id);
     assert.equal(report.aot_verified,false);
     assert.equal(report.deployment_authorized,false);
