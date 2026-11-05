@@ -46,12 +46,14 @@ test('undeclared root property is a hint, never a confirmed error',()=>{
   assert.equal(r.potential_property_bindings_not_declared_locally,1);
   assert.deepEqual(r.findings.map(f=>f.code),['property-binding-member-unverified']);
 });
-test('inherited event handler remains unverified for AOT to decide',()=>{
+test('same-file inherited event is classified separately and never granted AOT pass',()=>{
   const r=inspect('class Base{save():void{}}\n'+metadata+
     'export class Page extends Base{}',
     '<button (click)="save()">Save</button>');
   assert.equal(r.status,'unverified');
-  assert.equal(r.potential_event_handlers_not_declared_locally,1);
+  assert.equal(r.potential_event_handlers_not_declared_locally,0);
+  assert.equal(r.same_file_inherited_event_calls_observed,1);
+  assert.equal(r.status,'unverified');
   assert.equal(r.deployment_authorized,false);
 });
 test('Angular parser syntax errors yield fixed code with no snippet',()=>{
@@ -94,4 +96,64 @@ test('deterministic, redacted and input-limited by previous contract',()=>{
   assert.throws(()=>inspectAngularTemplateBindings({
     files:[file('../secrets.ts','')],templates:[],typescript:ts,angularCompiler
   }),/invalid-input/);
+});
+
+test('transitive same-file inheritance records a positive syntactic ancestry observation',()=>{
+  const r=inspect(
+    'class Base{ save():void{}; get title():string{return "ok"} }\n'+
+    'class Intermediate extends Base{}\n'+metadata+
+    'export class Page extends Intermediate{}',
+    '<button (click)="save()" [title]="title">Ok</button>');
+  assert.equal(r.same_file_inherited_event_calls_observed,1);
+  assert.equal(r.same_file_inherited_property_reads_observed,1);
+  assert.equal(r.potential_event_handlers_not_declared_locally,0);
+  assert.equal(r.potential_property_bindings_not_declared_locally,0);
+  assert.equal(r.aot_verified,false);
+});
+test('imported bases and inaccessible members are not claimed as inherited',()=>{
+  const external=inspect(
+    "import {Base} from './base';\n"+metadata+'export class Page extends Base{}',
+    '<button (click)="save()">Ok</button>');
+  assert.equal(external.same_file_inherited_event_calls_observed,0);
+  assert.equal(external.potential_event_handlers_not_declared_locally,1);
+  const hidden=inspect(
+    'class Base{private save():void{}; static action():void{}}\n'+metadata+
+    'export class Page extends Base{}',
+    '<button (click)="save()" [title]="action">Ok</button>');
+  assert.equal(hidden.same_file_inherited_event_calls_observed,0);
+  assert.equal(hidden.same_file_inherited_property_reads_observed,0);
+  assert.equal(hidden.potential_event_handlers_not_declared_locally,1);
+  assert.equal(hidden.potential_property_bindings_not_declared_locally,1);
+});
+test('Angular @for item variable is local to its loop, not a component member',()=>{
+  const r=inspect(metadata+'export class Page{items=["one"]}',
+    '@for (item of items; track item) { <button [title]="item">ok</button> }');
+  assert.equal(r.template_local_property_reads_observed,1);
+  assert.equal(r.potential_property_bindings_not_declared_locally,0);
+  assert.equal(r.bound_properties_observed,1);
+});
+test('Angular @if alias and ng-template let variable are lexical references',()=>{
+  const r=inspect(metadata+'export class Page{label="Hi"}',
+    '@if (label; as alias) {<span [title]="alias">Hi</span>}'+
+    '<ng-template let-current><b [title]="current">text</b></ng-template>');
+  assert.equal(r.template_local_property_reads_observed,2);
+  assert.equal(r.potential_property_bindings_not_declared_locally,0);
+});
+test('Angular @let callable is visible after declaration but not before',()=>{
+  const r=inspect(metadata+'export class Page{save():void{}}',
+    '<button (click)="action()">Before</button>'+
+    '@let action = save;'+
+    '<button (click)="action()">After</button>');
+  assert.equal(r.bound_events_observed,2);
+  assert.equal(r.template_local_event_calls_observed,1);
+  assert.equal(r.potential_event_handlers_not_declared_locally,1);
+  assert.equal(r.status,'unverified');
+});
+test('Angular @for lexical variable never leaks into following siblings',()=>{
+  const r=inspect(metadata+'export class Page{items=["one"]}',
+    '@for (item of items; track item) {<span [title]="item"></span>}'+
+    '<div [title]="item"></div>');
+  assert.equal(r.template_local_property_reads_observed,1);
+  assert.equal(r.potential_property_bindings_not_declared_locally,1);
+  assert.equal(r.status,'unverified');
 });
