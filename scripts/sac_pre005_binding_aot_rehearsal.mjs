@@ -111,6 +111,47 @@ const cases=[
     inline:0,parseError:false,aot:'pass',diagnostic:null
   },
   {
+    id:'declared-simple-interpolation',
+    source:prefix+decorator+"export class Page{label='ready'}",
+    html:'<p>{{label}}</p>',
+    events:0,properties:0,uncertainEvent:0,uncertainProperty:0,
+    simpleInterpolation:1,
+    parseError:false,aot:'pass',diagnostic:null
+  },
+  {
+    id:'undeclared-simple-interpolation',
+    source:prefix+decorator+'export class Page{}',
+    html:'<p>{{missingField}}</p>',
+    events:0,properties:0,uncertainEvent:0,uncertainProperty:0,
+    simpleInterpolation:1,uncertainInterpolation:1,
+    parseError:false,aot:'fail',diagnostic:/\bTS(?:2339|2551)\b/
+  },
+  {
+    id:'same-file-inherited-simple-interpolation',
+    source:prefix+"class Base{label='ready'}\n"+decorator+
+      'export class Page extends Base{}',
+    html:'<p>{{label}}</p>',
+    events:0,properties:0,uncertainEvent:0,uncertainProperty:0,
+    simpleInterpolation:1,inheritedInterpolation:1,
+    parseError:false,aot:'pass',diagnostic:null
+  },
+  {
+    id:'valid-for-loop-local-interpolation',
+    source:prefix+decorator+"export class Page{items=['one']}",
+    html:'@for (item of items; track item) {<p>{{item}}</p>}',
+    events:0,properties:0,uncertainEvent:0,uncertainProperty:0,
+    simpleInterpolation:1,localInterpolation:1,
+    parseError:false,aot:'pass',diagnostic:null
+  },
+  {
+    id:'out-of-scope-for-loop-interpolation',
+    source:prefix+decorator+"export class Page{items=['one']}",
+    html:'@for (item of items; track item) {<p>{{item}}</p>}<p>{{item}}</p>',
+    events:0,properties:0,uncertainEvent:0,uncertainProperty:0,
+    simpleInterpolation:2,localInterpolation:1,uncertainInterpolation:1,
+    parseError:false,aot:'fail',diagnostic:/\bTS(?:2339|2551)\b/
+  },
+  {
     id:'malformed-property-expression',
     source:prefix+decorator+"export class Page{label='ready'}",
     html:'<span [title]="label +">Broken</span>',
@@ -154,6 +195,14 @@ try{
       'pre005-template-local-property-'+spec.id);
     assert.equal(report.template_local_event_calls_observed,spec.localEvent??0,
       'pre005-template-local-event-'+spec.id);
+    assert.equal(report.simple_interpolation_reads_observed,spec.simpleInterpolation??0,
+      'pre005-simple-interpolation-'+spec.id);
+    assert.equal(report.potential_interpolation_members_not_declared_locally,spec.uncertainInterpolation??0,
+      'pre005-uncertain-interpolation-'+spec.id);
+    assert.equal(report.template_local_interpolation_reads_observed,spec.localInterpolation??0,
+      'pre005-local-interpolation-'+spec.id);
+    assert.equal(report.same_file_inherited_interpolation_reads_observed,spec.inheritedInterpolation??0,
+      'pre005-inherited-interpolation-'+spec.id);
     assert.equal(report.inline_templates_parsed,spec.inline??0,'pre005-inline-'+spec.id);
     assert.equal(report.templates_total_parsed,
       report.external_templates_parsed+report.inline_templates_parsed,
@@ -186,6 +235,7 @@ try{
       inline_template_parsed:report.inline_templates_parsed>0,
       uncertain_event_hint:report.potential_event_handlers_not_declared_locally>0,
       uncertain_property_hint:report.potential_property_bindings_not_declared_locally>0,
+      uncertain_interpolation_hint:report.potential_interpolation_members_not_declared_locally>0,
       aot_status:passed?'pass':'fail',
       expected_aot_diagnostic_observed:diagnosticMatched,
       deployment_authorized:false
@@ -202,5 +252,5 @@ const summary={
   deployment_authorized:false
 };
 assert.equal(results.length,cases.length);
-assert.ok(JSON.stringify(summary).length<4096);
+assert.ok(JSON.stringify(summary).length<8192);
 process.stdout.write(JSON.stringify(summary,null,2)+'\n');
