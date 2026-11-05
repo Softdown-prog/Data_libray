@@ -51,6 +51,27 @@ permissão ao One Worker, à VPS ou ao deploy.
 | `guardian_contract: observed-contract-pass` | Worker Chromium integrado passou nos casos previstos do contrato | Que todo o produto foi testado, que há sandbox de rede externo ou que o deploy é seguro |
 | `guardian_contract: caller-runner-claimed-pass` | `runBrowser` fornecido pelo chamador declarou sucesso | Execução real do Chromium pelo SAC |
 
+### Invalidação após o navegador
+
+O Guardian executa um **novo** `auditPipeline()` depois dos testes no navegador.
+Se os arquivos-fonte ou o artefato compilado mudarem entre as duas auditorias,
+o pipeline gera `artifact-mutated-during-browser` e reprova o navegador. Nesse
+cenário, a antiga observação de build e postflight **não** pode continuar
+indicando a validade *atual* do artefato.
+
+O adaptador marca ambas as observações como
+`invalidated-after-browser`, ainda que a primeira auditoria tenha sido
+aprovada. A verificação anterior dos metadados de dependências permanece uma
+observação separada (`preflight: observed-pass`), sem autorizar nada.
+Uma falha de interface **sem** alteração do artefato continua preservando
+corretamente a evidência estática anterior e reprovando apenas o Guardian.
+
+Fixtures específicas alteram, dentro de um runner sintético,
+o bundle compilado e o arquivo-fonte entre as auditorias. Em ambos os casos o
+sistema comprova a invalidação e mantém `deployment_authorized:false`.
+Esse teste de mutação não equivale a uma simulação de produção; o workflow
+oficial também executa a fixture com Chromium real.
+
 O JSON mantém `status:unverified`,
 `tool_installation_verified:false`,
 `angular_cli_execution_verified:false`,
