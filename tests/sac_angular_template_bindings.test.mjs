@@ -79,7 +79,8 @@ test('missing HTML inventory and inline templates are not falsely parsed',()=>{
   assert.equal(missing.external_templates_parsed,0);
   assert.equal(missing.status,'unverified');
   const inline=inspect("@Component({selector:'x',standalone:true,template:'<p>Inline</p>'}) class Page{}",null);
-  assert.equal(inline.inline_templates_not_inspected,1);
+  assert.equal(inline.inline_templates_parsed,1);
+  assert.equal(inline.inline_templates_not_inspected,0);
   assert.equal(inline.external_templates_parsed,0);
   assert.equal(inline.aot_verified,false);
 });
@@ -156,4 +157,74 @@ test('Angular @for lexical variable never leaks into following siblings',()=>{
   assert.equal(r.template_local_property_reads_observed,1);
   assert.equal(r.potential_property_bindings_not_declared_locally,1);
   assert.equal(r.status,'unverified');
+});
+
+test('inline literal component template exposes event and property evidence without execution',()=>{
+  const template='<button [title]="label" (click)="save()">Save</button>';
+  const r=inspect("@Component({selector:'sac-inline',standalone:true,template:"+
+    JSON.stringify(template)+"}) export class Page{label='ok';save():void{}}",null);
+  assert.equal(r.status,'unverified');
+  assert.equal(r.inline_templates_parsed,1);
+  assert.equal(r.templates_total_parsed,1);
+  assert.equal(r.inline_templates_not_inspected,0);
+  assert.equal(r.external_templates_parsed,0);
+  assert.equal(r.bound_events_observed,1);
+  assert.equal(r.bound_properties_observed,1);
+  assert.deepEqual(r.findings,[]);
+  assert.equal(r.aot_verified,false);
+});
+test('inline literal missing handler remains a hint and cannot leak source',()=>{
+  const secret='INLINE_SECRET_NEVER_EXPOSED';
+  const template='<button (click)="missingHandler()">'+secret+'</button>';
+  const r=inspect("@Component({selector:'sac-inline',standalone:true,template:"+
+    JSON.stringify(template)+"}) export class Page{}",null);
+  assert.equal(r.inline_templates_parsed,1);
+  assert.equal(r.potential_event_handlers_not_declared_locally,1);
+  assert.deepEqual(r.findings.map(f=>f.code),['event-handler-member-unverified']);
+  assert.equal(JSON.stringify(r).includes(secret),false);
+  assert.equal(r.deployment_authorized,false);
+});
+test('malformed inline expression records parser error with no source exposure',()=>{
+  const template='<span [title]="label +"></span>';
+  const r=inspect("@Component({selector:'sac-inline',standalone:true,template:"+
+    JSON.stringify(template)+"}) export class Page{label='ok'}",null);
+  assert.equal(r.inline_templates_parsed,1);
+  assert.ok(r.template_parser_error_count>0);
+  assert.deepEqual(r.findings.map(f=>f.code),['angular-template-parser-errors-observed']);
+  assert.equal(r.status,'unverified');
+});
+test('template expressions and metadata ambiguity are not mistaken for literals',()=>{
+  const cases=[
+    "const INLINE='<h1>Hello</h1>';@Component({selector:'sac-inline',template:INLINE}) class Page{}",
+    "@Component({selector:'sac-inline',template:'Hello',templateUrl:'./page.html'}) class Page{}",
+    "@Component({selector:'sac-inline',...meta,template:'Hello'}) class Page{}",
+    "@Component({selector:'sac-inline',template:makeHtml()}) class Page{}"
+  ];
+  for(const candidate of cases){
+    const r=inspect(candidate,null);
+    assert.equal(r.inline_templates_parsed,0);
+    assert.equal(r.templates_total_parsed,0);
+    assert.equal(r.status,'unverified');
+  }
+});
+test('multiple decorated classes link each inline text only to its own class',()=>{
+  const files=[file('src/page.ts',prefix+
+    "@Component({selector:'a-view',template:'<button (click)=\"save()\"></button>'}) class A{save():void{}}"+
+    "@Component({selector:'b-view',template:'<button (click)=\"missing()\"></button>'}) class B{}")];
+  const r=inspectAngularTemplateBindings({files,templates:[],typescript:ts,angularCompiler});
+  assert.equal(r.inline_templates_parsed,2);
+  assert.equal(r.bound_events_observed,2);
+  assert.equal(r.potential_event_handlers_not_declared_locally,1);
+  assert.deepEqual(r.findings.map(f=>({code:f.code,component_index:f.component_index})),
+    [{code:'event-handler-member-unverified',component_index:2}]);
+});
+test('static inline detection works with Angular Component namespace and aliases',()=>{
+  const files=[file('src/page.ts',
+    "import * as ng from '@angular/core';"+
+    "import {Component as NgComponent} from '@angular/core';"+
+    "@ng.Component({selector:'x-a',template:'<p>x</p>'}) class A{}"+
+    "@NgComponent({selector:'x-b',template:'<p>y</p>'}) class B{}")];
+  const r=inspectAngularTemplateBindings({files,templates:[],typescript:ts,angularCompiler});
+  assert.equal(r.inline_templates_parsed,2);
+  assert.equal(r.templates_total_parsed,2);
 });
