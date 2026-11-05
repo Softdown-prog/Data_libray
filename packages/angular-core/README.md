@@ -55,6 +55,50 @@ usando null, por exemplo para preflight. Perfil non-angular exige versão/hints
 null e não pode declarar capability angular. Dependências devem estar registradas
 e explicitamente selecionadas; o core nunca ativa regras silenciosamente.
 
+## Módulo Capabilities — declarações, elegibilidade e provas
+
+O SAC **já utilizava capabilities** como requisitos de perfil (por exemplo,
+`angular`, `workspace` e `static-dist`). O módulo
+[`src/capabilities.mjs`](src/capabilities.mjs) acrescenta uma visão **somente
+leitura** das capacidades declaradas e do motivo de cada regra selecionada ser
+elegível ou não. Ele compartilha com `execute()` a mesma função pura de
+elegibilidade, evitando divergências entre explicação e comportamento.
+
+```js
+import {RuleRegistry} from './packages/angular-core/src/index.mjs';
+import {registerSACPRE001} from './packages/angular-precompiler/src/register.mjs';
+
+const registry=registerSACPRE001(new RuleRegistry());
+const report=registry.capabilities({
+  schema_version:1,profile_id:'candidate',angular_version:'22.0.0',
+  capabilities:['angular','workspace'],mode:'angular-only',mount:'/',
+  bundle_hints:null,
+  rules:[{rule_id:'SAC-PRE001',version:'1.0.0',
+    required:false,enforcement:'observe'}]
+});
+// report.selected_rules[0].eligibility === 'eligible-by-profile'
+// report.tool_installation_verified === false
+// report.angular_cli_execution_verified === false
+// report.deployment_authorized === false
+```
+
+O status `eligible-by-profile` **não** significa que a regra foi executada,
+que o Angular CLI foi instalado, que o AOT passou ou que há permissão de
+publicar. `not-applicable` informa capabilities ausentes, modo diferente ou
+major incompatível. Regra não registrada ou versão divergente fica `unverified`.
+Relatórios são determinísticos, limitados às regras selecionadas, sem incluir
+código, descrição de regra, recursos, tokens ou logs. O schema do perfil v1 não
+foi alterado; nenhum recurso é ativado automaticamente.
+
+O Angular CLI oficial **já é executado** na fixture
+[`angular-postcompiler/smoke`](../angular-postcompiler/smoke):
+`@angular/cli@22.0.0` está fixado no manifesto, e o host confiável chama
+`node_modules/@angular/cli/bin/ng.js build smoke`. O próprio Core só verifica
+metadados e aplica regras; não executa comandos `ng`. Para afirmar que um
+build funcionou, continua indispensável a evidência independente do workflow
+AOT/Guardian. O PR do Dependabot que mistura versões Angular deve permanecer
+separado até compatibilização e reteste.
+
 ## API de regras
 
 `new RuleRegistry().register(descriptor)` retorna o registro. IDs únicos; versões
