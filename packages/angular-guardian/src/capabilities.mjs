@@ -25,16 +25,17 @@ export async function observeSACCapabilityEvidence({pipeline,guardian,timeoutMs,
     declarations=registerSACP001(registerSACPRE001(new RuleRegistry()))
       .capabilities(pipeline?.profile);
   }catch{
-    return {
+    return {capabilities:{
       schema_version:1,kind:'sac-capability-evidence',
       scope:'invalid-or-unsupported-profile',
       status:'unverified',declared_capabilities:[],selected_rules:[],
       observations:{preflight:'unverified',authenticated_build_claim:'unverified',
         postflight:'unverified',guardian_contract:'unverified'},
-      browser_runner:'not-invoked',tool_installation_verified:false,
+      browser_runner:'not-invoked',angular_toolchain_metadata_verified:false,
+      tool_installation_verified:false,
       angular_cli_execution_verified:false,official_aot_verified:false,
       full_runtime_verified:false,deployment_authorized:false
-    };
+    },result:null};
   }
   const isInjected=runBrowser!==undefined;
   const result=await verifyPipelineBrowser({pipeline,guardian,timeoutMs,runBrowser});
@@ -75,7 +76,9 @@ export async function observeSACCapabilityEvidence({pipeline,guardian,timeoutMs,
     browser_runner:isInjected?'caller-supplied-runner':'built-in-guardian-worker',
     // A forged in-memory report or host-controlled buildStatus is NOT proof of
     // ngc/ng invocation. A real browser pass covers only the selected contract.
-    tool_installation_verified:prePass,
+    // Preflight verifies installed npm metadata/peers, not all host tools.
+    angular_toolchain_metadata_verified:prePass,
+    tool_installation_verified:false,
     angular_cli_execution_verified:false,
     official_aot_verified:false,
     full_runtime_verified:false,
