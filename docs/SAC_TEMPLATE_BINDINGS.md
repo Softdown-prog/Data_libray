@@ -84,18 +84,18 @@ O relatório passa a incluir `inline_templates_parsed`, `templates_total_parsed`
 
 ### Microetapa: leituras diretas em interpolações Angular
 
-Dentro dos templates externos e inline já enumerados, a regra examina **apenas** expressões diretas do tipo \`{{ field }}\`, reconhecidas como \`PropertyRead\` de \`ImplicitReceiver\` na AST oficial do Angular. Cada expressão simples é contada individualmente, ainda que várias apareçam num mesmo nó de texto. A análise consulta os membros declarados, a herança sintática no mesmo arquivo e o escopo lexical de \`@for\`, \`@if (...; as ...)\` e \`@let\`. Referências ausentes recebem \`interpolation-member-unverified\` apenas **uma vez por componente**; a ausência não é um erro comprovado.
+Dentro dos templates externos e inline já enumerados, a regra examina **apenas** expressões diretas do tipo `{{ field }}`, reconhecidas como `PropertyRead` de `ImplicitReceiver` na AST oficial do Angular. Cada expressão simples é contada individualmente, ainda que várias apareçam num mesmo nó de texto. A análise consulta os membros declarados, a herança sintática no mesmo arquivo e o escopo lexical de `@for`, `@if (...; as ...)` e `@let`. Referências ausentes recebem `interpolation-member-unverified` apenas **uma vez por componente**; a ausência não é um erro comprovado.
 
-O relatório adiciona \`simple_interpolation_reads_observed\`, \`template_local_interpolation_reads_observed\`, \`same_file_inherited_interpolation_reads_observed\` e \`potential_interpolation_members_not_declared_locally\`. Nenhum identificador ou trecho do HTML é emitido.
+O relatório adiciona `simple_interpolation_reads_observed`, `template_local_interpolation_reads_observed`, `same_file_inherited_interpolation_reads_observed` e `potential_interpolation_members_not_declared_locally`. Nenhum identificador ou trecho do HTML é emitido.
 
-Essa observação não tenta resolver \`{{ object.name }}\`, pipes, chamadas de métodos, acesso opcional e expressões compostas. Elas ficam fora do escopo, não são falsamente consideradas válidas ou inválidas. O analisador não executa Angular nem substitui a verificação AOT de templates ou os testes do Guardian no Chromium.
+Essa observação não tenta resolver `{{ object.name }}`, pipes, chamadas de métodos, acesso opcional e expressões compostas. Elas ficam fora do escopo, não são falsamente consideradas válidas ou inválidas. O analisador não executa Angular nem substitui a verificação AOT de templates ou os testes do Guardian no Chromium.
 
 | Fixture oficial de regressão | Evidência SAC | Angular AOT |
 | --- | --- | --- |
-| \`{{ label }}\` declarada na classe | Leitura observada, sem suspeita | Passa |
-| \`{{ missingField }}\` sem campo na classe | \`interpolation-member-unverified\` | Falha: TS2339/TS2551 |
-| \`{{ label }}\` herdada da classe-base no mesmo arquivo | Herança sintática observada | Passa |
-| \`{{ item }}\` dentro de \`@for\` | Local do template observada | Passa |
-| \`{{ item }}\` fora do \`@for\` | Suspeita lexical | Falha: TS2339/TS2551 |
+| `{{ label }}` declarada na classe | Leitura observada, sem suspeita | Passa |
+| `{{ missingField }}` sem campo na classe | `interpolation-member-unverified` | Falha: TS2339/TS2551 |
+| `{{ label }}` herdada da classe-base no mesmo arquivo | Herança sintática observada | Passa |
+| `{{ item }}` dentro de `@for` | Local do template observada | Passa |
+| `{{ item }}` fora do `@for` | Suspeita lexical | Falha: TS2339/TS2551 |
 
 Snapshot LHS imutável: dos **141 nós com interpolação**, apenas **16 leituras simples** se enquadram no novo contrato, com **duas locais**, nenhuma suspeita e nenhum erro do parser. Ambos os builds AOT oficiais continuaram aprovados. Isso não constitui cobertura completa dos 141 nós, nem certificação de runtime ou autorização de deploy.
