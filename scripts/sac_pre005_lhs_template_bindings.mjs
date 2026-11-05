@@ -80,11 +80,16 @@ if(mode==='before'){
   assert.equal(r.deployment_authorized,false);
   assert.equal(r.component_links_observed,43,'pre005-lhs-component-links-drift');
   assert.equal(r.external_templates_parsed,43,'pre005-lhs-template-parse-count-drift');
+  assert.equal(r.inline_templates_parsed,2,'pre005-lhs-inline-template-drift');
+  assert.equal(r.inline_templates_not_inspected,0,'pre005-lhs-inline-scope-drift');
+  assert.equal(r.templates_total_parsed,45,'pre005-lhs-total-templates-drift');
   const summary={
     schema_version:1,probe:'SAC-PRE005-LHS-BINDING-OBSERVATION-BEFORE-AOT',
     project:'lhs',source_commit:pinned,
     frontend_ts_files:files.length,frontend_html_files:templates.length,
     external_templates_parsed:r.external_templates_parsed,
+    inline_templates_parsed:r.inline_templates_parsed,
+    templates_total_parsed:r.templates_total_parsed,
     inline_templates_not_inspected:r.inline_templates_not_inspected,
     bound_events_observed:r.bound_events_observed,
     bound_properties_observed:r.bound_properties_observed,
@@ -123,6 +128,9 @@ if(mode==='before'){
     frontend_ts_files:observed.frontend_ts_files,
     frontend_html_files:observed.frontend_html_files,
     external_templates_parsed:observed.external_templates_parsed,
+    inline_templates_parsed:observed.inline_templates_parsed,
+    templates_total_parsed:observed.templates_total_parsed,
+    inline_templates_not_inspected:observed.inline_templates_not_inspected,
     bound_events_observed:observed.bound_events_observed,
     bound_properties_observed:observed.bound_properties_observed,
     interpolations_observed:observed.interpolations_observed,
