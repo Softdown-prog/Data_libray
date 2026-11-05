@@ -49,7 +49,8 @@ test('real re-audited preflight, authenticated CI claim and postflight are disti
     postflight:'observed-pass',guardian_contract:'unverified'
   });
   assert.deepEqual(capabilities.declared_capabilities,['angular','static-dist','workspace']);
-  assert.equal(capabilities.tool_installation_verified,true);
+  assert.equal(capabilities.angular_toolchain_metadata_verified,true);
+  assert.equal(capabilities.tool_installation_verified,false);
   assert.equal(capabilities.angular_cli_execution_verified,false);
   assert.equal(capabilities.official_aot_verified,false);
   assert.equal(capabilities.deployment_authorized,false);
