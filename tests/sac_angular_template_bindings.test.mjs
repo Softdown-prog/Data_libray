@@ -228,3 +228,69 @@ test('static inline detection works with Angular Component namespace and aliases
   assert.equal(r.inline_templates_parsed,2);
   assert.equal(r.templates_total_parsed,2);
 });
+
+
+test('simple interpolation of declared component field is observed, never certified',()=>{
+  const r=inspect(metadata+"export class Page{label='safe'}",'<p>{{label}}</p>');
+  assert.equal(r.interpolations_observed,1);
+  assert.equal(r.simple_interpolation_reads_observed,1);
+  assert.equal(r.potential_interpolation_members_not_declared_locally,0);
+  assert.deepEqual(r.findings,[]);
+  assert.equal(r.status,'unverified');
+  assert.equal(r.aot_verified,false);
+});
+test('unknown direct interpolation field generates an unverified hint with no identifier leakage',()=>{
+  const secret='UNIQUE_INTERPOLATION_SECRET_FIELD';
+  const r=inspect(metadata+'export class Page{}','<p>{{'+secret+'}}</p>');
+  assert.equal(r.simple_interpolation_reads_observed,1);
+  assert.equal(r.potential_interpolation_members_not_declared_locally,1);
+  assert.deepEqual(r.findings.map(f=>f.code),['interpolation-member-unverified']);
+  assert.equal(JSON.stringify(r).includes(secret),false);
+  assert.equal(r.deployment_authorized,false);
+});
+test('two simple expressions on a single BoundText node are individually observed',()=>{
+  const r=inspect(metadata+'export class Page{label="ok"}',
+    '<p>{{label}} {{missing}}</p>');
+  assert.equal(r.interpolations_observed,1);
+  assert.equal(r.simple_interpolation_reads_observed,2);
+  assert.equal(r.potential_interpolation_members_not_declared_locally,1);
+  assert.deepEqual(r.findings.map(f=>f.code),['interpolation-member-unverified']);
+});
+test('same-file inherited interpolation is observed separately from a missing field',()=>{
+  const r=inspect(
+    'class Base{title="safe"}\n'+metadata+'export class Page extends Base{}',
+    '<p>{{title}}</p>');
+  assert.equal(r.simple_interpolation_reads_observed,1);
+  assert.equal(r.same_file_inherited_interpolation_reads_observed,1);
+  assert.equal(r.potential_interpolation_members_not_declared_locally,0);
+  assert.equal(r.aot_verified,false);
+});
+test('loop interpolation locals do not escape lexical view',()=>{
+  const r=inspect(metadata+'export class Page{items=["safe"]}',
+    '@for (item of items; track item){<p>{{item}}</p>}'+
+    '<p>{{item}}</p>');
+  assert.equal(r.interpolations_observed,2);
+  assert.equal(r.simple_interpolation_reads_observed,2);
+  assert.equal(r.template_local_interpolation_reads_observed,1);
+  assert.equal(r.potential_interpolation_members_not_declared_locally,1);
+  assert.equal(r.status,'unverified');
+});
+test('inline interpolation uses same conservative component scope and never leaks HTML',()=>{
+  const secret='INLINE_INTERPOLATION_SECRET';
+  const template='<p>{{'+secret+'}}</p>';
+  const r=inspect("@Component({selector:'x-a',standalone:true,template:"+
+    JSON.stringify(template)+"}) export class Page{}",null);
+  assert.equal(r.inline_templates_parsed,1);
+  assert.equal(r.simple_interpolation_reads_observed,1);
+  assert.equal(r.potential_interpolation_members_not_declared_locally,1);
+  assert.equal(JSON.stringify(r).includes(secret),false);
+});
+test('nested and piped Angular interpolation expressions are intentionally not guessed',()=>{
+  const r=inspect(metadata+'export class Page{obj={name:"ok"};label="hi"}',
+    '<p>{{obj.name}} {{label.toUpperCase()}} {{label | uppercase}}</p>');
+  assert.equal(r.interpolations_observed,1);
+  assert.equal(r.simple_interpolation_reads_observed,0);
+  assert.equal(r.potential_interpolation_members_not_declared_locally,0);
+  assert.deepEqual(r.findings,[]);
+  assert.equal(r.complete_template_ast_coverage,false);
+});
