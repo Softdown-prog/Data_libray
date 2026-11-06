@@ -169,7 +169,9 @@ export async function isolatedAngularBuild({ resources, projectName, image,
     // cannot authenticate compiler provenance or approve the deployment.
     const compiler_warnings = collectAngularCompilerWarnings({
       stdout:result.stdout,stderr:result.stderr,exitCode:result.status,
-      sourceFiles:resources.sourceFiles
+      // Stage manifest also includes CSS/JSON; only TS/HTML can be
+      // diagnostic locations in this deliberately narrow warning collector.
+      sourceFiles:resources.sourceFiles.filter(f=>/\.(?:tsx?|html)$/.test(f))
     });
     return { status: 'pass', code: 'isolated-angular-build', built: true,
       network: 'none', compiler_warnings, deployment_authorized: false };
