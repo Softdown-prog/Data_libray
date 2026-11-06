@@ -1,0 +1,26 @@
+name: SAC Angular warning evidence
+on:
+  pull_request:
+    paths:
+      - 'scripts/sac_angular_warning_evidence.mjs'
+      - 'tests/sac_angular_warning_evidence.test.mjs'
+      - 'docs/SAC_ANGULAR_LEARNINGS.md'
+      - '.github/workflows/sac-angular-warning-evidence.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Test warning capture and backwards compatibility
+        run: |
+          node --check scripts/sac_angular_warning_evidence.mjs
+          node --test tests/sac_angular_warning_evidence.test.mjs tests/sac_compiler_evidence.test.mjs
