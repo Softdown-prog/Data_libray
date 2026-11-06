@@ -69,7 +69,7 @@ test('Angular NG codes can point at ts sources; TypeScript cannot claim HTML loc
 test('NG template paths are checked against source manifest and strict code prefixes',()=>{
  const unknown=parse('✘ [ERROR] NG8001: Unknown element\n    src/private.html:1:1:\n');
  assert.equal(unknown.findings[0].location_verified,false);
- for(const invalid of ['ng8002','NG80020','WX8002']){
+ for(const invalid of ['ng8002','NG800200','WX8002']){
   assert.equal(parse('✘ [ERROR] '+invalid+': bad\n    src/main.ts:1:1:\n'),null);
  }
 });

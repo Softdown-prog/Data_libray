@@ -228,7 +228,7 @@ class ExecutionTests(unittest.TestCase):
         self.assertEqual(stored["technical_report"]["findings"][0]["file"], "src/view.html")
         for mutation in [
             {"tool": "typescript"}, {"message": "secret://leak"}, {"file": "../../.env"},
-            {"code": "NG80020"}, {"file": "src/view.css"}, {"line": 0},
+            {"code": "NG800200"}, {"file": "src/view.css"}, {"line": 0},
         ]:
             invalid = {**report, "findings": [{**ng, **mutation}]}
             with self.subTest(mutation=mutation), self.assertRaises(ValueError):

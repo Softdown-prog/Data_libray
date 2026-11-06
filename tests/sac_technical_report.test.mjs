@@ -58,7 +58,7 @@ test('NG template diagnostics remain factual and tied to the same job',()=>{
   {...ng,tool:'typescript'},
   {...ng,message:'Senha vazada'},
   {...ng,file:'../secrets.html'},
-  {...ng,code:'NG80020'},
+  {...ng,code:'NG800200'},
   {...issue,file:'src/view.html'}
  ])assert.throws(()=>makeBuildTechnicalReport(job,{...evidence,findings:[bad]}));
 });
