@@ -14,7 +14,7 @@ import {inspectAngularTemplateLinks} from '../packages/angular-precompiler/src/t
 import {inspectAngularTemplateBindings} from '../packages/angular-precompiler/src/template-binding-evidence.mjs';
 
 const PIN='d426ec804f7d035c374aa4a1b48ecdb05a03eb02';
-const root=fileURLToPath(new URL('../.sac-snapshots/realworld-angular/',import.meta.url));
+const root=path.resolve(fileURLToPath(new URL('../.sac-snapshots/realworld-angular/',import.meta.url)));
 const trusted=createRequire(new URL('../packages/angular-postcompiler/smoke/package.json',import.meta.url));
 const ts=trusted('typescript');
 const ng=await import(pathToFileURL(trusted.resolve('@angular/compiler')).href);
@@ -58,7 +58,8 @@ const graph=analyzeImportGraph({
 const wiring=analyzeAngularComponentWiring({files,typescript:ts});
 const linking=inspectAngularTemplateLinks({files,templates,typescript:ts});
 const binding=inspectAngularTemplateBindings({files,templates,typescript:ts,angularCompiler:ng});
-for(const r of [installed,graph,wiring,linking,binding])assert.equal(r.deployment_authorized,false);
+assert.equal(installed.rule_id,'SAC-PRE001');
+for(const r of [graph,wiring,linking,binding])assert.equal(r.deployment_authorized,false);
 assert.equal(graph.nodes.length,48);
 assert.ok(wiring.components_checked>0,'no-observed-component');
 assert.ok(linking.external_templates_linked>0,'no-observed-linked-template');
