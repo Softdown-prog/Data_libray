@@ -1,9 +1,9 @@
 /**
- * Bounded, factual observation of Angular compiler TS errors.
+ * Bounded, factual observation of Angular compiler TS/NG errors.
  * NEVER returns raw stdout/stderr, arbitrary message text, source content or secrets.
  */
-const HEADER=/^[ \t]*(?:✘[ \t]*)?\[ERROR\][ \t]+(TS[0-9]{4,5}):[^\r\n]*/gm;
-const LOCATION=/^[ \t]*(\.?\/?[a-zA-Z0-9_.\/-]+\.tsx?):(\d{1,7}):(\d{1,5}):/gm;
+const HEADER=/^[ \t]*(?:✘[ \t]*)?\[ERROR\][ \t]+((?:TS|NG)[0-9]{4,5}):[^\r\n]*/gm;
+const LOCATION=/^[ \t]*(\.?\/?[a-zA-Z0-9_.\/-]+\.(?:tsx?|html)):(\d{1,7}):(\d{1,5}):/gm;
 const DESCRIPTIONS=Object.freeze({
  TS2322:'O compilador TypeScript registrou atribuição entre tipos incompatíveis.',
  TS2307:'O compilador TypeScript registrou que não encontrou um módulo.',
@@ -32,13 +32,16 @@ export function collectAngularCompilerFailure({stdout,stderr,exitCode,sourceFile
    const candidate=m[1].replace(/^\.\//,'');
    const ln=Number(m[2]),col=Number(m[3]);
    if(relative(candidate)&&allowed.has(candidate)&&
+      (code.startsWith('NG')||/\.tsx?$/.test(candidate))&&
       Number.isSafeInteger(ln)&&ln>=1&&ln<=1000000&&
       Number.isSafeInteger(col)&&col>=1&&col<=10000){
     file=candidate;line=ln;column=col;break;
    }
   }
-  findings.push({tool:'typescript',code,file,line,column,
-   message:DESCRIPTIONS[code]??'O compilador Angular registrou um erro TypeScript.',
+  const angular=code.startsWith('NG');
+  findings.push({tool:angular?'angular':'typescript',code,file,line,column,
+   message:angular?'O compilador Angular registrou um diagnóstico NG.':
+     (DESCRIPTIONS[code]??'O compilador Angular registrou um erro TypeScript.'),
    location_verified:file!==null});
  }
  return {

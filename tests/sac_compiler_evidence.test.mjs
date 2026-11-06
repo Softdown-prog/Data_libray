@@ -46,3 +46,36 @@ test('four findings maximum and truncation preserve order',()=>{
 test('ANSI coloring does not hide trusted compiler evidence',()=>{
  assert.equal(parse('\x1b[31m'+line()+'\x1b[0m').findings[0].file,'src/mode.ts');
 });
+
+test('Angular NG8002 external template diagnostic is retained without raw template or secrets',()=>{
+ const output='✘ [ERROR] NG8002: Cannot bind to \'x\' [plugin angular-compiler]\\n'+
+  '    src/template.html:3:9:\\n'+ 'API_KEY=secret\\n';
+ const r=parse(output,{sourceFiles:[...sourceFiles,'src/template.html']});
+ assert.equal(r.status,'fail');
+ assert.deepEqual(r.findings,[{tool:'angular',code:'NG8002',file:'src/template.html',
+  line:3,column:9,message:'O compilador Angular registrou um diagnóstico NG.',
+  location_verified:true}]);
+ assert.equal(JSON.stringify(r).includes('secret'),false);
+});
+test('Angular NG codes can point at ts sources; TypeScript cannot claim HTML locations',()=>{
+ const ng=parse('✘ [ERROR] NG5002: parser [plugin angular-compiler]\\n'+
+  '    src/main.ts:4:2:\\n');
+ assert.deepEqual([ng.findings[0].tool,ng.findings[0].file],['angular','src/main.ts']);
+ const ts=parse(line('TS2322','src/template.html',2,3),
+  {sourceFiles:[...sourceFiles,'src/template.html']});
+ assert.equal(ts.findings[0].location_verified,false);
+ assert.equal(ts.findings[0].file,null);
+});
+test('NG template paths are checked against source manifest and strict code prefixes',()=>{
+ const unknown=parse('✘ [ERROR] NG8001: Unknown element\\n    src/private.html:1:1:\\n');
+ assert.equal(unknown.findings[0].location_verified,false);
+ for(const invalid of ['ng8002','NG80020','WX8002']){
+  assert.equal(parse('✘ [ERROR] '+invalid+': bad\\n    src/main.ts:1:1:\\n'),null);
+ }
+});
+test('mixed TS and NG diagnostics preserve individual tools, locations and bounds',()=>{
+ const r=parse(line()+'\\n✘ [ERROR] NG8002: Angular binding\\n    src/template.html:2:7:\\n',
+  {sourceFiles:[...sourceFiles,'src/template.html']});
+ assert.deepEqual(r.findings.map(f=>f.tool),['typescript','angular']);
+ assert.deepEqual(r.findings.map(f=>f.file),['src/mode.ts','src/template.html']);
+});

@@ -8,6 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isolatedAngularBuild } from './sac_sandbox_builder.mjs';
+import { makeBuildTechnicalReport } from './sac_technical_report.mjs';
 import { prepareBuild, sealBuild, auditPipeline } from '../packages/angular-pipeline/src/index.mjs';
 import { verifyPipelineBrowserSandbox } from '../packages/angular-guardian/src/sandbox.mjs';
 
@@ -233,6 +234,43 @@ print("SAC_V2_WORKER_REPORT_PERSISTED_PASS")
   console.log('SAC_BUILD_FAILURE_EVIDENCE_PASS');
 } finally {
   await writeFile(modeFile,"export const mode: string = 'positive';\n");
+  await rm(path.join(workspace,'dist'),{recursive:true,force:true});
+}
+
+// Angular-owned NG8002 must also be recognized as source failure, not Docker failure.
+const mainFile=path.join(workspace,'src/main.ts');
+const originalMain=await readFile(mainFile,'utf8');
+const externalTemplate=path.join(workspace,'src/invalid-template.html');
+try {
+  const brokenMain=originalMain.replace(/template: '[^']*'/,
+    "templateUrl: './invalid-template.html'");
+  assert.notEqual(brokenMain,originalMain,'fixture template was not replaced');
+  await writeFile(mainFile,brokenMain);
+  await writeFile(externalTemplate,'<button [notAnAngularButtonInput]="true">Run</button>\\n');
+  await rm(path.join(workspace,'dist'),{recursive:true,force:true});
+  const ngResources={...resources,
+    sourceFiles:[...resources.sourceFiles,'src/invalid-template.html']};
+  const failure=await isolatedAngularBuild({
+    resources:ngResources,projectName:'smoke',image,timeoutMs:120000
+  });
+  assert.equal(failure.status,'fail',JSON.stringify(failure));
+  assert.equal(failure.code,'angular-compiler-failed');
+  const item=failure.compiler_evidence.findings.find(f=>f.code==='NG8002');
+  assert.ok(item,JSON.stringify(failure.compiler_evidence));
+  assert.equal(item.tool,'angular');
+  assert.equal(item.file,'src/invalid-template.html');
+  assert.equal(item.location_verified,true);
+  const report=makeBuildTechnicalReport({
+    schema_version:1,job_id:'gha-991-1',project_id:'synthetic-app',
+    profile_id:'isolated-builder-ci',source_sha:sourceSha,kind:'angular-validate'
+  },failure.compiler_evidence);
+  assert.match(report.text,/NG8002/);
+  assert.ok(!report.text.includes('notAnAngularButtonInput'));
+  assert.equal(report.deployment_authorized,false);
+  console.log('SAC_NG8002_OFFICIAL_AOT_NEGATIVE_PASS');
+} finally {
+  await writeFile(mainFile,originalMain);
+  await rm(externalTemplate,{force:true});
   await rm(path.join(workspace,'dist'),{recursive:true,force:true});
 }
 
