@@ -200,6 +200,24 @@ def _normalize(job, raw):
         raise ValueError("false-pass")
     if "diagnostic" in raw:
         _validate_diagnostic(raw["diagnostic"], raw["status"])
+    # Preflight block codes only describe preflight evidence: neither Docker
+    # nor Guardian was run. Reject misleading state/phase combinations.
+    preflight_codes = {
+        "preflight-failed": ("fail", "fail"),
+        "preflight-unverified": ("unverified", "unverified"),
+        "preflight-infra-error": ("infra-error", "infra-error"),
+        "build-prerequisites-unverified": ("unverified", "pass"),
+    }
+    if raw["code"] in preflight_codes:
+        result_status, pre_status = preflight_codes[raw["code"]]
+        if (raw["execution"] != "sac-build-audit"
+                or raw["status"] != result_status
+                or raw["static_pipeline_pass"] or raw["browser_pass"]
+                or "diagnostic" not in raw or "technical_report" in raw
+                or raw["diagnostic"]["checks"] != {
+                    "pre": pre_status, "build": "unverified",
+                    "post": "unverified", "browser": "unverified"}):
+            raise ValueError("inconsistent-preflight-result")
     if "technical_report" in raw:
         if (raw["execution"] != "sac-build-audit"
                 or raw["status"] != "fail" or raw["code"] != "angular-compiler-failed"

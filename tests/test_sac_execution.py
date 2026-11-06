@@ -147,6 +147,57 @@ class ExecutionTests(unittest.TestCase):
         self.assertFalse(any("npm" in x or "bash" in x for x in args))
         self.assertTrue(popen.call_args.kwargs["start_new_session"])
 
+    def test_preflight_failure_v1_preserves_phase_and_blocks_forgery(self):
+        finding = {"phase": "pre", "status": "fail",
+                   "code": "typescript-peer-incompatible", "assertion": "typescript-peers",
+                   "title": "TypeScript e Angular incompatíveis",
+                   "next_step": "Compare peerDependencies do Angular com a versão TypeScript instalada."}
+        diag = {"schema_version": 1, "status": "fail", "checks": {
+                    "pre": "fail", "build": "unverified",
+                    "post": "unverified", "browser": "unverified"},
+                "findings": [finding], "truncated": False,
+                "location_verified": False, "deployment_authorized": False}
+        result = {**self.result(), "execution": "sac-build-audit",
+                  "status": "fail", "code": "preflight-failed",
+                  "static_pipeline_pass": False, "browser_pass": False,
+                  "diagnostic": diag}
+        self.assertEqual(se._normalize(self.job, result)["status"], "fail")
+        self.assertEqual(self.call(lambda *_, **__: result, enable_build=True)["processed"], 1)
+        saved = json.loads((self.root / "sac-results" / "gha-789-1.json").read_text())
+        self.assertEqual(saved["code"], "preflight-failed")
+        self.assertFalse(saved["static_pipeline_pass"])
+        self.assertFalse(saved["browser_pass"])
+        self.assertFalse(saved["deployment_authorized"])
+        for wrong in [
+            {**result, "execution": "sac-audit"},
+            {**result, "static_pipeline_pass": True},
+            {**result, "browser_pass": True},
+            {**result, "status": "unverified"},
+            {**result, "diagnostic": {**diag, "checks": {**diag["checks"], "pre": "pass"}}},
+            {key: value for key, value in result.items() if key != "diagnostic"},
+        ]:
+            with self.subTest(wrong=wrong), self.assertRaises(ValueError):
+                se._normalize(self.job, wrong)
+
+    def test_other_preflight_outcomes_keep_strict_status_and_phase_pair(self):
+        for code, status, pre in [
+            ("preflight-unverified", "unverified", "unverified"),
+            ("preflight-infra-error", "infra-error", "infra-error"),
+            ("build-prerequisites-unverified", "unverified", "pass"),
+        ]:
+            diag = {"schema_version": 1, "status": status, "checks": {
+                        "pre": pre, "build": "unverified",
+                        "post": "unverified", "browser": "unverified"},
+                    "findings": [], "truncated": False,
+                    "location_verified": False, "deployment_authorized": False}
+            report = {**self.result(), "execution": "sac-build-audit",
+                      "status": status, "code": code, "static_pipeline_pass": False,
+                      "browser_pass": False, "diagnostic": diag}
+            self.assertEqual(se._normalize(self.job, report)["status"], status)
+            with self.assertRaises(ValueError):
+                se._normalize(self.job, {**report, "diagnostic": {
+                    **diag, "checks": {**diag["checks"], "pre": "fail"}}})
+
     def test_factual_v2_build_failure_round_trip_and_tampering(self):
         message = "O compilador TypeScript registrou atribuição entre tipos incompatíveis."
         f = {"tool":"typescript", "code":"TS2322", "file":"src/mode.ts",

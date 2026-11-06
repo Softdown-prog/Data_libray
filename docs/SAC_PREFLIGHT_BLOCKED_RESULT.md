@@ -29,6 +29,10 @@ texto arbitrário de mensagem, caminho, segredo ou fonte é copiado.
 Um caso com `angular_version` divergente da versão realmente instalada
 é executado na fixture oficial do Angular (sem iniciar Docker para a reprovação).
 
+O validador Python do Worker também rejeita relatórios cujo código de
+preflight contradiga o estado das etapas, como `preflight-failed` com
+`pre:pass`, status `pass`, browser aprovado ou `technical_report` de build.
+
 Mantém-se o `schema_version:1` do resultado do Worker, compatível com o
 consumidor atual do Painel. Nenhum deploy, merge automático, acesso à VPS
 ou ativação de `sac_submit` faz parte desta alteração.

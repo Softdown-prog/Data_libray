@@ -73,7 +73,7 @@ try {
       factualBuildFailure = makeBlockedPreflightResult(job, preflightReport);
     }
     if (session) {
-    const built = await isolatedAngularBuild({
+      const built = await isolatedAngularBuild({
       resources, projectName: manifest.build.project_name,
       image: manifest.sandbox_image, timeoutMs: 120000
     });
