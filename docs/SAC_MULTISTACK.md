@@ -57,3 +57,14 @@ com o Worker. Não há alteração na VPS, no Worker v1, no SAC Angular,
 no Painel nem autorização de deploy.
 
 Veja issue #62.
+
+## Probes extras: HTML5 e CSS
+
+O CI descartável também instala as versões **exatas** declaradas em
+`packages/sac-multistack/fixtures/package.json` e executa um HTML5 e um CSS
+válidos e outros deliberadamente inválidos via HTML-Validate e Stylelint,
+sem acessar projetos externos ou executar scripts de instalação.
+
+Essa prova ainda não substitui o Chromium, nem homologa Alpine.js.
+A instalação CI inicial ainda usa resolução transitiva por npm; antes de
+homologação para produção, congelar o lockfile e revisar o conjunto instalado.
