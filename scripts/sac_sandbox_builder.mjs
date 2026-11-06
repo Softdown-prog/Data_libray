@@ -8,6 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { dockerChildEnvironment } from '../packages/angular-guardian/src/docker-environment.mjs';
 import { collectAngularCompilerFailure } from './sac_compiler_evidence.mjs';
+import { collectAngularCompilerWarnings } from './sac_angular_warning_evidence.mjs';
 
 const pinned = /^mcr\.microsoft\.com\/playwright@sha256:[0-9a-f]{64}$/;
 const angularName = /^[a-z][a-z0-9-]{0,63}$/;
@@ -164,8 +165,16 @@ export async function isolatedAngularBuild({ resources, projectName, image,
     await safeOutputParents(workspace, resources.dist);
     await mkdir(path.dirname(destination), { recursive: true });
     await publishTree(output, destination);
+    // The official Angular CLI completed in Docker, but warning parsing alone
+    // cannot authenticate compiler provenance or approve the deployment.
+    const compiler_warnings = collectAngularCompilerWarnings({
+      stdout:result.stdout,stderr:result.stderr,exitCode:result.status,
+      // Stage manifest also includes CSS/JSON; only TS/HTML can be
+      // diagnostic locations in this deliberately narrow warning collector.
+      sourceFiles:resources.sourceFiles.filter(f=>/\.(?:tsx?|html)$/.test(f))
+    });
     return { status: 'pass', code: 'isolated-angular-build', built: true,
-      network: 'none', deployment_authorized: false };
+      network: 'none', compiler_warnings, deployment_authorized: false };
   } catch (error) {
     return failure(['source-symlink', 'source-budget', 'unsafe-source-list',
       'dist-already-exists', 'dist-symlink', 'dist-budget', 'dist-depth-limit',
