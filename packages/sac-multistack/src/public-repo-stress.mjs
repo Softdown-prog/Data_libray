@@ -58,7 +58,7 @@ async function readLimitedResponse(response,maxBytes){
  return Buffer.concat(chunks,total);
 }
 async function gitAPI(repo,route,{http,token,limits},size=limits.api_bytes_per_request){
- if(!REPO.test(repo)||!/^\/[A-Za-z0-9_./-]+$/.test(route)||
+ if(!REPO.test(repo)||(route!==''&&!/^\/[A-Za-z0-9_./-]+$/.test(route))||
     route.split('/').includes('..'))reject('unsafe-upstream-url');
  const headers={'Accept':'application/vnd.github+json',
     'User-Agent':'SAC-public-repo-stress/1','X-GitHub-Api-Version':'2022-11-28'};
