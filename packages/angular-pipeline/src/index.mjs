@@ -106,7 +106,15 @@ export async function prepareBuild({ profile, resources, sourceSha, limits }) {
     const snapshot = await snapshots(resources);
     const session = { schema_version: 1, profile_digest: hash(canonical(p)), resource_binding: snapshot.binding, source_digest: await snapshot.source(), source_sha_claim: sourceSha, preflight: 'pass' };
     return { report, session };
-  } catch (e) { report.phases.pre = errorPhase(e); report.status = report.phases.pre.status; return { report, session: null }; }
+  } catch (e) {
+    // The preflight may have passed before the trusted source snapshot failed.
+    // Preserve the true preflight result and attribute that later failure to
+    // build preparation (not to the Angular dependency checks).
+    const phase = report.phases.pre.status === 'pass' ? 'build' : 'pre';
+    report.phases[phase] = errorPhase(e);
+    report.status = report.phases[phase].status;
+    return { report, session: null };
+  }
 }
 
 // Only the trusted host holding key can assert build status/sequence. HMAC is

@@ -87,6 +87,22 @@ test('no process or network code in pipeline implementation', async () => {
   const source = await readFile(new URL('../src/index.mjs', import.meta.url), 'utf8');
   assert.doesNotMatch(source, /node:(child_process|http|net)|\b(eval|fetch|spawn|writeFile)\s*\(/);
 });
+for (const [source,expectedStatus,expectedCode] of [
+  ['missing.ts','unverified','resource-missing'],
+  ['node_modules/blocked.ts','fail','unsafe-source-selection']
+]) test('source snapshot '+expectedStatus+' after passing preflight is not a preflight error',async t=>{
+  const a=await setup(t);
+  const r=await prepareBuild({
+    ...a,resources:{...a.resources,sourceFiles:[...a.resources.sourceFiles,source]}
+  });
+  assert.equal(r.session,null);
+  assert.equal(r.report.status,expectedStatus);
+  assert.equal(r.report.phases.pre.status,'pass',JSON.stringify(r.report));
+  assert.equal(r.report.phases.build.status,expectedStatus);
+  assert.equal(r.report.phases.build.code,expectedCode);
+  assert.equal(r.report.phases.post.executed,false);
+  assert.equal(r.report.deployment_authorized,false);
+});
 test('sealing rejects source changes between preflight and official build', async t => {
   const a = await setup(t);
   await writeFile(path.join(a.resources.workspace, 'app.ts'), '// changed during build');

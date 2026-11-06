@@ -36,9 +36,10 @@ const write = async (name, value) => {
   await writeFile(target, typeof value === 'string' || Buffer.isBuffer(value) ? value : JSON.stringify(value));
   return target;
 };
-const test = (manifest, source) => {
+const test = (manifest, source, enableBuild = false) => {
   const proc = spawnSync(process.execPath,
-    [path.join(root, 'scripts/sac_supervised_runner.mjs'), '--manifest', manifest], {
+    [path.join(root, 'scripts/sac_supervised_runner.mjs'), '--manifest', manifest,
+      ...(enableBuild ? ['--enable-build'] : [])], {
       cwd: root, input: JSON.stringify({ ...job, source_sha: source }), encoding: 'utf8',
       timeout: 100000, maxBuffer: 30000,
       env: { PATH: process.env.PATH, HOME: os.tmpdir() }
@@ -64,13 +65,60 @@ try {
     session: pre.session, buildStatus: 'pass' });
   const keyFile = await write('secret-key', key);
   const receiptFile = await write('receipt.json', receipt);
-  const manifest = await write('manifest.json', {
+  const manifestData = {
     schema_version: 1, project_id: job.project_id, profile_id: job.profile_id,
     workspace, profile_file: await write('profile.json', profile),
     resources_file: await write('resources.json', resources), receipt_file: receiptFile,
     guardian_file: await write('guardian.json', guardian), trust_key_file: keyFile,
     sandbox_image: image
+  };
+  const manifest = await write('manifest.json', manifestData);
+
+  // Exercise the actual Node supervisor (not just the pure formatter).
+  // Angular 22 is installed in this fixture, but the operator-approved
+  // synthetic profile claims 19.0.0. The supervisor must block the build
+  // before invoking Docker/Guardian and report the verified preflight phase.
+  const incompatibleProfileFile = await write('incompatible-profile.json',
+    { ...profile, angular_version: '19.0.0' });
+  const blockedManifest = await write('blocked-manifest.json', {
+    ...manifestData, profile_file: incompatibleProfileFile,
+    build: { project_name: 'smoke' }
   });
+  const blocked = test(blockedManifest, sourceSha, true);
+  assert.equal(blocked.status, 'fail', JSON.stringify(blocked));
+  assert.equal(blocked.code, 'preflight-failed');
+  assert.equal(blocked.execution, 'sac-build-audit');
+  assert.equal(blocked.static_pipeline_pass, false);
+  assert.equal(blocked.browser_pass, false);
+  assert.equal(blocked.deployment_authorized, false);
+  assert.equal(blocked.diagnostic.checks.pre, 'fail');
+  assert.equal(blocked.diagnostic.checks.build, 'unverified');
+  assert.equal(blocked.diagnostic.checks.post, 'unverified');
+  assert.equal(blocked.diagnostic.checks.browser, 'unverified');
+  assert.ok(blocked.diagnostic.findings.some(f =>
+    f.phase === 'pre' && f.code === 'profile-installed-angular-mismatch'),
+    JSON.stringify(blocked));
+  assert.equal('technical_report' in blocked, false);
+  console.log('SAC_PREFLIGHT_SUPERVISOR_BLOCKS_DOCKER_PASS');
+
+  // The dependency preflight succeeds, but the trusted snapshot references a
+  // source that does not exist. This must NOT be called a preflight failure.
+  const unavailableResources=await write('unavailable-resources.json',{
+    ...resources,sourceFiles:[...resources.sourceFiles,'src/missing-source.ts']
+  });
+  const incompleteManifest=await write('incomplete-manifest.json',{
+    ...manifestData,resources_file:unavailableResources,build:{project_name:'smoke'}
+  });
+  const snapshotBlocked=test(incompleteManifest,sourceSha,true);
+  assert.equal(snapshotBlocked.status,'unverified',JSON.stringify(snapshotBlocked));
+  assert.equal(snapshotBlocked.code,'build-prerequisites-unverified');
+  assert.equal(snapshotBlocked.diagnostic.checks.pre,'pass');
+  assert.equal(snapshotBlocked.diagnostic.checks.build,'unverified');
+  assert.equal(snapshotBlocked.diagnostic.checks.browser,'unverified');
+  assert.equal(snapshotBlocked.deployment_authorized,false);
+  assert.equal('technical_report' in snapshotBlocked,false);
+  console.log('SAC_SNAPSHOT_NO_FALSE_PREFLIGHT_FAILURE_PASS');
+
   const passed = test(manifest, sourceSha);
   assert.equal(passed.status, 'pass', JSON.stringify(passed));
   assert.equal(passed.static_pipeline_pass, true);

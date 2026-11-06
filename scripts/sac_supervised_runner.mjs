@@ -9,6 +9,7 @@ import { prepareBuild, sealBuild } from '../packages/angular-pipeline/src/index.
 import { isolatedAngularBuild } from './sac_sandbox_builder.mjs';
 import { makeDiagnosticReport } from './sac_diagnostic_report.mjs';
 import { makeBuildTechnicalReport } from './sac_technical_report.mjs';
+import { makeBlockedPreflightResult } from './sac_preflight_result.mjs';
 
 const code = /^[a-z][a-z0-9-]{0,63}$/;
 const sha = /^[a-f0-9]{40}$/;
@@ -67,15 +68,18 @@ try {
   let factualBuildFailure = null;
   if (buildRequested) {
     const params = { profile, resources, sourceSha: job.source_sha, key };
-    const { session } = await prepareBuild(params);
-    if (!session) throw Error('preflight');
-    const built = await isolatedAngularBuild({
+    const { session, report: preflightReport } = await prepareBuild(params);
+    if (!session) {
+      factualBuildFailure = makeBlockedPreflightResult(job, preflightReport);
+    }
+    if (session) {
+      const built = await isolatedAngularBuild({
       resources, projectName: manifest.build.project_name,
       image: manifest.sandbox_image, timeoutMs: 120000
     });
     if (built.status === 'fail' && built.code === 'angular-compiler-failed' &&
         built.compiler_evidence) {
-      // An observed TS compiler error is a code failure, not a Docker infra error.
+      // An observed TS/NG compiler error is a code failure, not a Docker infra error.
       const technical_report = makeBuildTechnicalReport(job, built.compiler_evidence);
       const diagnostic = makeDiagnosticReport({
         status:'fail',
@@ -95,6 +99,7 @@ try {
     } else {
       if (!built.built || built.status !== 'pass') throw Error('isolated-build');
       receipt = await sealBuild({ ...params, session, buildStatus: 'pass' });
+    }
     }
   }
   if (factualBuildFailure) {
