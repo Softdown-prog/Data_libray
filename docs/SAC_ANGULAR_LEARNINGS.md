@@ -44,3 +44,16 @@ não prova build válido, ainda menos execução ou deploy.
    de código não confiável, sem segredos/credenciais, pinando submódulos.
 
 Sem alterações nos componentes existentes PRE001-PRE005, Worker, VPS ou deploy.
+
+## Integração efetuada na ferramenta de build
+
+O executor existente `isolatedAngularBuild` agora chama o coletor de warnings
+após **build Angular real em Docker com saída válida**, expondo
+`compiler_warnings` no objeto de retorno sem logs brutos. A integração
+SAC-008D confere que o objeto continua sem autorização de deploy.
+O coletor mantém `compiler_invocation_verified=false` e
+`source_sha_verified=false`, porque esses campos não podem ser atestados
+somente pelo texto recebido; o pipeline de autenticação permanece separado.
+
+Nenhuma alteração nos contratos PRE001–PRE005 nem nos caminhos de falha
+existentes; somente metadados opcionais são acrescentados ao sucesso.

@@ -5,6 +5,8 @@ on:
       - 'scripts/sac_angular_warning_evidence.mjs'
       - 'tests/sac_angular_warning_evidence.test.mjs'
       - 'docs/SAC_ANGULAR_LEARNINGS.md'
+      - 'scripts/sac_sandbox_builder.mjs'
+      - 'scripts/sac_isolated_build_integration.mjs'
       - '.github/workflows/sac-angular-warning-evidence.yml'
   workflow_dispatch:
 permissions:

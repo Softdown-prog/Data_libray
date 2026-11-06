@@ -68,6 +68,8 @@ const build = await isolatedAngularBuild({resources,projectName:'smoke',image,ti
 assert.equal(build.status,'pass',JSON.stringify(build));
 assert.equal(build.network,'none');
 assert.equal(build.deployment_authorized,false);
+assert.equal(build.compiler_warnings?.build_outcome,'process-success');
+assert.equal(build.compiler_warnings?.deployment_authorized,false);
 
 const receipt = await sealBuild({...setup,session,buildStatus:'pass'});
 const staticReport = await auditPipeline({...setup,receipt});
