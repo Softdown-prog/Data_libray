@@ -27,6 +27,35 @@ test('positive fixture; stable evidence and configurable Angular host', async t 
   assert.deepEqual(report, await verify(dist, contract()));
   assert.deepEqual(report.evidence.find(e => e.assertion === 'html-resources').resources, [{ path: 'main.js', kind: 'script' }, { path: 'style.css', kind: 'stylesheet' }]);
 });
+
+// Output observed in the official Angular 22.2 build of Terrania.
+const deferredStylesheet = '<link rel="stylesheet" href="style.css" media="print" data-beasties-media="all">';
+const restoreMedia = "<script>document.querySelectorAll('link[data-beasties-media]').forEach(function(l){l.media=l.getAttribute('data-beasties-media');l.removeAttribute('data-beasties-media')})</script>";
+const criticalCssShell = (link = deferredStylesheet, script = restoreMedia) =>
+  '<head>' + link + '</head><body>' + shell + script + '</body>';
+
+test('recognizes the Angular critical CSS media helper and audits the deferred stylesheet', async t => {
+  const { dist } = await fixture(t, criticalCssShell());
+  const report = await verify(dist, contract());
+  assert.equal(report.status, 'pass');
+  const resources = report.evidence.find(e => e.assertion === 'html-resources');
+  assert.deepEqual(resources.recognized_inline_scripts, ['angular-critical-css-media-restore']);
+  assert.ok(resources.resources.some(r => r.kind === 'stylesheet' && r.path === 'style.css'));
+});
+
+for (const [name, html, status] of [
+  ['helper without a deferred stylesheet', criticalCssShell(''), 'unverified'],
+  ['modified helper', criticalCssShell(undefined, restoreMedia.replace('})', '});alert(1)')), 'unverified'],
+  ['duplicate helper', criticalCssShell(undefined, restoreMedia + restoreMedia), 'unverified'],
+  ['helper with attributes', criticalCssShell(undefined, restoreMedia.replace('<script>', '<script id="custom">')), 'unverified'],
+  ['stylesheet with inline handler', criticalCssShell(deferredStylesheet.replace('media="print"', 'media="print" onload="alert(1)"')), 'unverified'],
+  ['missing deferred stylesheet', criticalCssShell(deferredStylesheet.replace('style.css', 'missing.css')), 'fail'],
+  ['external deferred stylesheet', criticalCssShell(deferredStylesheet.replace('style.css', 'https://example.invalid/style.css')), 'unverified'],
+  ['unrelated inline script still requires runtime inspection', criticalCssShell(undefined, restoreMedia + '<script>alert(1)</script>'), 'unverified'],
+]) test(name, async t => {
+  const { dist } = await fixture(t, html);
+  assert.equal((await verify(dist, contract())).status, status);
+});
 for (const [name, html, status] of [
   ['missing root', shell.replaceAll('custom-shell', 'other-shell'), 'fail'],
   ['comment is not a host', '<!-- <custom-shell></custom-shell> -->' + shell.replaceAll('custom-shell', 'other-shell'), 'fail'],
