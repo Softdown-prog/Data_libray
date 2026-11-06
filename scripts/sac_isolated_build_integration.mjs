@@ -246,7 +246,7 @@ try {
     "templateUrl: './invalid-template.html'");
   assert.notEqual(brokenMain,originalMain,'fixture template was not replaced');
   await writeFile(mainFile,brokenMain);
-  await writeFile(externalTemplate,'<button [notAnAngularButtonInput]="true">Run</button>\\n');
+  await writeFile(externalTemplate,'<button [notAnAngularButtonInput]="true">Run</button>\n');
   await rm(path.join(workspace,'dist'),{recursive:true,force:true});
   const ngResources={...resources,
     sourceFiles:[...resources.sourceFiles,'src/invalid-template.html']};

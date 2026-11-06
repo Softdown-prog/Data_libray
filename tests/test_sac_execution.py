@@ -207,7 +207,7 @@ class ExecutionTests(unittest.TestCase):
             "post_status": "not-run", "browser_status": "not-run",
             "root_cause_verified": False, "deployment_authorized": False,
         }
-        report["text"] = "\\n".join([
+        report["text"] = "\n".join([
             "Projeto example-a, commit " + self.job["source_sha"] + ".",
             "A compilação Angular não foi concluída. Código de saída: 1.",
             "Erro NG8002 no arquivo src/view.html, linha 2, coluna 8. " + ng["message"],

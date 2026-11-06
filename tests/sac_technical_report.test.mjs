@@ -52,7 +52,7 @@ test('NG template diagnostics remain factual and tied to the same job',()=>{
   message:'O compilador Angular registrou um diagnóstico NG.',location_verified:true};
  const report=makeBuildTechnicalReport(job,{...evidence,findings:[ng]});
  assert.equal(report.findings[0].tool,'angular');
- assert.match(report.text,/NG8002 no arquivo src\\/view.html, linha 3, coluna 6/);
+ assert.match(report.text,/NG8002 no arquivo src\/view.html, linha 3, coluna 6/);
  assert.equal(validateTechnicalReport(report),report);
  for(const bad of [
   {...ng,tool:'typescript'},
