@@ -20,6 +20,12 @@ não execução com falha de navegador. Sem evidência real de caminho/linha:
 `location_verified=false`. Nunca contém mensagens livres, `next_step`,
 hipóteses, código-fonte, logs, chaves ou autorização de deploy.
 
+A integração SAC-008D gera duas falhas sintéticas com Angular oficial:
+um base href divergente em dist autenticado de teste, reprovado pelo
+pós-compilador sem executar Chromium; e um clique inexistente no Chromium
+isolado em Docker sem rede. O CI publica quatro arquivos sintéticos
+(JSON e texto para cada fase) como artefato somente leitura.
+
 O texto pt-BR é projeção determinística do JSON e é revalidado contra o
 objeto de entrada, com máximo de 8 achados e 4 KiB. Testes sintéticos
 abrangem sucesso falso, dados adulterados, vínculo do sandbox, identificadores

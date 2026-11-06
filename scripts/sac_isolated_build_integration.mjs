@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { isolatedAngularBuild } from './sac_sandbox_builder.mjs';
 import { makeBuildTechnicalReport } from './sac_technical_report.mjs';
 import { makeBlockedPreflightResult } from './sac_preflight_result.mjs';
+import { makePhaseEvidenceV2 } from './sac_phase_evidence_v2.mjs';
 import { prepareBuild, sealBuild, auditPipeline } from '../packages/angular-pipeline/src/index.mjs';
 import { verifyPipelineBrowserSandbox } from '../packages/angular-guardian/src/sandbox.mjs';
 
@@ -77,6 +78,75 @@ assert.equal(browser.static_pipeline_pass,true,JSON.stringify(browser));
 assert.equal(browser.browser_pass,true,JSON.stringify(browser));
 assert.equal(browser.network_isolation,'container-network-none');
 assert.equal(browser.deployment_authorized,false);
+
+// Authenticate a deliberately broken compiled base href in a synthetic
+// Angular fixture. The postcompiler must reject it before Chromium.
+const distIndex=path.join(workspace,'dist/browser/index.html');
+const originalIndex=await readFile(distIndex,'utf8');
+const syntheticJob={schema_version:1,job_id:'gha-997-1',
+  project_id:'synthetic-app',profile_id:'isolated-builder-ci',
+  source_sha:sourceSha,kind:'angular-validate'};
+const syntheticSidecars=[];
+try {
+  const wrongMount=originalIndex.replace(/<base\s+href=["']\/["']/i,
+    '<base href="/wrong-mount/"');
+  assert.notEqual(wrongMount,originalIndex,'fixture missing base href');
+  await writeFile(distIndex,wrongMount);
+  const badReceipt=await sealBuild({...setup,session,buildStatus:'pass'});
+  const badPost=await verifyPipelineBrowserSandbox({
+    pipeline:{...setup,receipt:badReceipt},guardian,timeoutMs:60000,image
+  });
+  assert.equal(badPost.static_result.phases.pre.status,'pass');
+  assert.equal(badPost.static_result.phases.build.status,'pass');
+  assert.equal(badPost.static_result.phases.post.status,'fail',
+    JSON.stringify(badPost.static_result.phases.post));
+  assert.equal(badPost.browser.executed,false);
+  const factualPost=makePhaseEvidenceV2(syntheticJob,badPost);
+  assert.equal(factualPost.phase,'post');
+  assert.equal(factualPost.status,'fail');
+  assert.equal(factualPost.checks.browser,'not-run');
+  assert.equal(factualPost.blocked_by,'post');
+  assert.equal(factualPost.root_cause_verified,false);
+  assert.equal(factualPost.deployment_authorized,false);
+  syntheticSidecars.push(['post',factualPost]);
+  console.log('SAC_POST_NEGATIVE_V2_FACTUAL_PASS');
+} finally {
+  await writeFile(distIndex,originalIndex);
+}
+
+// The valid dist and original signed CI receipt remain unchanged.
+// A real Chromium action deliberately clicks a missing control.
+const missingControl={schema_version:1,timeout_ms:2000,cases:[{
+  id:'missing-control',path:'/',expect_visible:['h1'],
+  actions:[{click:'#sac-absent-control'}]
+}]};
+const guardianFailure=await verifyPipelineBrowserSandbox({
+  pipeline:{...setup,receipt},guardian:missingControl,timeoutMs:60000,image
+});
+assert.equal(guardianFailure.static_pipeline_pass,true,JSON.stringify(guardianFailure));
+assert.equal(guardianFailure.browser.status,'fail',JSON.stringify(guardianFailure));
+assert.equal(guardianFailure.browser.executed,true);
+assert.equal(guardianFailure.browser.sandbox,'docker-network-none');
+const factualGuardian=makePhaseEvidenceV2(syntheticJob,guardianFailure);
+assert.equal(factualGuardian.phase,'browser');
+assert.equal(factualGuardian.status,'fail');
+assert.equal(factualGuardian.executed,true);
+assert.equal(factualGuardian.checks.post,'pass');
+assert.equal(factualGuardian.location_verified,false);
+assert.equal(factualGuardian.root_cause_verified,false);
+assert.equal(factualGuardian.deployment_authorized,false);
+syntheticSidecars.push(['guardian',factualGuardian]);
+console.log('SAC_GUARDIAN_NEGATIVE_V2_FACTUAL_PASS');
+
+// Publish synthetic-only reports, without raw logs or tenant workspaces.
+if(process.env.RUNNER_TEMP){
+  for(const [phase,factual] of syntheticSidecars){
+    await writeFile(path.join(process.env.RUNNER_TEMP,
+      'sac-v2-'+phase+'.synthetic.json'),JSON.stringify(factual)+'\n');
+    await writeFile(path.join(process.env.RUNNER_TEMP,
+      'sac-v2-'+phase+'.synthetic.pt-BR.txt'),factual.text+'\n');
+  }
+}
 const altered = await auditPipeline({...setup,receipt:{...receipt,authentication:'0'.repeat(64)}});
 assert.equal(altered.static_pipeline_pass,false);
 
