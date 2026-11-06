@@ -63,3 +63,11 @@ A VPS executa `scripts/vps_daemon.py` como serviço `systemd`, sem GitHub Action
 A instalação única está em [deploy/install-vps-worker.sh](deploy/install-vps-worker.sh), o serviço em [deploy/systemd/data-library-worker.service](deploy/systemd/data-library-worker.service) e os comandos de operação em [docs/WORKER_VPS.md](docs/WORKER_VPS.md). Publicar estes arquivos no GitHub não instala o serviço na VPS. GitHub continua como repositório e CI complementar, sem controlar a fila local.
 
 A fila suporta até 1.000 IDs existentes, mas não fabrica exemplos novos. Nenhuma aprovação promove legados automaticamente à especificação v2.
+
+## SAC Multistack (em desenvolvimento)
+
+Treze novos perfis opt-in, com pré-verificação somente leitura e probes
+nativos reais para Python, JavaScript, Go, Rust, C++20, HTML5 e CSS.
+Os gates de frameworks ainda dependem de compiladores/Chromium isolados;
+preflight aprovado não representa validação de runtime ou deploy.
+Consulte [SAC Multistack](docs/SAC_MULTISTACK.md) e a [issue #62](https://github.com/Softdown-prog/Data_libray/issues/62).

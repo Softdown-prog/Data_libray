@@ -35,6 +35,10 @@ Exemplo de requisição local, em arquivo JSON com campos exatos:
 node packages/sac-multistack/bin/inspect.mjs --request request.json
 ```
 
+O CLI retorna código 3 quando há somente preflight aprovado ou inconclusivo,
+código 1 quando o preflight reprova e código 2 para requisição inválida.
+Código 0 fica reservado para uma futura auditoria completa realmente verificada.
+
 O retorno não contém arquivos-fonte, linhas, mensagens livres, variáveis,
 segredos ou caminhos do host. Os módulos jamais recebem comandos de
 `package.json` como instruções executáveis.

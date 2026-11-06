@@ -126,3 +126,19 @@ test('malformed metadata never leaks JSON values or runs scripts',async t=>{
   assert.equal(JSON.stringify(r).includes('PRIVATE_TOKEN'),false);
   await assert.rejects(()=>readFile(marker),'ENOENT');
 });
+
+test('preflight-only CLI exits unverified, not success, on a valid source manifest',async t=>{
+  const input=await make(t,getModule('javascript'));
+  const req=path.join(input.workspace,'request.json');
+  await writeFile(req,JSON.stringify({module_id:input.moduleId,
+    workspace:input.workspace,source_files:input.sourceFiles}));
+  const {spawnSync}=await import('node:child_process');
+  const cli=new URL('../packages/sac-multistack/bin/inspect.mjs',import.meta.url);
+  const child=spawnSync(process.execPath,[cli.pathname,'--request',req],{
+    cwd:input.workspace,encoding:'utf8',timeout:10000});
+  assert.equal(child.status,3,child.stderr);
+  const result=JSON.parse(child.stdout);
+  assert.equal(result.preflight.status,'pass');
+  assert.equal(result.status,'unverified');
+  assert.equal(result.runtime_verified,false);
+});

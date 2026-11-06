@@ -16,8 +16,9 @@ if(args.length!==2||args[0]!=='--request'){
       moduleId:r.module_id,workspace:r.workspace,sourceFiles:r.source_files
     });
     process.stdout.write(JSON.stringify(report)+'\n');
-    if(report.preflight.status==='fail')process.exitCode=1;
-    if(report.preflight.status==='unverified')process.exitCode=3;
+    // Preflight approval is not a full SAC approval: never exit 0 until
+    // compiler and browser evidence actually exist.
+    process.exitCode=report.preflight.status==='fail'?1:3;
   }catch{
     process.stderr.write('Requisição SAC multistack inválida.\n');
     process.exitCode=2;
