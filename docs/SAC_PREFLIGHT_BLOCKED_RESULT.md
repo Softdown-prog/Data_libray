@@ -15,6 +15,15 @@ incompatibilidade de dependências Angular/TypeScript.
   etapa de preflight.
 - `build-prerequisites-unverified`: pré-compilação aprovada, mas a preparação
   seguinte, incluindo snapshot de fontes, não obteve comprovação suficiente.
+- `build-prerequisites-failed`: o snapshot de fontes foi explicitamente
+  reprovado (por exemplo, seleção insegura de arquivos), **após o preflight passar**.
+- `build-prerequisites-infra-error`: o snapshot falhou por infraestrutura,
+  sem atribuir o problema ao código Angular.
+
+A rotina `prepareBuild()` preserva agora `phases.pre=pass` quando uma
+reprovação ocorre somente na leitura posterior do snapshot. O motivo observado
+fica em `phases.build` do relatório interno, mas o **Worker v1** apresenta
+`checks.build=unverified`, porque a compilação Angular não chegou a ocorrer.
 
 Em todas as situações, build e pós-compilação aparecem como `unverified`
 no contrato **v1 histórico** do Worker, e o Guardian também fica `unverified`.

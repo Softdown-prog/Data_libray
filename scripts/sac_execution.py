@@ -207,6 +207,8 @@ def _normalize(job, raw):
         "preflight-unverified": ("unverified", "unverified"),
         "preflight-infra-error": ("infra-error", "infra-error"),
         "build-prerequisites-unverified": ("unverified", "pass"),
+        "build-prerequisites-failed": ("fail", "pass"),
+        "build-prerequisites-infra-error": ("infra-error", "pass"),
     }
     if raw["code"] in preflight_codes:
         result_status, pre_status = preflight_codes[raw["code"]]

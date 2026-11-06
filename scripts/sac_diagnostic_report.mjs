@@ -9,6 +9,8 @@ const guidance = {
  'profile-installed-angular-mismatch':['Perfil Angular divergente','Alinhe o perfil SAC à versão Angular instalada.'],
  'installed-package-missing':['Dependência ausente','Confira a instalação e o lockfile Angular.'],
  'build-prerequisites-unverified':['Preparação do build não comprovada','A etapa de compilação não foi executada; consulte o pré-compilador e as fontes declaradas.'],
+ 'build-prerequisites-failed':['Preparação do build reprovada','Verifique a seleção de fontes e o contrato do snapshot antes de executar o Angular CLI.'],
+ 'build-prerequisites-infra-error':['Falha na preparação do snapshot','Confira permissões e disponibilidade dos arquivos no runner confiável.'],
  'preflight-unverified':['Pré-compilação não verificada','A execução do build foi bloqueada pelo estado do pré-compilador.'],
  'preflight-failed':['Pré-compilação reprovada','A execução do build foi bloqueada por falha na etapa anterior.'],
  'preflight-infra-error':['Infraestrutura do pré-compilador','O pré-compilador não conseguiu comprovar as verificações.'],

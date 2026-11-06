@@ -18,20 +18,28 @@ export function makeBlockedPreflightResult(job, report) {
     throw Error('invalid-preflight-job');
   }
   const pre=report?.phases?.pre;
+  const snapshot=report?.phases?.build;
+  const acceptedSnapshot=snapshot && snapshot.status===report?.status &&
+    blockedStates.has(snapshot.status) && snapshot.code!=='not-executed';
   if (!pre || !phaseStates.has(pre.status) || !blockedStates.has(report.status) ||
-      (pre.status==='pass' ? report.status!=='unverified' :
-        pre.status!==report.status)) {
+      (pre.status==='pass'
+        ? !(acceptedSnapshot || (report.status==='unverified' &&
+            snapshot?.status==='unverified' && snapshot?.code==='not-executed'))
+        : pre.status!==report.status)) {
     throw Error('invalid-preflight-evidence');
   }
   const status=report.status;
-  const code=pre.status==='pass' ? 'build-prerequisites-unverified' :
-    status==='fail' ? 'preflight-failed' :
-    status==='infra-error' ? 'preflight-infra-error' : 'preflight-unverified';
+  const code=pre.status==='pass'
+    ? status==='fail' ? 'build-prerequisites-failed'
+      : status==='infra-error' ? 'build-prerequisites-infra-error'
+      : 'build-prerequisites-unverified'
+    : status==='fail' ? 'preflight-failed'
+      : status==='infra-error' ? 'preflight-infra-error' : 'preflight-unverified';
   // Missing preflight evidence must not turn into an unrelated browser error.
   const preEntry=pre.status==='pass'?{status:'pass'}:
     {...pre, code: typeof pre.code==='string' ? pre.code : code};
   const buildEntry=pre.status==='pass'
-    ? {status:'unverified',code:'build-prerequisites-unverified'}
+    ? {status:'unverified',code}
     : {status:'unverified',code:'not-executed'};
   const diagnostic=makeDiagnosticReport({
     status,static_pipeline_pass:false,browser_pass:false,

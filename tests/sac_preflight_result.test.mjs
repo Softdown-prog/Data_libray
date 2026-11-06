@@ -41,17 +41,37 @@ test('real preflight IO failure is distinguished from source validation failure'
 });
 test('preflight passed but source snapshot lacks proof is still blocked',()=>{
  const r=makeBlockedPreflightResult(job,{status:'unverified',phases:{
-   pre:{status:'pass',executed:true,promotion_allowed:true}}});
+   pre:{status:'pass',executed:true,promotion_allowed:true},
+   build:{status:'unverified',executed:false,code:'resource-missing'}}});
  assert.equal(r.code,'build-prerequisites-unverified');
  assert.equal(r.diagnostic.checks.pre,'pass');
  assert.equal(r.diagnostic.checks.build,'unverified');
  assert.equal(r.diagnostic.findings[0].phase,'build');
  assert.equal(r.diagnostic.findings[0].code,'build-prerequisites-unverified');
 });
+for(const [state,code,reason] of [
+ ['fail','build-prerequisites-failed','unsafe-source-selection'],
+ ['infra-error','build-prerequisites-infra-error','host-io-error']
+]) test('snapshot '+state+' after preflight pass retains phase and blocks build',()=>{
+ const r=makeBlockedPreflightResult(job,{status:state,phases:{
+   pre:{status:'pass',executed:true,promotion_allowed:true},
+   build:{status:state,executed:false,code:reason}
+ }});
+ assert.equal(r.status,state);
+ assert.equal(r.code,code);
+ assert.deepEqual(r.diagnostic.checks,
+   {pre:'pass',build:'unverified',post:'unverified',browser:'unverified'});
+ assert.equal(r.diagnostic.findings[0].phase,'build');
+ assert.equal(r.diagnostic.findings[0].code,code);
+ assert.equal(r.deployment_authorized,false);
+ assert.equal('technical_report' in r,false);
+});
 test('malformed, inconsistent or forged pass evidence is rejected',()=>{
  for(const report of [
    null,{status:'pass',phases:{pre:pre('pass')}},
    {status:'fail',phases:{pre:pre('pass')}},
+   {status:'unverified',phases:{pre:pre('pass')}},
+   {status:'fail',phases:{pre:pre('pass'),build:{status:'unverified',code:'not-executed'}}},
    {status:'infra-error',phases:{pre:pre('fail')}},
    {status:'unverified',phases:{pre:pre('fail')}},
    {status:'fail',phases:{pre:{status:'pass'}}},

@@ -101,6 +101,24 @@ try {
   assert.equal('technical_report' in blocked, false);
   console.log('SAC_PREFLIGHT_SUPERVISOR_BLOCKS_DOCKER_PASS');
 
+  // The dependency preflight succeeds, but the trusted snapshot references a
+  // source that does not exist. This must NOT be called a preflight failure.
+  const unavailableResources=await write('unavailable-resources.json',{
+    ...resources,sourceFiles:[...resources.sourceFiles,'src/missing-source.ts']
+  });
+  const incompleteManifest=await write('incomplete-manifest.json',{
+    ...manifestData,resources_file:unavailableResources,build:{project_name:'smoke'}
+  });
+  const snapshotBlocked=test(incompleteManifest,sourceSha,true);
+  assert.equal(snapshotBlocked.status,'unverified',JSON.stringify(snapshotBlocked));
+  assert.equal(snapshotBlocked.code,'build-prerequisites-unverified');
+  assert.equal(snapshotBlocked.diagnostic.checks.pre,'pass');
+  assert.equal(snapshotBlocked.diagnostic.checks.build,'unverified');
+  assert.equal(snapshotBlocked.diagnostic.checks.browser,'unverified');
+  assert.equal(snapshotBlocked.deployment_authorized,false);
+  assert.equal('technical_report' in snapshotBlocked,false);
+  console.log('SAC_SNAPSHOT_NO_FALSE_PREFLIGHT_FAILURE_PASS');
+
   const passed = test(manifest, sourceSha);
   assert.equal(passed.status, 'pass', JSON.stringify(passed));
   assert.equal(passed.static_pipeline_pass, true);

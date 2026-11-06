@@ -184,6 +184,8 @@ class ExecutionTests(unittest.TestCase):
             ("preflight-unverified", "unverified", "unverified"),
             ("preflight-infra-error", "infra-error", "infra-error"),
             ("build-prerequisites-unverified", "unverified", "pass"),
+            ("build-prerequisites-failed", "fail", "pass"),
+            ("build-prerequisites-infra-error", "infra-error", "pass"),
         ]:
             diag = {"schema_version": 1, "status": status, "checks": {
                         "pre": pre, "build": "unverified",
