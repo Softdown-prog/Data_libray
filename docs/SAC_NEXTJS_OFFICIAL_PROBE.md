@@ -3,9 +3,12 @@
 Microetapa da issue #62, seguindo o módulo NestJS e preservando o Angular SAC.
 
 `packages/sac-multistack/fixtures/nextjs` contém uma aplicação Next.js
-**de primeira parte**, com App Router, renderização HTML do `/` e rota
+**de primeira parte**, com App Router, renderização HTML dinâmica do `/` e rota
 `GET /api/health`. O CI instala dependências diretas com versões exatas e
 `--ignore-scripts`, sem executar scripts de repositórios externos.
+
+A página usa `dynamic = 'force-dynamic'`, evitando confundir uma página
+pré-gerada no build com execução da rota no servidor.
 
 O probe executa os comandos oficiais `tsc --noEmit` e `next build`.
 Confirma um erro real `TS2339` inserido temporariamente na página,

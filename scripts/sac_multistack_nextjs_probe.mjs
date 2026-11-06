@@ -89,6 +89,8 @@ const goodType='label.toUpperCase()';
 const badType='label.nonExistentMethod()';
 const goodApi="return Response.json({status:'ok'});";
 const badApi="return Response.json({status:'regressed'});";
+assert.ok(pageSource.includes("export const dynamic = 'force-dynamic';"),
+ 'dynamic-server-rendering-not-declared');
 assert.ok(pageSource.includes(goodType)&&routeSource.includes(goodApi),
  'synthetic-fixture-mismatch');
 const report={schema_version:1,kind:'synthetic-official-nextjs-typescript-build-ssr-http',
