@@ -16,3 +16,12 @@ O reconhecimento do formato não substitui validação de engine Node,
 pares Angular/TypeScript, autenticidade do build, testes de navegador
 ou proveniência dos artefatos. Nenhuma execução de projeto de terceiro
 ou autorização de deploy é adicionada.
+
+## Prova no RealWorld original (sem executar o aplicativo)
+
+O workflow `sac-realworld-pinned.yml` também inspeciona o `bun.lock`
+real da revisão fixada `d426ec8` do Angular RealWorld. Ele exige
+`resolution.lockfile_format=bun-text-v1` e `status=unverified`, pois
+as dependências do aplicativo não são instaladas no runner.
+A evidência não mais identifica erroneamente um lockfile existente como
+`lockfile-missing`. Isso não comprova build, runtime ou instalação Bun.
