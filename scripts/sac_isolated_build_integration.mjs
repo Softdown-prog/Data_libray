@@ -9,6 +9,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isolatedAngularBuild } from './sac_sandbox_builder.mjs';
 import { makeBuildTechnicalReport } from './sac_technical_report.mjs';
+import { makeBlockedPreflightResult } from './sac_preflight_result.mjs';
 import { prepareBuild, sealBuild, auditPipeline } from '../packages/angular-pipeline/src/index.mjs';
 import { verifyPipelineBrowserSandbox } from '../packages/angular-guardian/src/sandbox.mjs';
 
@@ -39,6 +40,23 @@ await rm(path.join(workspace,'dist'),{recursive:true,force:true});
 const setup = {profile,resources,key,sourceSha};
 const {session,report:pre} = await prepareBuild(setup);
 assert.ok(session,JSON.stringify(pre));
+// Real Angular/TypeScript metadata mismatch: no Docker execution is permitted.
+const badSetup={...setup,profile:{...profile,angular_version:'19.0.0'}};
+const blocked=await prepareBuild(badSetup);
+assert.equal(blocked.session,null,'wrong profile must stop before build');
+assert.equal(blocked.report.status,'fail',JSON.stringify(blocked.report));
+const blockedWorker=makeBlockedPreflightResult({
+  schema_version:1,job_id:'gha-992-1',project_id:'synthetic-app',
+  profile_id:'isolated-builder-ci',source_sha:sourceSha,kind:'angular-validate'
+},blocked.report);
+assert.equal(blockedWorker.status,'fail');
+assert.equal(blockedWorker.diagnostic.checks.pre,'fail');
+assert.equal(blockedWorker.diagnostic.checks.build,'unverified');
+assert.equal(blockedWorker.browser_pass,false);
+assert.equal(blockedWorker.deployment_authorized,false);
+assert.ok(blockedWorker.diagnostic.findings.some(f=>
+  f.code==='profile-installed-angular-mismatch'),JSON.stringify(blockedWorker));
+console.log('SAC_PREFLIGHT_REAL_METADATA_BLOCKED_PASS');
 
 // Negative: untrusted project string must never become a shell/container command.
 const denied = await isolatedAngularBuild({resources,projectName:'smoke;id',image});
