@@ -1,0 +1,20 @@
+{
+  "name": "sac-multistack-first-party-vue-react-fixtures",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "vue": "3.5.44",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "vue-tsc": "3.3.13",
+    "vite": "8.3.6",
+    "@vitejs/plugin-vue": "6.0.10",
+    "@vitejs/plugin-react": "6.2.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0"
+  }
+}

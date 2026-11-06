@@ -8,6 +8,7 @@ on:
       - '.github/workflows/sac-multistack.yml'
       - 'docs/SAC_MULTISTACK.md'
       - 'scripts/sac_multistack_markup_probe.mjs'
+      - 'scripts/sac_multistack_vue_react_probe.mjs'
   workflow_dispatch:
 permissions:
   contents: read
@@ -56,3 +57,17 @@ jobs:
         run: npm install --prefix packages/sac-multistack/fixtures --ignore-scripts --no-audit --no-fund
       - name: Prove HTML5 and CSS validation with valid and invalid synthetic files
         run: node scripts/sac_multistack_markup_probe.mjs
+  official-vue-react:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install only first-party Vue/React fixture dependencies
+        run: npm install --prefix packages/sac-multistack/fixtures/ui --ignore-scripts --no-audit --no-fund --package-lock=false
+      - name: Official Vue SFC/React TSX typechecks, negative TS2339 and Vite builds
+        run: node scripts/sac_multistack_vue_react_probe.mjs

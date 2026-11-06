@@ -72,3 +72,18 @@ sem acessar projetos externos ou executar scripts de instalação.
 Essa prova ainda não substitui o Chromium, nem homologa Alpine.js.
 A instalação CI inicial ainda usa resolução transitiva por npm; antes de
 homologação para produção, congelar o lockfile e revisar o conjunto instalado.
+
+## Provas oficiais iniciais: Vue e React
+
+Fixtures de primeira parte em `packages/sac-multistack/fixtures/ui/` usam
+Vue SFC com `vue-tsc` e React TSX com `tsc`, seguidos por build oficial
+`vite build` e verificação de `dist/index.html` + bundle JS não vazio.
+Cada fixture é primeiro aprovada, depois alterada temporariamente para chamar
+um método inexistente; o teste exige erro real **TS2339** e restaura
+os arquivos antes do build. Nenhum script definido em `package.json` é executado.
+
+O job `official-vue-react` não executa browser; `browser=not-run`.
+O relatório demonstra a funcionalidade da toolchain sobre as fixtures
+sintéticas e **não** classifica um app externo como válido. Para uma futura
+execução em projetos reais ainda serão necessários isolamento e autenticação
+imutável do job/commit e um lockfile para congelar dependências transitivas.
