@@ -8,7 +8,7 @@ Não compilar o Chromium inteiro nem afirmar que o repositório foi auditado.
 | chromium/chromium | cpp20 | base/ |
 | kubernetes/kubernetes | go | pkg/apis/core/ |
 | rust-lang/rust | rust | library/core/src/ |
-| microsoft/TypeScript | javascript | src/compiler/ |
+| microsoft/TypeScript | javascript | packages/typescript/src/ast/ |
 | golang/go | go | src/go/ast/ |
 
 A coleta começa por commit SHA do GitHub; percorre subárvores por seus

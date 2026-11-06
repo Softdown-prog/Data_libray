@@ -3,7 +3,7 @@ export const PUBLIC_STRESS_TARGETS=Object.freeze([
  Object.freeze({repo:'chromium/chromium',branch:'main',module:'cpp20',directory:'base'}),
  Object.freeze({repo:'kubernetes/kubernetes',branch:'master',module:'go',directory:'pkg/apis/core'}),
  Object.freeze({repo:'rust-lang/rust',branch:'main',module:'rust',directory:'library/core/src'}),
- Object.freeze({repo:'microsoft/TypeScript',branch:'main',module:'javascript',directory:'src/compiler'}),
+ Object.freeze({repo:'microsoft/TypeScript',branch:'main',module:'javascript',directory:'packages/typescript/src/ast'}),
  Object.freeze({repo:'golang/go',branch:'master',module:'go',directory:'src/go/ast'})
 ]);
 export const PUBLIC_STRESS_LIMITS=Object.freeze({

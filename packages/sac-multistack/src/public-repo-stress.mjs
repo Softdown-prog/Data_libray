@@ -171,8 +171,17 @@ async function runOne(target,options){
        'bounded-preflight-only':'sample-preflight-incompatible';
    }finally{await rm(stage,{recursive:true,force:true});}
  }catch(error){
-   result.finding=error?.message==='sac-evidence-contract-violation'?
-     'sac-evidence-contract-violation':'limited-or-unavailable';
+   // Stable, safe classifications: never return upstream exception messages.
+   const classification={
+     'sample-directory-unavailable':'sample-directory-unavailable',
+     'tree-budget':'tree-budget-reached',
+     'tree-request-budget':'tree-budget-reached',
+     'elapsed-budget':'time-budget-reached',
+     'upstream-response-budget':'response-budget-reached',
+     'untrusted-git-blob-digest':'git-object-digest-mismatch',
+     'sac-evidence-contract-violation':'sac-evidence-contract-violation'
+   };
+   result.finding=classification[error?.message]??'limited-or-unavailable';
  }
  return result;
 }
