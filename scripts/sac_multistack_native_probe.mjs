@@ -4,6 +4,7 @@ import {spawnSync} from 'node:child_process';
 import {mkdtemp,writeFile,rm} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import {collectRustcErrorCodes} from '../packages/sac-multistack/src/rustc-diagnostics.mjs';
 
 const root=await mkdtemp(path.join(os.tmpdir(),'sac-native-negative-'));
 const probes=[
@@ -21,7 +22,7 @@ const probes=[
   positive:'pub fn answer() -> i32 { 42 }\n',
   negative:'pub fn answer() -> i32 { "wrong" }\n',
   args:file=>['--edition=2021','--crate-type=lib','--emit=metadata',
-    '-o',path.join(root,'rust.rmeta'),file]},
+    '--error-format=json','-o',path.join(root,'rust.rmeta'),file]},
  {module:'cpp20',tool:'g++',name:'probe.cpp',
   positive:'consteval int answer(){return 42;}\nstatic_assert(answer()==42);\n',
   negative:'int answer = "wrong";\n',
@@ -47,17 +48,27 @@ try{
         encoding:'utf8',timeout:20000,maxBuffer:8192,shell:false,
         cwd:root,env
       });
-      return r.error?{kind:'unverified'}:
-        r.signal?{kind:'unverified'}:{kind:r.status===0?'pass':'fail'};
+      if(r.error||r.signal||r.status===null)
+        return {kind:'unverified',codes:[]};
+      const codes=probe.module==='rust'&&r.status!==0?
+        collectRustcErrorCodes({stderr:r.stderr,exitCode:r.status}):[];
+      return {kind:r.status===0?'pass':'fail',codes};
     };
     await writeFile(file,probe.positive);
     const good=run();
     await writeFile(file,probe.negative);
     const bad=run();
-    const status=good.kind==='pass'&&bad.kind==='fail'?'pass':
+    // A broken Rust source must emit E0308 specifically. Any other failure,
+    // including a missing toolchain, is not compiler evidence.
+    const expectedCode=probe.module==='rust'?'E0308':null;
+    const observed=expectedCode!==null&&Array.isArray(bad.codes)&&
+      bad.codes.includes(expectedCode)?expectedCode:null;
+    const diagnosticConfirmed=expectedCode===null||observed===expectedCode;
+    const status=good.kind==='pass'&&bad.kind==='fail'&&diagnosticConfirmed?'pass':
       good.kind==='unverified'||bad.kind==='unverified'?'unverified':'fail';
     report.checks.push({module_id:probe.module,tool:probe.tool,
-      positive:good.kind,negative:bad.kind,status});
+      positive:good.kind,negative:bad.kind,
+      observed_diagnostic:observed,status});
     if(status!=='pass')valid=false;
   }
 }finally{
