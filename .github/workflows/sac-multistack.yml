@@ -13,7 +13,7 @@ on:
       - 'scripts/sac_multistack_nextjs_probe.mjs'
       - 'scripts/sac_multistack_browser_probe.mjs'
       - 'tests/sac_multistack_browser_evidence.test.mjs'
-      - 'tests/sac_multistack_browser_docker.test.mjs'
+      - 'tests/sac_multistack_browser_docker.test.mjs tests/sac_multistack_compiler_study.test.mjs tests/sac_multistack_rustc_diagnostics.test.mjs'
   workflow_dispatch:
 permissions:
   contents: read
@@ -34,6 +34,8 @@ jobs:
           node --check packages/sac-multistack/src/inspect.mjs
           node --check packages/sac-multistack/bin/inspect.mjs
           node --check scripts/sac_multistack_native_probe.mjs
+          node --check packages/sac-multistack/src/compiler-study.mjs
+          node --check packages/sac-multistack/src/rustc-diagnostics.mjs
       - name: Validate all 13 profiles, safety and no false-pass
         run: node --test tests/sac_multistack.test.mjs tests/sac_multistack_browser_evidence.test.mjs tests/sac_multistack_browser_docker.test.mjs
   native-compilers:
