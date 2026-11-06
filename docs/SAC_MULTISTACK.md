@@ -87,3 +87,24 @@ O relatório demonstra a funcionalidade da toolchain sobre as fixtures
 sintéticas e **não** classifica um app externo como válido. Para uma futura
 execução em projetos reais ainda serão necessários isolamento e autenticação
 imutável do job/commit e um lockfile para congelar dependências transitivas.
+
+## Testes comportamentais Vue/React em Chromium isolado
+
+O job `chromium-vue-react` constrói fixtures **próprias do repositório**
+com Vite, copia o `dist` gerado para diretório descartável, registra digest
+SHA-256 do conteúdo e executa Chromium em Docker com a imagem imutável do
+Guardian Angular. Reutiliza o servidor de artefatos, o perfil seccomp,
+filesystem read-only, rede desabilitada, usuário não-root e limites de recursos.
+
+Para Vue e React são exigidas duas provas por fixture: clique em botão
+`Count 0` que realmente muda para `Count 1`, seguido por **nova
+compilação oficial válida** com uma regressão semântica intencional
+(clique deixa de alterar estado). O teste negativo deve ser reprovado com
+`no-observable-transition`, não com um erro qualquer de infraestrutura.
+
+A saída do navegador é limitada a códigos de erro controlados, ao cenário e
+ao digest do artefato; resultados ambíguos nunca são aprovados. Nenhum
+workspace externo é executado, nenhuma autorização de deploy é emitida.
+A primeira etapa é prova da fixture sintética, **não** uma integração pronta
+ao Worker multistack. Lockfiles transitivos e provas de builds externos
+continuam pendentes.
