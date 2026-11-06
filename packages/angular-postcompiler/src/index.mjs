@@ -9,6 +9,23 @@ const MAX_INDEX_BYTES = 2 * 1024 * 1024;
 const MAX_RESOURCE_BYTES = 16 * 1024 * 1024;
 const MAX_TOTAL_BYTES = 64 * 1024 * 1024;
 const MAX_FILE_READS = 512;
+const HTML_NAMESPACE = 'http://www.w3.org/1999/xhtml';
+// Exact helper emitted by Beasties' media-script strategy in Angular 22.2.
+// It only restores the media attribute of already referenced stylesheets.
+const CSS_MEDIA_RESTORE = "document.querySelectorAll('link[data-beasties-media]').forEach(function(l){l.media=l.getAttribute('data-beasties-media');l.removeAttribute('data-beasties-media')})";
+const attr = (node, key) => node.attrs?.find(a => a.name === key)?.value;
+
+function isAngularCriticalCssHelper(script, nodes) {
+  if (script.parentNode?.tagName !== 'body' || script.attrs.length !== 0 ||
+      script.childNodes.length !== 1 || script.childNodes[0].value !== CSS_MEDIA_RESTORE) return false;
+  const links = nodes.filter(node => node.tagName === 'link' && attr(node, 'data-beasties-media') !== undefined);
+  return links.length > 0 && links.every(link =>
+    link.namespaceURI === HTML_NAMESPACE && link.parentNode?.tagName === 'head' &&
+    attr(link, 'rel')?.toLowerCase() === 'stylesheet' && Boolean(attr(link, 'href')) &&
+    attr(link, 'media') === 'print' && Boolean(attr(link, 'data-beasties-media')?.trim()) &&
+    !link.attrs.some(a => a.name.startsWith('on')));
+}
+
 class Finding extends Error {
   constructor(status, message) { super(message); this.status = status; }
 }
@@ -101,9 +118,8 @@ export async function verify(dist, contract) {
       const nodes = [];
       const visit = node => { nodes.push(node); for (const child of node.childNodes ?? []) visit(child); };
       visit(parse(html)); // Template contents and comments are intentionally inert.
-      const attr = (n, key) => n.attrs?.find(a => a.name === key)?.value;
       await check('angular-host', async () => {
-        if (!nodes.some(n => n.tagName === contract.angular_host && n.namespaceURI === 'http://www.w3.org/1999/xhtml')) fail(`Missing Angular host: ${contract.angular_host}`);
+        if (!nodes.some(n => n.tagName === contract.angular_host && n.namespaceURI === HTML_NAMESPACE)) fail(`Missing Angular host: ${contract.angular_host}`);
         return { host: contract.angular_host };
       });
       let base, resources = [];
@@ -114,8 +130,9 @@ export async function verify(dist, contract) {
         if (bases.length) base = localURL(attr(bases[0], 'href'), base);
         if (!base.pathname.endsWith('/') && bases.length) unsupported('base href must end with a slash');
         const mount = base.pathname.endsWith('/') ? base.pathname : base.pathname.slice(0, base.pathname.lastIndexOf('/') + 1);
+        let criticalCssHelper = false;
         for (const n of nodes) {
-          if (n.namespaceURI !== 'http://www.w3.org/1999/xhtml') continue;
+          if (n.namespaceURI !== HTML_NAMESPACE) continue;
           const script = n.tagName === 'script';
           const css = n.tagName === 'link' && (attr(n, 'rel') ?? '').toLowerCase().split(/\s+/).includes('stylesheet');
           const modulePreload = n.tagName === 'link' && (attr(n, 'rel') ?? '').toLowerCase() === 'modulepreload';
@@ -130,7 +147,11 @@ export async function verify(dist, contract) {
             if (attr(n, 'nomodule') !== undefined) unsupported('nomodule requires browser capability selection');
           }
           if (ref === undefined) {
-            if (script && !['application/json', 'application/ld+json'].includes(attr(n, 'type'))) unsupported('Inline executable script requires runtime inspection');
+            if (script) {
+              if (criticalCssHelper || !isAngularCriticalCssHelper(n, nodes))
+                unsupported('Inline executable script requires runtime inspection');
+              criticalCssHelper = true;
+            }
             continue;
           }
           const url = localURL(ref, base);
@@ -139,7 +160,10 @@ export async function verify(dist, contract) {
           await file(relative);
           resources.push({ path: relative, kind: script ? 'script' : css ? 'stylesheet' : 'modulepreload' });
         }
-        return { base_href: base.pathname, resources };
+        return {
+          base_href: base.pathname, resources,
+          ...(criticalCssHelper ? { recognized_inline_scripts: ['angular-critical-css-media-restore'] } : {}),
+        };
       });
       if (evidence.at(-1).status === 'pass') {
         for (const entry of contract.angular_entrypoints) await check('angular-entrypoint', async () => {

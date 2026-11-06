@@ -59,7 +59,9 @@ operação de 100–10000 ms, até 10 seletores e 10 ações por caso, strings a
 caracteres. Cada caso precisa de ação obrigatória; seu resultado deve estar
 **ausente/invisível antes** e visível depois. Isso impede aprovar clique sem
 mudança observável. Seletores/textos são do consumidor, não regras globais.
-Cada rota é path local relativo ao mount do perfil, como / ou /settings/;
+Cada rota é path local relativo ao mount do perfil, como `/`, `/settings/` ou
+`/jogar`. Declare a forma canônica da aplicação, com ou sem barra final.
+O worker compara o endereço observado com a rota declarada;
 URLs, eval, módulos, shell e campos desconhecidos são rejeitados.
 Sem contrato, browser é unverified; sem perfil Angular, not-applicable.
 O host Angular do perfil precisa aparecer com ng-version, além das asserções.

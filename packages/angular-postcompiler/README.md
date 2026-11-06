@@ -62,6 +62,14 @@ symlinks internos são permitidos. Não há fetch, import de bundle, eval ou she
 URLs externas ou esquemas como `data:`, recursos fora do mount, múltiplas bases,
 base sem `/` final, index aninhado sem mapeamento, scripts inline executáveis,
 `nomodule` e tipos de script não suportados retornam `unverified`.
+O SAC reconhece uma exceção específica para o CSS crítico gerado pelo Angular
+22.2. O script deve corresponder ao trecho exato de restauração do atributo
+`media`, aparecer uma vez no `body` sem atributos e ter folhas adiadas no
+`head` com `media="print"` e `data-beasties-media`. Essas folhas passam pelas
+mesmas checagens de referência, caminho e arquivo que os demais recursos.
+O relatório registra `angular-critical-css-media-restore` em
+`recognized_inline_scripts`. Outras variantes continuam inconclusivas.
+
 Valide artefato imutável: a checagem de realpath não protege contra outro processo
 alterando symlinks simultaneamente.
 

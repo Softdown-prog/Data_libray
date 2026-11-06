@@ -11,8 +11,17 @@ import { verifyPipelineBrowser } from '../src/pipeline.mjs';
 const contract = () => ({ schema_version: 1, timeout_ms: 1000, cases: [{ id: 'click-state', path: '/', expect_visible: ['h1'], actions: [{ click: 'button', expect_visible: '.changed' }] }] });
 const hash = b => createHash('sha256').update(b).digest('hex');
 for (const mutation of [c => ({ ...c, schema_version: 2 }), c => ({ ...c, baseUrl: 'http://localhost:123' }), c => ({ ...c, cases: [] }), c => ({ ...c, timeout_ms: 999999 }), c => ({ ...c, cases: [{ ...c.cases[0], path: '//other/' }] }), c => ({ ...c, cases: [{ ...c.cases[0], path: '/../' }] }), c => ({ ...c, cases: [{ ...c.cases[0], actions: [] }] }), c => ({ ...c, cases: [{ ...c.cases[0], actions: [{ click: 'button', expect_visible: 'p', eval: 'secret' }] }] })]) test('strict bounded browser contract rejects unsupported execution or absent assertions', () => { assert.throws(() => browserContract(mutation(contract()))); });
-test('versioned contract is cloned and accepts declared subpath routes', () => {
- const c = contract(); c.cases[0].path = '/settings/'; assert.deepEqual(browserContract(c), c); assert.notEqual(browserContract(c), c);
+test('versioned contract preserves exact local paths with or without a trailing slash', () => {
+ for (const route of ['/settings/', '/jogar', '/game/controls']) {
+  const c = contract(); c.cases[0].path = route;
+  assert.deepEqual(browserContract(c), c); assert.notEqual(browserContract(c), c);
+ }
+});
+test('local route validation still rejects ambiguous paths', () => {
+ for (const route of ['/game//controls', '/game/%2e%2e', '/game?mode=solo', '/game#help', '/game\n']) {
+  const c = contract(); c.cases[0].path = route;
+  assert.throws(() => browserContract(c));
+ }
 });
 test('non-applicable integration never launches browser or requires a URL', async () => {
  const profile = { schema_version: 1, profile_id: 'plain', angular_version: null, capabilities: [], mode: 'non-angular', mount: '/', bundle_hints: null, rules: [{ rule_id: 'SAC-PRE001', version: '1.0.0', required: false, enforcement: 'observe' }] };
@@ -24,7 +33,7 @@ test('static failure never launches browser', async () => {
 async function fixture(t) {
  const dist = await mkdtemp(path.join(os.tmpdir(), 'guardian-dist-')); t.after(() => rm(dist, { recursive: true, force: true }));
  await writeFile(path.join(dist, 'index.html'), 'exact fixture');
- return { dist, digest: hash(JSON.stringify([['index.html', hash('exact fixture')]])), mount: '/app/', routes: ['/', '/settings/'] };
+ return { dist, digest: hash(JSON.stringify([['index.html', hash('exact fixture')]])), mount: '/app/', routes: ['/', '/settings/', '/jogar'] };
 }
 test('artifact server ephemeral loopback, exact bytes and only declared SPA routes', async t => {
  const args = await fixture(t); const server = await serveArtifact(args); t.after(() => server.close());
@@ -32,7 +41,8 @@ test('artifact server ephemeral loopback, exact bytes and only declared SPA rout
  assert.match(server.origin, /^http:\/\/127\.0\.0\.1:\d+$/);
  assert.equal(await (await fetch(server.origin + '/app/')).text(), 'exact fixture');
  assert.equal(await (await fetch(server.origin + '/app/settings/')).text(), 'exact fixture');
- for (const p of ['/private', '/app/undeclared/', '/app/%2e%2e/private']) assert.equal((await fetch(server.origin + p)).status, 404);
+ assert.equal(await (await fetch(server.origin + '/app/jogar')).text(), 'exact fixture');
+ for (const p of ['/private', '/app/undeclared/', '/app/jogar/', '/app/%2e%2e/private']) assert.equal((await fetch(server.origin + p)).status, 404);
  assert.equal((await fetch(server.origin + '/app/', { method: 'POST' })).status, 404);
 });
 test('wrong host/other server cannot be used as artifact evidence', async t => {
