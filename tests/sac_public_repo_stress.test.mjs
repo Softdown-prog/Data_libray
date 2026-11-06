@@ -46,13 +46,17 @@ test('samples actual SAC preflight and never asserts a full audit',async()=>{
  assert.equal(report.third_party_code_executed,false);
  assert.equal(report.full_clone,false);
 });
-test('reject tampered Git blobs and too-large API metadata',async()=>{
- for(const options of [{badBlob:true},{oversized:true}]){
-  const req=fake(options);
+test('report digest and metadata budget failures with stable codes',async()=>{
+ for(const [opts,expected] of [
+   [{badBlob:true},'git-object-digest-mismatch'],
+   [{oversized:true},'response-budget-reached']
+ ]){
+  const req=fake(opts);
   const {repositories:[r]}=await runPublicRepoStress({
    http:req.http,targets:[PUBLIC_STRESS_TARGETS[0]]});
   assert.equal(r.preflight_status,'not-run');
-  assert.equal(r.finding,'limited-or-unavailable');
+  assert.equal(r.finding,expected);
+  assert.equal(r.overall_audit,'unverified');
  }
 });
 test('missing source coverage is unverified rather than green',async()=>{
