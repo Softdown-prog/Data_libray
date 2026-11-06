@@ -118,7 +118,7 @@ try {
 // A real Chromium action deliberately clicks a missing control.
 const missingControl={schema_version:1,timeout_ms:2000,cases:[{
   id:'missing-control',path:'/',expect_visible:['h1'],
-  actions:[{click:'#sac-absent-control'}]
+  actions:[{click:'#sac-absent-control',expect_visible:'#sac-never-visible'}]
 }]};
 const guardianFailure=await verifyPipelineBrowserSandbox({
   pipeline:{...setup,receipt},guardian:missingControl,timeoutMs:60000,image
