@@ -19,10 +19,11 @@ jobs:
       - run: node --check scripts/sac_compiler_evidence.mjs
       - run: node --check scripts/sac_technical_report.mjs
       - run: node --check scripts/sac_preflight_result.mjs
+      - run: node --check scripts/sac_phase_evidence_v2.mjs
       - run: node --check scripts/sac_supervised_runner.mjs
       - run: python3 -m py_compile scripts/sac_execution.py
       - run: python3 -m unittest discover -s tests -p 'test_sac_execution.py' -v
-      - run: node --test tests/sac_sandbox_builder.test.mjs tests/sac_compiler_evidence.test.mjs tests/sac_technical_report.test.mjs tests/sac_preflight_result.test.mjs
+      - run: node --test tests/sac_sandbox_builder.test.mjs tests/sac_compiler_evidence.test.mjs tests/sac_technical_report.test.mjs tests/sac_preflight_result.test.mjs tests/sac_phase_evidence_v2.test.mjs
   integration:
     name: Official Angular AOT in isolated Docker + Guardian
     runs-on: ubuntu-latest
@@ -54,5 +55,9 @@ jobs:
           path: |
             ${{ runner.temp }}/sac-v2-technical-report.synthetic.txt
             ${{ runner.temp }}/sac-v2-technical-report.synthetic.json
+            ${{ runner.temp }}/sac-v2-post.synthetic.json
+            ${{ runner.temp }}/sac-v2-post.synthetic.pt-BR.txt
+            ${{ runner.temp }}/sac-v2-guardian.synthetic.json
+            ${{ runner.temp }}/sac-v2-guardian.synthetic.pt-BR.txt
           if-no-files-found: error
           retention-days: 14
