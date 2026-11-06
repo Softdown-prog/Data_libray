@@ -33,6 +33,13 @@ const run=(bin,args)=>{
 };
 async function checkHttp(expected) {
  try{
+  // Nest CLI writes another dist at the same path for the negative fixture.
+  // CommonJS caches its previous main/controller/module even after rebuilding.
+  // Evict only synthetic dist modules; never evict package dependencies.
+  const distPrefix=path.join(root,'dist')+path.sep;
+  for(const key of Object.keys(fixtureRequire.cache??{})){
+   if(key.startsWith(distPrefix))delete fixtureRequire.cache[key];
+  }
   const built=fixtureRequire(output);
   if(typeof built.createApplication!=='function')return {status:'unverified'};
   const app=await built.createApplication();
