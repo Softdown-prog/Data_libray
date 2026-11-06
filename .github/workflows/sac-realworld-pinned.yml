@@ -1,0 +1,51 @@
+name: SAC RealWorld Angular pinned read-only audit
+on:
+  pull_request:
+    paths:
+      - 'scripts/sac_realworld_pinned_readonly.mjs'
+      - '.github/workflows/sac-realworld-pinned.yml'
+      - 'docs/SAC_REALWORLD_EXTERNAL_TEST.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  realworld:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout immutable external source without submodule
+        uses: actions/checkout@v4
+        with:
+          repository: realworld-apps/angular-realworld-example-app
+          ref: d426ec804f7d035c374aa4a1b48ecdb05a03eb02
+          path: .sac-snapshots/realworld-angular
+          submodules: false
+          persist-credentials: false
+      - name: Verify upstream immutable revision
+        shell: bash
+        run: |
+          test "$(git -C .sac-snapshots/realworld-angular rev-parse HEAD)" = 'd426ec804f7d035c374aa4a1b48ecdb05a03eb02'
+          test ! -f .sac-snapshots/realworld-angular/realworld/specs/e2e/playwright.base.ts
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install trusted SAC analyzers only, no lifecycle scripts
+        run: |
+          npm ci --prefix packages/angular-precompiler --ignore-scripts --no-audit --no-fund
+          npm ci --prefix packages/angular-postcompiler/smoke --ignore-scripts --no-audit --no-fund
+      - name: Run real SAC-PRE001 to PRE005 on external project source
+        run: |
+          node --check scripts/sac_realworld_pinned_readonly.mjs
+          node scripts/sac_realworld_pinned_readonly.mjs > /tmp/sac-realworld-angular-report.json
+          cat /tmp/sac-realworld-angular-report.json
+      - name: Upload bounded source-free evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sac-realworld-angular-static-evidence
+          path: /tmp/sac-realworld-angular-report.json
+          if-no-files-found: ignore
+          retention-days: 14
