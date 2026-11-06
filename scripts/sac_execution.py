@@ -40,8 +40,8 @@ TECHNICAL_KEYS = frozenset({
 TECHNICAL_FINDING_KEYS = frozenset({
     "tool", "code", "file", "line", "column", "message", "location_verified"
 })
-TS_CODE = re.compile(r"TS[0-9]{4,5}\Z")
-TS_FILE = re.compile(r"(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_.-]+\.tsx?\Z")
+DIAGNOSTIC_CODE = re.compile(r"(?:TS|NG)[0-9]{4,5}\Z")
+DIAGNOSTIC_FILE = re.compile(r"(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_.-]+\.(?:tsx?|html)\Z")
 TS_DESCRIPTIONS = {
     "TS2322": "O compilador TypeScript registrou atribuição entre tipos incompatíveis.",
     "TS2307": "O compilador TypeScript registrou que não encontrou um módulo.",
@@ -49,6 +49,7 @@ TS_DESCRIPTIONS = {
     "TS2339": "O compilador TypeScript registrou uma propriedade não reconhecida.",
 }
 TS_GENERIC = "O compilador Angular registrou um erro TypeScript."
+ANGULAR_GENERIC = "O compilador Angular registrou um diagnóstico NG."
 
 
 def _validate_technical_report(value, raw):
@@ -74,15 +75,16 @@ def _validate_technical_report(value, raw):
     ]
     for finding in value["findings"]:
         if (type(finding) is not dict or set(finding) != TECHNICAL_FINDING_KEYS
-                or finding["tool"] != "typescript"
-                or type(finding["code"]) is not str or not TS_CODE.fullmatch(finding["code"])
+                or type(finding["code"]) is not str or not DIAGNOSTIC_CODE.fullmatch(finding["code"])
+                or finding["tool"] != ("angular" if finding["code"].startswith("NG") else "typescript")
                 or type(finding["location_verified"]) is not bool
-                or finding["message"] != TS_DESCRIPTIONS.get(
-                    finding["code"], TS_GENERIC)):
+                or finding["message"] != (ANGULAR_GENERIC if finding["code"].startswith("NG") else
+                                          TS_DESCRIPTIONS.get(finding["code"], TS_GENERIC))):
             raise ValueError("invalid-technical-finding")
         if finding["location_verified"]:
             f = finding["file"]
-            if (type(f) is not str or len(f) > 200 or not TS_FILE.fullmatch(f)
+            if (type(f) is not str or len(f) > 200 or not DIAGNOSTIC_FILE.fullmatch(f)
+                    or (finding["tool"] == "typescript" and not re.search(r"\.tsx?\Z", f))
                     or any(segment in (".", "..", ".git", "node_modules", ".env")
                            or segment.startswith(".env.") for segment in f.split("/"))
                     or type(finding["line"]) is not int or not 1 <= finding["line"] <= 1000000

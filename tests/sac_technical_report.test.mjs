@@ -46,3 +46,26 @@ test('truncation and unknown TS code remain factual',()=>{
  assert.match(r.text,/ocorrências omitidas/);
  assert.match(r.text,/TS9999/);
 });
+
+test('NG template diagnostics remain factual and tied to the same job',()=>{
+ const ng={tool:'angular',code:'NG8002',file:'src/view.html',line:3,column:6,
+  message:'O compilador Angular registrou um diagnóstico NG.',location_verified:true};
+ const report=makeBuildTechnicalReport(job,{...evidence,findings:[ng]});
+ assert.equal(report.findings[0].tool,'angular');
+ assert.match(report.text,/NG8002 no arquivo src\/view.html, linha 3, coluna 6/);
+ assert.equal(validateTechnicalReport(report),report);
+ for(const bad of [
+  {...ng,tool:'typescript'},
+  {...ng,message:'Senha vazada'},
+  {...ng,file:'../secrets.html'},
+  {...ng,code:'NG800200'},
+  {...issue,file:'src/view.html'}
+ ])assert.throws(()=>makeBuildTechnicalReport(job,{...evidence,findings:[bad]}));
+});
+test('mixed Angular and TypeScript compiler findings survive one bounded report',()=>{
+ const ng={tool:'angular',code:'NG5002',file:null,line:null,column:null,
+  message:'O compilador Angular registrou um diagnóstico NG.',location_verified:false};
+ const r=makeBuildTechnicalReport(job,{...evidence,findings:[issue,ng],location_verified:false});
+ assert.deepEqual(r.findings.map(f=>f.code),['TS2322','NG5002']);
+ assert.match(r.text,/arquivo e posição não confirmados/);
+});

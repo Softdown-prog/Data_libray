@@ -29,3 +29,20 @@ coluna. Essa fixture é artificial, sem projetos reais e sem VPS.
 
 Issue #41 da Data Library. Nada de modelo local, permissão de deploy, novo
 job na VPS ou merge automático.
+
+## Ampliação: diagnósticos NG do Angular (microetapa isolada)
+
+O coletor agora observa também cabeçalhos oficiais `[ERROR] NG####`/`NG#####` e
+identifica a ferramenta `angular`. A localização só é confirmada quando o
+arquivo `.html`, `.ts` ou `.tsx` está na lista `sourceFiles` aprovada.
+Erros `TS` continuam restritos a `.ts`/`.tsx`. Mensagens originais de
+compiler, trechos de template e logs continuam proibidos: para `NG`, o texto
+é sempre a descrição fixa “O compilador Angular registrou um diagnóstico NG.”.
+
+O mesmo `technical_report.schema_version=2` é validado, em paralelo e de
+forma estrita, por JavaScript e Python. O status do Worker continua v1,
+`code=angular-compiler-failed`, `deployment_authorized=false`; o Painel
+não precisa migrar seu consumidor do esquema v1. Um teste de integração injeta
+`NG8002` em template HTML de fixture e exige falha de build no Angular CLI
+real confinado em Docker. Falhas de infraestrutura sem código comprovado
+continuam `infra-error`. Nenhuma ativação na VPS ou alteração de permissão.

@@ -195,6 +195,45 @@ class ExecutionTests(unittest.TestCase):
         self.assertEqual(saved["technical_report"]["text"],report["text"])
         self.assertFalse(saved["deployment_authorized"])
 
+    def test_ng_template_report_requires_verified_tool_and_safe_path(self):
+        ng = {"tool": "angular", "code": "NG8002", "file": "src/view.html",
+              "line": 2, "column": 8, "location_verified": True,
+              "message": "O compilador Angular registrou um diagnóstico NG."}
+        report = {
+            "schema_version": 2, "job_id": self.job["job_id"],
+            "project_id": self.job["project_id"], "profile_id": self.job["profile_id"],
+            "source_sha": self.job["source_sha"], "status": "fail", "phase": "build",
+            "exit_code": 1, "findings": [ng], "truncated": False,
+            "post_status": "not-run", "browser_status": "not-run",
+            "root_cause_verified": False, "deployment_authorized": False,
+        }
+        report["text"] = "\n".join([
+            "Projeto example-a, commit " + self.job["source_sha"] + ".",
+            "A compilação Angular não foi concluída. Código de saída: 1.",
+            "Erro NG8002 no arquivo src/view.html, linha 2, coluna 8. " + ng["message"],
+            "Pré-compilação: aprovada. Pós-compilação e Guardian: não executados porque o build falhou.",
+            "Este relatório registra eventos observados e não determina a causa raiz.",
+        ])
+        legacy = {"schema_version": 1, "status": "fail",
+                  "checks": {"pre": "pass", "build": "fail", "post": "unverified",
+                             "browser": "unverified"}, "findings": [], "truncated": False,
+                  "location_verified": False, "deployment_authorized": False}
+        def wrap(value):
+            return {**self.result(), "status": "fail", "execution": "sac-build-audit",
+                    "code": "angular-compiler-failed", "static_pipeline_pass": False,
+                    "browser_pass": False, "diagnostic": legacy, "technical_report": value}
+        self.assertEqual(se._normalize(self.job, wrap(report))["status"], "fail")
+        self.assertEqual(self.call(lambda *_, **__: wrap(report))["processed"], 1)
+        stored = json.loads((self.root / "sac-results" / "gha-789-1.json").read_text())
+        self.assertEqual(stored["technical_report"]["findings"][0]["file"], "src/view.html")
+        for mutation in [
+            {"tool": "typescript"}, {"message": "secret://leak"}, {"file": "../../.env"},
+            {"code": "NG800200"}, {"file": "src/view.css"}, {"line": 0},
+        ]:
+            invalid = {**report, "findings": [{**ng, **mutation}]}
+            with self.subTest(mutation=mutation), self.assertRaises(ValueError):
+                se._normalize(self.job, wrap(invalid))
+
     def fail(self,msg):
         raise AssertionError(msg)
 
