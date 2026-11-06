@@ -45,7 +45,9 @@ test('Bun lock without node_modules cannot prove installation or pass',async t=>
 });
 test('Bun installed-version drift stays unverified',async t=>{
  const f=await makeBun(t);
- await mutateJSON(f.packagePath('typescript'),data=>{data.version='5.6.3';});
+ await mutateJSON(path.join(f.workspace,'bun.lock'),data=>{
+  data.packages.typescript[0]='typescript@5.6.3';
+ });
  const report=await verify(f.workspace);
  assert.equal(report.status,'unverified');
  assert.ok(report.evidence.some(x=>x.code==='bun-lock-installed-drift'));
@@ -53,7 +55,7 @@ test('Bun installed-version drift stays unverified',async t=>{
 test('Bun manifest dependency drift cannot be marked pass',async t=>{
  const f=await makeBun(t);
  await mutateJSON(path.join(f.workspace,'package.json'),data=>{
-  data.dependencies.typescript='^5.9.0';
+  data.dependencies.typescript='^5.7.0';
  });
  const report=await verify(f.workspace);
  assert.equal(report.status,'unverified');
