@@ -1,0 +1,43 @@
+name: SAC Multistack contracts and native probes
+on:
+  pull_request:
+    paths:
+      - 'packages/sac-multistack/**'
+      - 'tests/sac_multistack.test.mjs'
+      - 'scripts/sac_multistack_native_probe.mjs'
+      - '.github/workflows/sac-multistack.yml'
+      - 'docs/SAC_MULTISTACK.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Check registration and safe inspector syntax
+        run: |
+          node --check packages/sac-multistack/src/registry.mjs
+          node --check packages/sac-multistack/src/inspect.mjs
+          node --check packages/sac-multistack/bin/inspect.mjs
+          node --check scripts/sac_multistack_native_probe.mjs
+      - name: Validate all 13 profiles, safety and no false-pass
+        run: node --test tests/sac_multistack.test.mjs
+  native-compilers:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: First-party positive/negative compiler probes
+        run: node scripts/sac_multistack_native_probe.mjs
