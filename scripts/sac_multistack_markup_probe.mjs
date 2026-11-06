@@ -9,19 +9,25 @@ const root=fileURLToPath(new URL('../packages/sac-multistack/fixtures/',import.m
 const bin=path.join(root,'node_modules','.bin');
 const stage=await mkdtemp(path.join(os.tmpdir(),'sac-markup-probes-'));
 const checks=[];
-const run=(cli,args)=>{
+const run=(cli,args,diagnose=false)=>{
   const proc=spawnSync(path.join(bin,cli),args,{cwd:stage,
     encoding:'utf8',timeout:20000,maxBuffer:16384,shell:false,
     env:{PATH:process.env.PATH||'/usr/bin:/bin',HOME:stage,
       CI:'true',NODE_ENV:'test'}});
+  if(diagnose&&proc.status!==0){
+    const ids=[...String(proc.stdout||'').matchAll(/"ruleId"\s*:\s*"([a-z0-9-]+)"/g)]
+      .map(x=>x[1]).slice(0,12);
+    process.stderr.write('Synthetic HTML rule IDs: '+JSON.stringify([...new Set(ids)])+
+      '; exit='+String(proc.status)+'\n');
+  }
   return proc.error||proc.signal?'unverified':proc.status===0?'pass':'fail';
 };
 try{
   const html=path.join(stage,'fixture.html');
-  await writeFile(html,'<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Teste</title></head><body><main><h1>Título</h1></main></body></html>\n');
-  const hp=run('html-validate',['--preset','recommended',html]);
+  await writeFile(html,'<!DOCTYPE html>\n<html lang="en">\n  <head>\n    <meta charset="utf-8">\n    <title>Valid synthetic fixture</title>\n  </head>\n  <body>\n    <main><h1>Heading</h1></main>\n  </body>\n</html>\n');
+  const hp=run('html-validate',['--preset','recommended','--formatter','json',html],true);
   await writeFile(html,'<!doctype html><html lang="pt-BR"><head><title>Teste</title></head><body><p><div>Inválido</div></p></body></html>\n');
-  const hn=run('html-validate',['--preset','recommended',html]);
+  const hn=run('html-validate',['--preset','recommended','--formatter','json',html]);
   checks.push({module_id:'html5',tool:'html-validate',positive:hp,negative:hn,
     status:hp==='pass'&&hn==='fail'?'pass':
       hp==='unverified'||hn==='unverified'?'unverified':'fail'});
