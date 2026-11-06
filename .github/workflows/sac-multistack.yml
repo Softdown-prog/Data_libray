@@ -9,6 +9,7 @@ on:
       - 'docs/SAC_MULTISTACK.md'
       - 'scripts/sac_multistack_markup_probe.mjs'
       - 'scripts/sac_multistack_vue_react_probe.mjs'
+      - 'scripts/sac_multistack_nestjs_probe.mjs'
       - 'scripts/sac_multistack_browser_probe.mjs'
       - 'tests/sac_multistack_browser_evidence.test.mjs'
       - 'tests/sac_multistack_browser_docker.test.mjs'
@@ -96,3 +97,20 @@ jobs:
         env:
           SAC_SANDBOX_IMAGE: mcr.microsoft.com/playwright@sha256:47b510dd9230bf0b9bfc9b20102241e577ea7a99334ab4c3ca19f19770e9b8ea
         run: node scripts/sac_multistack_browser_probe.mjs
+  official-nestjs:
+    name: NestJS official typecheck, build and HTTP behavior
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify NestJS probe syntax
+        run: node --check scripts/sac_multistack_nestjs_probe.mjs
+      - name: Install first-party NestJS fixture without lifecycle scripts
+        run: npm install --prefix packages/sac-multistack/fixtures/nestjs --ignore-scripts --no-audit --no-fund --package-lock=false
+      - name: Official NestJS CLI compile, TS2322 and localhost HTTP semantic regression
+        run: node scripts/sac_multistack_nestjs_probe.mjs
