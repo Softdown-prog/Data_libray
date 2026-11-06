@@ -35,10 +35,17 @@ try{
   for(const probe of probes){
     const file=path.join(root,probe.name);
     const run=source=>{
+      // rustup is usually a proxy: preserve its installed toolchain home,
+      // while disabling installs and keeping the synthetic source disposable.
+      const env={PATH:process.env.PATH||'/usr/bin:/bin',HOME:root,
+        CARGO_HOME:root,GOENV:'off',CI:'true'};
+      if(probe.module==='rust'){
+        env.RUSTUP_HOME=process.env.RUSTUP_HOME||path.join(os.homedir(),'.rustup');
+        env.RUSTUP_AUTO_INSTALL='0';
+      }
       const r=spawnSync(probe.tool,probe.args(file),{
         encoding:'utf8',timeout:20000,maxBuffer:8192,shell:false,
-        cwd:root,env:{PATH:process.env.PATH||'/usr/bin:/bin',HOME:root,
-          CARGO_HOME:root,GOENV:'off',CI:'true'}
+        cwd:root,env
       });
       return r.error?{kind:'unverified'}:
         r.signal?{kind:'unverified'}:{kind:r.status===0?'pass':'fail'};
