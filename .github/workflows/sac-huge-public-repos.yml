@@ -1,0 +1,51 @@
+name: SAC huge public repositories bounded stress
+on:
+  pull_request:
+    paths:
+      - 'packages/sac-multistack/src/public-stress-targets.mjs'
+      - 'packages/sac-multistack/src/public-repo-stress.mjs'
+      - 'tests/sac_public_repo_stress.test.mjs'
+      - 'scripts/sac_public_repo_stress.mjs'
+      - '.github/workflows/sac-huge-public-repos.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  unit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate syntax and adversarial safety tests
+        run: |
+          node --check packages/sac-multistack/src/public-repo-stress.mjs
+          node --check scripts/sac_public_repo_stress.mjs
+          node --test tests/sac_public_repo_stress.test.mjs
+  live-public-sample:
+    name: Chromium Kubernetes Rust TypeScript Go (read-only)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Sample public Git metadata and SHA-verified blobs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/sac_public_repo_stress.mjs
+      - name: Store factual report without any downloaded sources
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sac-huge-public-repos-bounded
+          if-no-files-found: ignore
+          retention-days: 7
+          path: ${{ runner.temp }}/sac-huge-public-repos.synthetic-report.json

@@ -13,7 +13,9 @@ on:
       - 'scripts/sac_multistack_nextjs_probe.mjs'
       - 'scripts/sac_multistack_browser_probe.mjs'
       - 'tests/sac_multistack_browser_evidence.test.mjs'
-      - 'tests/sac_multistack_browser_docker.test.mjs tests/sac_multistack_compiler_study.test.mjs tests/sac_multistack_rustc_diagnostics.test.mjs'
+      - 'tests/sac_multistack_browser_docker.test.mjs'
+      - 'tests/sac_multistack_compiler_study.test.mjs'
+      - 'tests/sac_multistack_rustc_diagnostics.test.mjs'
   workflow_dispatch:
 permissions:
   contents: read
