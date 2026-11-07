@@ -74,3 +74,34 @@ verdade os recibos com a implementação atual do pipeline e testa:
 de compilação oficial Angular permanece no PR #72. Esta mudança não
 cria uma prova de build real do projeto do usuário nem modifica Worker,
 VPS, API externa ou política de deploy.
+
+## Executor confiável — ensaio integrado em Docker
+
+O workflow `.github/workflows/sac-signed-angular-docker.yml` executa o
+`scripts/sac_trusted_signed_docker_rehearsal.mjs` numa runner efêmera,
+com a fixture **first-party Angular 22**, lockfile oficial da fixture
+e imagem Docker Playwright fixada por digest.
+
+A execução emite três recibos reais por `prepareBuild` e `sealBuild`,
+com uma chave HMAC aleatória efêmera mantida no processo confiável:
+A (template inicial), B (mesmo projeto com template alterado) e B de
+referência (mesma fonte, outra execução de Docker). Cada build usa
+`isolatedAngularBuild`, com `--network none`, limite de CPU/RAM,
+capabilities removidas, UID não-root, imagem fixada e sem scripts
+externos. A assinatura só ocorre **após** o build isolado terminar e
+o host conferir as fontes e o digest completo de `dist`.
+
+O host usa **claims sintéticos diferentes A/B** para exercitar o
+contrato de recibos, não commits Git verdadeiros; nunca afirmar
+autenticação do SHA Git do conteúdo. O auditor testa a comparação
+opt-in e pós-compilação real, além de um recibo B adulterado,
+que precisa bloquear o postflight. A saída inclui apenas códigos
+estáveis, contagem de compilações e SHA-256 de artefatos.
+
+**Limite:** `isolatedAngularBuild` usa staging novo a cada invocação;
+o segundo build não é um cache-warm comprovado, embora use uma
+revisão posterior da mesma fonte confiável. Isto é prova de
+reprodução entre builds isolados, não de cache hit, incremental
+ngtsc interno, compilação de repositório externo ou equivalência
+funcional de todo o aplicativo. O teste de warm rebuild oficial
+continua documentado no PR #72. Nenhum deploy ou VPS é autorizado.
