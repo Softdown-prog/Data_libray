@@ -127,7 +127,65 @@ export async function sealBuild({ session, profile, resources, key, buildStatus 
   return { data, authentication: sign(data, key) };
 }
 
-export async function auditPipeline({ profile, resources, receipt, key, sourceSha, limits }) {
+/**
+ * Verify THREE independently signed host build statements for the same
+ * Angular profile/project binding: A baseline, B warm and B clean.
+ * No raw build logs, user-supplied commands or source content are returned.
+ * A valid HMAC authenticates the host statement, NOT the Angular invocation,
+ * the claimed commit's Git provenance or a physical cache miss.
+ */
+export function compareAuthenticatedIncrementalReceipts({ baseline, warm, clean, key } = {}) {
+  const report=(status,code)=>Object.freeze({
+    schema_version:1,kind:'authenticated-angular-incremental-receipts',
+    status,code,receipts_authenticated:status==='pass'||
+      ['stale-artifact-not-updated','incremental-clean-artifact-divergence',
+       'incremental-clean-source-mismatch','source-claim-mismatch',
+       'source-not-changed','profile-or-project-mismatch'].includes(code),
+    compiler_invocation_verified:false,clean_workspace_independent_verified:false,
+    cache_hit_verified:false,production_aot_verified:false,
+    browser_verified:false,root_cause_verified:false,deployment_authorized:false
+  });
+  const shape=['schema_version','profile_digest','resource_binding',
+    'source_digest','source_sha_claim','preflight','build_status','artifact_digest'];
+  if(!Buffer.isBuffer(key)||key.length<32)
+    return report('unverified','host-key-unavailable');
+  for(const receipt of [baseline,warm,clean]){
+    if(!receipt||typeof receipt!=='object'||Array.isArray(receipt)||
+       !receipt.data||typeof receipt.data!=='object'||Array.isArray(receipt.data)||
+       Object.keys(receipt.data).sort().join(',')!==shape.slice().sort().join(',')||
+       receipt.data.schema_version!==1||receipt.data.preflight!=='pass'||
+       receipt.data.build_status!=='pass'||
+       !hex.test(receipt.data.profile_digest)||!hex.test(receipt.data.resource_binding)||
+       !hex.test(receipt.data.source_digest)||!hex.test(receipt.data.artifact_digest)||
+       !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(receipt.data.source_sha_claim??'')||
+       !hex.test(receipt.authentication??''))
+      return report('unverified','incremental-receipt-shape-invalid');
+    let expected;
+    try { expected=sign(receipt.data,key); }
+    catch { return report('unverified','receipt-authentication-unavailable'); }
+    if(!timingSafeEqual(Buffer.from(expected,'hex'),
+                        Buffer.from(receipt.authentication,'hex')))
+      return report('fail','incremental-receipt-authentication-failed');
+  }
+  const a=baseline.data,b=warm.data,c=clean.data;
+  if(a.profile_digest!==b.profile_digest||b.profile_digest!==c.profile_digest||
+     a.resource_binding!==b.resource_binding||b.resource_binding!==c.resource_binding)
+    return report('fail','profile-or-project-mismatch');
+  if(a.source_sha_claim===b.source_sha_claim||
+     b.source_sha_claim!==c.source_sha_claim)
+    return report('unverified','source-claim-mismatch');
+  if(a.source_digest===b.source_digest)
+    return report('unverified','source-not-changed');
+  if(b.source_digest!==c.source_digest)
+    return report('fail','incremental-clean-source-mismatch');
+  if(a.artifact_digest===b.artifact_digest)
+    return report('fail','stale-artifact-not-updated');
+  if(b.artifact_digest!==c.artifact_digest)
+    return report('fail','incremental-clean-artifact-divergence');
+  return report('pass','authenticated-incremental-artifacts-concordant');
+}
+
+export async function auditPipeline({ profile, resources, receipt, key, sourceSha, limits, incremental }) {
   const { report, session } = await prepareBuild({ profile, resources, sourceSha, limits });
   if (!session) return report;
   try {
@@ -142,6 +200,17 @@ export async function auditPipeline({ profile, resources, receipt, key, sourceSh
     const snapshot = await snapshots(resources);
     if (await snapshot.artifact() !== receipt.data.artifact_digest) stop('fail', 'artifact-mismatch');
     report.phases.build = { status: 'pass', executed: false, code: 'authenticated-ci-build', artifact_digest: receipt.data.artifact_digest };
+    if(incremental !== undefined){
+      report.incremental=compareAuthenticatedIncrementalReceipts({
+        baseline:incremental?.baseline,warm:receipt,
+        clean:incremental?.clean,key
+      });
+      if(report.incremental.status!=='pass'){
+        report.status=report.incremental.status;
+        report.static_pipeline_pass=false;
+        return report;
+      }
+    }
     const p = validate(profile);
     report.phases.post = { ...await execute({ registry: registry(), profile: { ...p, rules: p.rules.filter(r => r.rule_id === 'SAC-P001') }, resources: { dist: path.join(resources.workspace, resources.dist) }, limits }), executed: true };
     // Detect mutation during postflight as well.
