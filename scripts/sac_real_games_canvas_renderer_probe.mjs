@@ -37,7 +37,9 @@ for(const game of Object.values(source)){
 const image=process.env.SAC_SANDBOX_IMAGE;
 assert.match(image??'',/^mcr\.microsoft\.com\/playwright@sha256:[a-f0-9]{64}$/);
 const require=createRequire(path.join(source.lhs.root,'package.json'));
-const esbuild=require('esbuild'),ts=require('typescript');
+const esbuild=require('esbuild');
+const trusted=createRequire(path.join(root,'packages/angular-postcompiler/smoke/package.json'));
+const ts=trusted('typescript');
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
 const report={schema_version:1,kind:'sac-real-game-renderer-lhs-terrania',
  scope:'pinned-source-renderer-only',source_revision_verified:true,
