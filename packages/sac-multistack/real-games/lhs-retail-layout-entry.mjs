@@ -41,7 +41,9 @@ function scenario(layout,item){
   }
  }
  let overlapCount=0,wallCrossings=0,teleports=0,movementCount=0;
- const startCash=s.cash;
+ // Expansion/layout editing already debited the ledger before this trial.
+ // Compare only transactions posted while the customers are simulated.
+ const startCash=s.cash,startRevenue=s.revenue,startExpenses=s.expenses;
  let ticks=0;
  for(;ticks<360&&s.customers.some(c=>IDS.has(c.id));ticks++){
   const before=new Map(s.customers.filter(c=>IDS.has(c.id))
@@ -64,7 +66,8 @@ function scenario(layout,item){
   slots_separated:slotsSeparated,counter_slot_conflict:counterSlotConflict,
   duration_minutes:ticks,remaining:s.customers.filter(c=>IDS.has(c.id)).length,
   purchases:s.purchases,revenue:s.revenue,expenses:s.expenses,
-  cash_balanced:Math.abs(s.cash-startCash-s.revenue+s.expenses)<1e-6,
+  cash_balanced:Math.abs(s.cash-startCash-(s.revenue-startRevenue)+
+   (s.expenses-startExpenses))<1e-6,
   overlap_count:overlapCount,wall_crossings:wallCrossings,teleports,
   movement_count:movementCount};
 }
