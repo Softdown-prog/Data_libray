@@ -106,6 +106,20 @@ for(const name of ['lhs','terrania']){
    'docker-render-infrastructure-'+name);
   assert.equal(browser.status,0,'docker-render-process-'+name);
   const proof=decodeRealStressOutput(browser.stdout,name,digest);
+  // Diagnostic details are fixed-schema counters and booleans only: never
+  // log inspected source, raw browser output, or any third-party payload.
+  if(proof.status!=='pass'){
+   const measured=name==='lhs'&&Array.isArray(proof.observations?.layouts)
+    ?proof.observations.layouts.map(x=>({
+      layout:x.layout,purchases:x.purchases,cash_balanced:x.cash_balanced,
+      remaining:x.remaining,teleports:x.teleports,
+      overlap_count:x.overlap_count,wall_crossings:x.wall_crossings,
+      duration_minutes:x.duration_minutes,slots_available:x.slots_available
+     })):null;
+   process.stderr.write('SAC_STRESS_FAILURE '+JSON.stringify({
+    game:name,stage:proof.stage,codes:proof.codes,measured
+   })+'\n');
+  }
   assert.equal(proof.status,'pass',
    'real-'+name+'-stress-regression:'+proof.codes.join(','));
   assert.equal(proof.executed,true);
