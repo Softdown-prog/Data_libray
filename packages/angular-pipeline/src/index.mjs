@@ -138,7 +138,7 @@ export function compareAuthenticatedIncrementalReceipts({ baseline, warm, clean,
   const report=(status,code)=>Object.freeze({
     schema_version:1,kind:'authenticated-angular-incremental-receipts',
     status,code,receipts_authenticated:status==='pass'||
-      ['stale-artifact-not-updated','incremental-clean-artifact-divergence',
+      ['incremental-clean-artifact-divergence',
        'incremental-clean-source-mismatch','source-claim-mismatch',
        'source-not-changed','profile-or-project-mismatch'].includes(code),
     compiler_invocation_verified:false,clean_workspace_independent_verified:false,
@@ -178,8 +178,11 @@ export function compareAuthenticatedIncrementalReceipts({ baseline, warm, clean,
     return report('unverified','source-not-changed');
   if(b.source_digest!==c.source_digest)
     return report('fail','incremental-clean-source-mismatch');
+  // Dist hashes can legitimately stay identical after comments/dead-code
+  // changes. Without a verified runtime/output marker, this is suspicious
+  // but NOT proof of stale compilation. Block the optional audit as unverified.
   if(a.artifact_digest===b.artifact_digest)
-    return report('fail','stale-artifact-not-updated');
+    return report('unverified','unchanged-artifact-after-source-change');
   if(b.artifact_digest!==c.artifact_digest)
     return report('fail','incremental-clean-artifact-divergence');
   return report('pass','authenticated-incremental-artifacts-concordant');

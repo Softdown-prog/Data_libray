@@ -109,3 +109,27 @@ SHA/perfil/fontes/dist divergentes, post com bundle/root quebrado e CLI.
 O workflow SAC Universal Pipeline anexa JSON de build Angular oficial positivo e
 artefato adulterado negativo. O workflow anterior mantém os 199 testes e smoke
 Angular 22. Validate code library mantém seus 9 jobs.
+
+## Comparação incremental opcional de recibos autenticados
+
+Após `sealBuild`, o host pode solicitar no `auditPipeline` a comparação
+entre recibos HMAC de uma versão A, do build atual B e de uma referência
+limpa B. A comparação usa **os digests da árvore dist inteira**, não
+apenas `main.js`, e vincula os três recibos ao mesmo perfil/projeto,
+manifesto de fontes e SHA declarado por versão.
+
+```js
+const r = await auditPipeline({
+  ...args, receipt: signedCurrentB,
+  incremental: { baseline: signedPreviousA, clean: signedCleanB }
+});
+```
+
+Sem `incremental`, o contrato anterior é preservado. Com comparação
+solicitada, resultado `fail` ou `unverified` impede postflight.
+**Fonte alterada e dist idêntico significa `unverified`**, pois uma
+mudança sem efeito observável pode legitimamente gerar os mesmos bytes.
+Recibos adulterados, fonte B diferente da referência e divergência entre
+B warm/cold são rejeitados. HMAC comprova apenas a declaração do host;
+não atesta a execução do Angular, cache-hit ou origem Git do commit.
+Uso: `docs/SAC_AUTHENTICATED_INCREMENTAL_RECEIPTS.md`.

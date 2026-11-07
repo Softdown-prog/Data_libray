@@ -78,13 +78,13 @@ test('signed stale warm bundle with changed source is blocked before post',async
  const warm=await revise(baseline,{updateDist:false});
  const clean=await setup(t,{version:'B',sha:B});
  const proof=compare({baseline,warm,clean});
- assert.equal(proof.status,'fail');
- assert.equal(proof.code,'stale-artifact-not-updated');
+ assert.equal(proof.status,'unverified');
+ assert.equal(proof.code,'unchanged-artifact-after-source-change');
  const report=await auditPipeline({...warm,incremental:{
   baseline:baseline.receipt,clean:clean.receipt
  }});
- assert.equal(report.status,'fail');
- assert.equal(report.incremental.code,'stale-artifact-not-updated');
+ assert.equal(report.status,'unverified');
+ assert.equal(report.incremental.code,'unchanged-artifact-after-source-change');
  assert.equal(report.phases.build.status,'pass');
  assert.equal(report.phases.post.executed,false);
  assert.equal(report.static_pipeline_pass,false);

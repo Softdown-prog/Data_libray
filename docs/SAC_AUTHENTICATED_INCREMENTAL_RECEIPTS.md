@@ -33,6 +33,9 @@ perfil e escopo do projeto, SHA declarado do commit, digest da fonte e
 digest de **toda a árvore dist**. Só depois autoriza executar o postflight.
 Falha de HMAC, bundle B igual ao A, divergência B warm/clean, origem
 incompatível ou recibo ausente bloqueiam o postflight com código fixo.
+O caso de hash igual entre A e B produz `unverified`, pois uma mudança
+sem impacto no bundle (comentário, tree-shaking) é perfeitamente válida;
+não seria correto confirmar "cache obsoleto" apenas com hashes iguais.
 O resultado de `incremental` é um campo opcional no relatório principal.
 
 ### Evidência e limites
