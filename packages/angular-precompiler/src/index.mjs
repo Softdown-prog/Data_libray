@@ -2,6 +2,7 @@ import { open, realpath } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import path from 'node:path';
 import semver from 'semver';
+import { parseBunTextLock } from './bun-lock.mjs';
 
 const REQUIRED = ['@angular/compiler-cli', '@angular/core', '@angular/compiler', 'typescript'];
 const OPTIONAL = ['@angular/cli', '@angular/build'];
@@ -123,16 +124,34 @@ export async function verifyWorkspace({ workspace, project = '.', angularVersion
     });
     const installed = {}, appInstalled = {};
     if (appManifest) {
-      let lock, lockRoot, workspaceMember = app === root;
+      let lock, bun, lockRoot, workspaceMember = app === root;
       await check('lockfile-resolution', async () => {
         for (const dir of ancestors(app)) {
           const shrink = await json(path.join(dir, 'npm-shrinkwrap.json'));
           const packageLock = shrink ? null : await json(path.join(dir, 'package-lock.json'));
-          if (shrink || packageLock) { lock = shrink ?? packageLock; lockRoot = dir; break; }
-          if (await read(path.join(dir, 'pnpm-lock.yaml')) !== null || await read(path.join(dir, 'yarn.lock')) !== null) reject('unverified', 'lock-format-unsupported');
+          const bunText = await read(path.join(dir, 'bun.lock'));
+          const bunBinary = await read(path.join(dir, 'bun.lockb'));
+          if ((shrink || packageLock) && (bunText !== null || bunBinary !== null))
+            reject('unverified', 'multiple-lockfiles-unproven');
+          if (shrink || packageLock) {
+            lock = shrink ?? packageLock; lockRoot = dir; break;
+          }
+          if (bunBinary !== null) reject('unverified', 'bun-binary-lock-unsupported');
+          if (bunText !== null) {
+            const observed = parseBunTextLock(bunText,{
+              manifest:appManifest,workspace:dir === app ? '' : 'root-workspace'
+            });
+            if (observed.status !== 'parsed') reject('unverified', observed.code);
+            bun = observed; lockRoot = dir;
+            resolution.lockfile_format = 'bun-text-v1';
+            break;
+          }
+          if (await read(path.join(dir, 'pnpm-lock.yaml')) !== null || await read(path.join(dir, 'yarn.lock')) !== null)
+            reject('unverified', 'lock-format-unsupported');
         }
-        if (!lock) reject('unverified', 'lockfile-missing');
-        if (![2, 3].includes(lock.lockfileVersion) || !plain(lock.packages)) reject('unverified', 'lock-format-unsupported');
+        if (!lock && !bun) reject('unverified', 'lockfile-missing');
+        if (lock && (![2, 3].includes(lock.lockfileVersion) || !plain(lock.packages)))
+          reject('unverified', 'lock-format-unsupported');
       });
       if (app !== root && lockRoot === root) await check('workspace-metadata', async () => {
         const candidate = await json(path.join(root, 'package.json'));
@@ -202,25 +221,44 @@ export async function verifyWorkspace({ workspace, project = '.', angularVersion
         add('declared-resolution', 'pass', 'declared-range-satisfied');
       });
       const lockedVersion = current => {
-        if (!lock || ![2, 3].includes(lock.lockfileVersion) || !plain(lock.packages)) reject('unverified', 'lock-format-unsupported');
-        if (app !== root && lockRoot !== app && !(lockRoot === root && workspaceMember)) reject('unverified', 'lock-workspace-scope-unproven');
         if (!current) reject('unverified', 'installed-package-missing');
+        if (bun) {
+          // Only the package located directly in the Bun workspace's own
+          // node_modules is proven. A flattened Bun lock does not identify
+          // nested or hoisted copies with enough precision for peer checks.
+          if (lockRoot !== app) reject('unverified', 'bun-workspace-scope-unverified');
+          const expected = path.join(lockRoot, 'node_modules', current.data.name, 'package.json');
+          if (current.file !== expected) reject('unverified', 'bun-nested-installation-unproven');
+          const pinned = bun.lookup(current.data.name);
+          if (!pinned) reject('unverified', 'bun-locked-version-unproven');
+          if (!semver.eq(pinned, current.data.version))
+            reject('unverified', 'bun-lock-installed-drift');
+          return pinned;
+        }
+        if (!lock || ![2, 3].includes(lock.lockfileVersion) || !plain(lock.packages))
+          reject('unverified', 'lock-format-unsupported');
+        if (app !== root && lockRoot !== app && !(lockRoot === root && workspaceMember))
+          reject('unverified', 'lock-workspace-scope-unproven');
         if (!within(lockRoot, current.file)) reject('unverified', 'installation-outside-lock-scope');
         const key = path.relative(lockRoot, path.dirname(current.file)).split(path.sep).join('/');
         const pinned = lock.packages[key];
-        if (!plain(pinned) || pinned.link || !version(pinned.version) || (pinned.name !== undefined && pinned.name !== current.data.name)) reject('unverified', 'locked-version-missing');
+        if (!plain(pinned) || pinned.link || !version(pinned.version) ||
+            (pinned.name !== undefined && pinned.name !== current.data.name))
+          reject('unverified', 'locked-version-missing');
         if (!semver.eq(pinned.version, current.data.version)) reject('unverified', 'lock-installed-drift');
         return version(pinned.version);
       };
       await check('lockfile-resolution', async () => {
-        if (!lock || ![2, 3].includes(lock.lockfileVersion) || !plain(lock.packages)) reject('unverified', 'lock-format-unsupported');
-        if (app !== root && lockRoot !== app && !(lockRoot === root && workspaceMember)) reject('unverified', 'lock-workspace-scope-unproven');
+        if (!bun && (!lock || ![2, 3].includes(lock.lockfileVersion) || !plain(lock.packages)))
+          reject('unverified', 'lock-format-unsupported');
+        if (app !== root && lockRoot !== app && !(lockRoot === root && workspaceMember))
+          reject('unverified', 'lock-workspace-scope-unproven');
         for (const name of names) {
           for (const [current, field] of [[installed[name], 'locked_version'], [appInstalled[name], 'declared_locked_version']]) {
             resolution.packages[name][field] = lockedVersion(current);
           }
         }
-        add('lockfile-resolution', 'pass', 'npm-lock-matches-installation');
+        add('lockfile-resolution', 'pass', bun ? 'bun-lock-matches-installation' : 'npm-lock-matches-installation');
       });
       await check('typescript-peers', async () => {
         const cli = installed['@angular/compiler-cli'], ts = installed.typescript;

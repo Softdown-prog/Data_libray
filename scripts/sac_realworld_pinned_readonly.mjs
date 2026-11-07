@@ -49,6 +49,13 @@ await visit(path.join(root,'src'));
 assert.equal(files.length,48,'pinned-ts-source-count');
 assert.equal(templates.length,11,'pinned-html-source-count');
 const installed=await verifyWorkspace({workspace:root,angularVersion:'21.2.12'});
+assert.equal(installed.resolution.lockfile_format,'bun-text-v1',
+ 'pinned-realworld-bun-lock-not-recognized');
+assert.equal(installed.status,'unverified',
+ 'external source without dependencies must not be marked ready');
+assert.equal(installed.evidence.some(x=>x.code==='lockfile-missing'),false,
+ 'Bun lock present must not be labeled missing');
+
 const graph=analyzeImportGraph({
  files,typescript:ts,
  policy:{layers:[],allowImports:{},external:['@angular/','@rx-angular/','rxjs',
@@ -87,7 +94,8 @@ const report={
  repository:'realworld-apps/angular-realworld-example-app',
  source_sha:PIN,angular_version:'21.2.12',lockfile:'bun',
  source_files:{typescript:files.length,html:templates.length,bytes:size},
- preflight:{status:installed.status,diagnostics:(installed.evidence||[])
+ preflight:{status:installed.status,lockfile_format:installed.resolution.lockfile_format,
+  diagnostics:(installed.evidence||[])
   .map(x=>({assertion:x.assertion,status:x.status,code:x.code}))},
  graph:{status:graph.status,nodes:graph.nodes.length,edges:graph.edges.length,findings:counts(graph.findings)},
  components:{status:wiring.status,checked:wiring.components_checked,findings:counts(wiring.findings)},

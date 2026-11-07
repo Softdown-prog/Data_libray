@@ -5,6 +5,11 @@ on:
       - 'scripts/sac_realworld_pinned_readonly.mjs'
       - '.github/workflows/sac-realworld-pinned.yml'
       - 'docs/SAC_REALWORLD_EXTERNAL_TEST.md'
+      - 'packages/angular-precompiler/src/bun-lock.mjs'
+      - 'packages/angular-precompiler/src/index.mjs'
+      - 'packages/angular-precompiler/test/bun-lock.test.mjs'
+      - 'packages/angular-precompiler/test/bun-integration.test.mjs'
+
   workflow_dispatch:
 permissions:
   contents: read
