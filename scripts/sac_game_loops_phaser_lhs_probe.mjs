@@ -107,7 +107,7 @@ for(const name of ['lhs','terrania']){
   assert.equal(Boolean(browser.error||browser.signal),false,
    'docker-render-infrastructure-'+name);
   assert.equal(browser.status,0,'docker-render-process-'+name);
-  const proof=decodeRealGameRenderOutput(browser.stdout,name,digest);
+  const proof=decodeRealGameLoopOutput(browser.stdout,name,digest);
   assert.equal(proof.status,'pass',
    'real-'+name+'-game-loop-regression:'+proof.codes.join(','));
   assert.equal(proof.executed,true);
