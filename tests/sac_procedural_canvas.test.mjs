@@ -77,6 +77,13 @@ test('symlink, syntax diagnostic, size limit and unsafe paths fail closed',async
  assert.equal(result.scan_completed,false);
  assert.ok(result.findings.includes('source-symlink-blocked'));
  await rm(path.join(dir,'src','evil.ts'));
+ await symlink(path.join(dir,'src'),path.join(dir,'source-link'));
+ const linked=await scanProceduralCanvasWorkspace({
+  workspace:dir,sourceRoot:'source-link',typescript:ts
+ });
+ assert.equal(linked.scan_completed,false);
+ assert.ok(linked.findings.includes('source-root-symlink'));
+ await rm(path.join(dir,'source-link'));
  result=await scanProceduralCanvasWorkspace({
   workspace:dir,sourceRoot:'src',typescript:ts,maxFileBytes:3
  });
