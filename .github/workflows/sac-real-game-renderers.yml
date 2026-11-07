@@ -1,0 +1,78 @@
+name: SAC real game Canvas2D renderer adapters (LHS + Terrania)
+on:
+  pull_request:
+    paths:
+      - 'packages/sac-multistack/real-games/**'
+      - 'packages/sac-multistack/src/real-game-render-evidence.mjs'
+      - 'packages/sac-multistack/src/procedural-canvas-stream.mjs'
+      - 'scripts/sac_real_games_canvas_renderer_probe.mjs'
+      - 'tests/sac_real_game_render_evidence.test.mjs'
+      - '.github/workflows/sac-real-game-renderers.yml'
+      - 'docs/SAC_REAL_GAME_CANVAS_ADAPTERS.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  evidence-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Check fixed adapters and source-only evidence logic
+        run: |
+          node --check scripts/sac_real_games_canvas_renderer_probe.mjs
+          node --check packages/sac-multistack/real-games/browser-entry.mjs
+          node --check packages/sac-multistack/real-games/lhs-entry.mjs
+          node --check packages/sac-multistack/real-games/terrania-entry.mjs
+          node --check packages/sac-multistack/src/real-game-render-evidence.mjs
+          node --test tests/sac_real_game_render_evidence.test.mjs
+  two-real-game-pixels:
+    name: Pinned LHS SceneRenderer and Terrania WorldRenderer in network-none Chromium
+    runs-on: ubuntu-24.04
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: Softdown-prog/A7-forge-2D-
+          ref: 2cb4be0144354f1753c9a0cec4edca929a9dc92f
+          path: .sac-snapshots/lhs-canvas
+          submodules: false
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: Softdown-prog/Terrania
+          ref: 3c94b6f11d656afc6740121b853056efe164830c
+          path: .sac-snapshots/terrania-canvas
+          submodules: false
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install only pinned LHS AST/bundler toolchain without lifecycle scripts
+        run: npm ci --prefix .sac-snapshots/lhs-canvas/games/lan_house_simulator --ignore-scripts --no-audit --no-fund
+      - name: Install trusted Playwright API only
+        run: npm install --prefix packages/angular-guardian --ignore-scripts --no-audit --no-fund --package-lock=false
+      - name: Pull immutable offline Chromium image
+        run: docker pull mcr.microsoft.com/playwright@sha256:47b510dd9230bf0b9bfc9b20102241e577ea7a99334ab4c3ca19f19770e9b8ea
+      - name: Analyze pinned game code and render both production engines
+        shell: bash
+        env:
+          SAC_SANDBOX_IMAGE: mcr.microsoft.com/playwright@sha256:47b510dd9230bf0b9bfc9b20102241e577ea7a99334ab4c3ca19f19770e9b8ea
+        run: |
+          node scripts/sac_real_games_canvas_renderer_probe.mjs > "$RUNNER_TEMP/sac-real-game-renderers.json"
+          cat "$RUNNER_TEMP/sac-real-game-renderers.json"
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: sac-lhs-terrania-real-canvas-renderers
+          path: ${{ runner.temp }}/sac-real-game-renderers.json
+          if-no-files-found: error
+          retention-days: 14
