@@ -58,6 +58,8 @@ jobs:
           node-version: '24'
       - name: Install only pinned LHS AST/bundler toolchain without lifecycle scripts
         run: npm ci --prefix .sac-snapshots/lhs-canvas/games/lan_house_simulator --ignore-scripts --no-audit --no-fund
+      - name: Install SAC-pinned TypeScript AST parser without lifecycle scripts
+        run: npm ci --prefix packages/angular-postcompiler/smoke --ignore-scripts --no-audit --no-fund
       - name: Install trusted Playwright API only
         run: npm install --prefix packages/angular-guardian --ignore-scripts --no-audit --no-fund --package-lock=false
       - name: Pull immutable offline Chromium image
