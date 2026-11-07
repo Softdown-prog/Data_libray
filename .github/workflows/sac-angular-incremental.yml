@@ -1,0 +1,53 @@
+name: SAC Angular AOT clean vs incremental concordance
+on:
+  pull_request:
+    paths:
+      - 'scripts/sac_angular_incremental_evidence.mjs'
+      - 'scripts/sac_angular_incremental_official_probe.mjs'
+      - 'tests/sac_angular_incremental_evidence.test.mjs'
+      - 'docs/SAC_ANGULAR_INCREMENTAL_CONCORDANCE.md'
+      - '.github/workflows/sac-angular-incremental.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  unit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Pure comparator regression and tampered-stale evidence rejection
+        run: |
+          node --check scripts/sac_angular_incremental_evidence.mjs
+          node --check scripts/sac_angular_incremental_official_probe.mjs
+          node --test tests/sac_angular_incremental_evidence.test.mjs
+  official-angular-aot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install already-versioned first-party Angular CLI fixture
+        run: npm ci --prefix packages/angular-postcompiler/smoke --ignore-scripts --no-audit --no-fund
+      - name: Run clean A, true template type error, warm B and clean B
+        shell: bash
+        run: |
+          node scripts/sac_angular_incremental_official_probe.mjs > "$RUNNER_TEMP/sac-angular-incremental.json"
+          cat "$RUNNER_TEMP/sac-angular-incremental.json"
+      - name: Upload safe digest-only AOT evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sac-angular-incremental-clean-warm
+          if-no-files-found: ignore
+          retention-days: 14
+          path: ${{ runner.temp }}/sac-angular-incremental.json
