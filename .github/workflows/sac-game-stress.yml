@@ -1,0 +1,81 @@
+name: SAC game stress - Terrania walls and LHS retail layouts
+on:
+  pull_request:
+    paths:
+      - 'packages/sac-multistack/real-games/terrania-obstacle-entry.mjs'
+      - 'packages/sac-multistack/real-games/lhs-retail-layout-entry.mjs'
+      - 'packages/sac-multistack/real-games/stress-browser-entry.mjs'
+      - 'packages/sac-multistack/src/real-stress-evidence.mjs'
+      - 'scripts/sac_game_stress_layouts_obstacles_probe.mjs'
+      - 'tests/sac_real_stress_evidence.test.mjs'
+      - '.github/workflows/sac-game-stress.yml'
+      - 'docs/SAC_GAME_STRESS_SCENARIOS.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  stress-report-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate the sandbox entries and anti-fabrication receipt tests
+        run: |
+          node --check packages/sac-multistack/real-games/terrania-obstacle-entry.mjs
+          node --check packages/sac-multistack/real-games/lhs-retail-layout-entry.mjs
+          node --check packages/sac-multistack/real-games/stress-browser-entry.mjs
+          node --check packages/sac-multistack/src/real-stress-evidence.mjs
+          node --check scripts/sac_game_stress_layouts_obstacles_probe.mjs
+          node --test tests/sac_real_stress_evidence.test.mjs
+  stress-original-engines:
+    name: Pinned real-game engines in network-none Chromium
+    runs-on: ubuntu-24.04
+    timeout-minutes: 29
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: Softdown-prog/A7-forge-2D-
+          ref: 2cb4be0144354f1753c9a0cec4edca929a9dc92f
+          path: .sac-snapshots/lhs-canvas
+          submodules: false
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: Softdown-prog/Terrania
+          ref: 3c94b6f11d656afc6740121b853056efe164830c
+          path: .sac-snapshots/terrania-canvas
+          submodules: false
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install only pinned bundler from LHS without application scripts
+        run: npm ci --prefix .sac-snapshots/lhs-canvas/games/lan_house_simulator --ignore-scripts --no-audit --no-fund
+      - name: Install trusted SAC TypeScript parser
+        run: npm ci --prefix packages/angular-postcompiler/smoke --ignore-scripts --no-audit --no-fund
+      - name: Install Playwright API without app scripts
+        run: npm install --prefix packages/angular-guardian --ignore-scripts --no-audit --no-fund --package-lock=false
+      - name: Pull immutable Chromium
+        run: docker pull mcr.microsoft.com/playwright@sha256:47b510dd9230bf0b9bfc9b20102241e577ea7a99334ab4c3ca19f19770e9b8ea
+      - name: Execute wall, target, layout and collision scenarios
+        shell: bash
+        env:
+          SAC_SANDBOX_IMAGE: mcr.microsoft.com/playwright@sha256:47b510dd9230bf0b9bfc9b20102241e577ea7a99334ab4c3ca19f19770e9b8ea
+        run: |
+          node scripts/sac_game_stress_layouts_obstacles_probe.mjs > "$RUNNER_TEMP/sac-game-stress.json"
+          cat "$RUNNER_TEMP/sac-game-stress.json"
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: sac-lhs-three-layouts-terrania-obstacle-combat
+          path: ${{ runner.temp }}/sac-game-stress.json
+          if-no-files-found: error
+          retention-days: 14
