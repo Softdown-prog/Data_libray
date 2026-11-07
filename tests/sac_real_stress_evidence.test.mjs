@@ -83,3 +83,12 @@ test('rejects fake success, wrong artifact digest, extra fields and duplicate lo
  assert.throws(()=>decodeRealStressOutput(wire+wire,'lhs',digest));
  assert.throws(()=>decodeRealStressOutput('NOT_A_REPORT PRIVATE_VALUE','lhs',digest));
 });
+
+test('sandbox host calls the stress decoder, not the old game-behavior decoder',async()=>{
+ const {readFile}=await import('node:fs/promises');
+ const script=await readFile(new URL('../scripts/sac_game_stress_layouts_obstacles_probe.mjs',
+  import.meta.url),'utf8');
+ assert.match(script,/import \{decodeRealStressOutput\} from/);
+ assert.match(script,/const proof=decodeRealStressOutput\(browser\.stdout,name,digest\)/);
+ assert.doesNotMatch(script,/decodeGameBehaviorOutput/);
+});
