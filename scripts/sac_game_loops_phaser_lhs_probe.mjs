@@ -109,7 +109,7 @@ for(const name of ['lhs','terrania']){
   assert.equal(browser.status,0,'docker-render-process-'+name);
   const proof=decodeRealGameRenderOutput(browser.stdout,name,digest);
   assert.equal(proof.status,'pass',
-   'real-'+name+'-game-loop-regression:+proof.codes.join(','));
+   'real-'+name+'-game-loop-regression:'+proof.codes.join(','));
   assert.equal(proof.executed,true);
   report.games.push({
    id:name,git_sha:game.sha,source_files:inventory.inventory.source_files,
