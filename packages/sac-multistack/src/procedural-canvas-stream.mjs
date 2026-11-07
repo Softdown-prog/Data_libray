@@ -97,11 +97,18 @@ export async function scanProceduralCanvasWorkspace({
  let root,scanRoot;
  try{
   root=await realpath(workspace);
-  scanRoot=await realpath(path.join(root,sourceRoot));
+  let sourcePath=root;
+  // Inspect each unresolved segment before realpath: checking only the
+  // resolved result would miss a symlink in the selected sourceRoot itself.
+  for(const segment of sourceRoot==='.'?[]:sourceRoot.split('/')){
+   sourcePath=path.join(sourcePath,segment);
+   if((await lstat(sourcePath)).isSymbolicLink())
+    throw Error('source-root-symlink');
+  }
+  scanRoot=await realpath(sourcePath);
   if(!within(root,scanRoot))throw Error('source-root-escape');
-  if((await lstat(scanRoot)).isSymbolicLink())throw Error('source-root-symlink');
- }catch(e){add(e?.message==='source-root-escape'?'source-root-escape':
-  'source-root-unavailable');return report;}
+ }catch(e){add(['source-root-escape','source-root-symlink'].includes(e?.message)
+  ? e.message:'source-root-unavailable');return report;}
  const digest=createHash('sha256');
  const candidates=(list,name)=>{if(list.length<24)list.push(name);};
  async function traverse(directory,depth){
