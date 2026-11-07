@@ -97,7 +97,11 @@ try{
   if(final.state.updates<=before.updates)
    errors.add('phaser-frame-loop-stalled');
   if(final.state.online)errors.add('network-session-unexpected');
-  const cleaned=await page.evaluate(()=>window.__sacBehavior.destroy());
+  await page.evaluate(()=>window.__sacBehavior.destroy());
+  // Phaser releases WebGL/Canvas on teardown; observe the DOM after cleanup,
+  // rather than testing synchronously in the same JS turn as game.destroy().
+  await page.waitForTimeout(250);
+  const cleaned=await page.locator('canvas#game').count()===0;
   if(!cleaned)errors.add('phaser-canvas-not-disposed');
   observations={combat_target:'-2,-2,0',
    initial_tile_x:before.hero?.tileX??null,
