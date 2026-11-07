@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'packages/sac-multistack/src/procedural-canvas-stream.mjs'
+      - 'packages/sac-multistack/bin/canvas-stream.mjs'
       - 'packages/sac-multistack/src/procedural-properties.mjs'
       - 'packages/sac-multistack/src/canvas-evidence.mjs'
       - 'packages/sac-multistack/canvas/**'
@@ -32,6 +33,7 @@ jobs:
       - name: Parse 5000 sources and exercise negative grid/stream controls
         run: |
           node --check packages/sac-multistack/src/procedural-canvas-stream.mjs
+          node --check packages/sac-multistack/bin/canvas-stream.mjs
           node --check packages/sac-multistack/src/procedural-properties.mjs
           node --check packages/sac-multistack/src/canvas-evidence.mjs
           node --test tests/sac_procedural_canvas.test.mjs tests/sac_procedural_canvas_browser_evidence.test.mjs

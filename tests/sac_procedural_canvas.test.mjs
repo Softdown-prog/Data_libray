@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,mkdir,rm,writeFile,symlink} from 'node:fs/promises';
 import {createRequire} from 'node:module';
+import {spawnSync} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
 import os from 'node:os';
 import path from 'node:path';
 import {scanProceduralCanvasWorkspace} from '../packages/sac-multistack/src/procedural-canvas-stream.mjs';
@@ -143,4 +145,22 @@ test('missing pairs, forged samples and constant terrain never get false evidenc
  });
  assert.equal(r.status,'unverified');
  assert.doesNotMatch(JSON.stringify(r),/PRIVATE_VALUE/);
+});
+
+test('generic CLI scans an arbitrary checkout without executing its code',async t=>{
+ const dir=await make(t);
+ await writeFile(path.join(dir,'src','canvas.ts'),
+  "const ctx = stage.getContext('2d'); ctx.fillRect(0,0,10,10);\n");
+ const cli=fileURLToPath(new URL('../packages/sac-multistack/bin/canvas-stream.mjs',
+  import.meta.url));
+ const result=spawnSync(process.execPath,[cli,dir,'src'],{
+  encoding:'utf8',timeout:20000,maxBuffer:32768
+ });
+ assert.equal(result.status,0,result.stderr);
+ const report=JSON.parse(result.stdout);
+ assert.equal(report.scan_completed,true);
+ assert.equal(report.inventory.source_files,1);
+ assert.equal(report.signals.canvas_context,1);
+ assert.equal(report.status,'unverified');
+ assert.equal(report.deployment_authorized,false);
 });

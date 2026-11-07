@@ -93,3 +93,19 @@ As análises ficam dentro do GitHub Actions efêmero. Não há execução
 de fontes de terceiros, nem alteração nos jogos, VPS ou Worker.
 Resultados sintéticos de procedural ou Canvas não liberam deploy.
 `deployment_authorized=false` em todos os relatórios.
+
+## CLI reutilizável para qualquer checkout
+
+Depois de instalar o parser TypeScript **confiável do próprio SAC**:
+
+```bash
+npm ci --prefix packages/angular-postcompiler/smoke --ignore-scripts
+node packages/sac-multistack/bin/canvas-stream.mjs /caminho/do/jogo src
+```
+
+No Lan House Simulator monorepo, informe `games/lan_house_simulator`
+como diretório das fontes. O comando escreve um JSON de inventário no
+stdout. Exit 0 significa apenas que terminou a leitura, sem erros de
+parsing observados; o relatório continua `status=unverified` até
+existirem provas de compilação, geração e browser. Não execute nem
+instale o projeto externo no host confiável.
