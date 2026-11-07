@@ -1,0 +1,82 @@
+name: SAC live game loops (Terrania Phaser and LHS minute engine)
+on:
+  pull_request:
+    paths:
+      - 'packages/sac-multistack/real-games/*live*'
+      - 'packages/sac-multistack/real-games/*phaser*'
+      - 'packages/sac-multistack/src/real-game-loop-evidence.mjs'
+      - 'scripts/sac_game_loops_phaser_lhs_probe.mjs'
+      - 'tests/sac_real_game_loop_evidence.test.mjs'
+      - '.github/workflows/sac-real-game-loops.yml'
+      - 'docs/SAC_LIVE_GAME_LOOP_ADAPTERS.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  loop-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate fixed adapters and adversarial receipt contracts
+        run: |
+          node --check packages/sac-multistack/real-games/lhs-live-entry.mjs
+          node --check packages/sac-multistack/real-games/terrania-phaser-entry.mjs
+          node --check packages/sac-multistack/real-games/live-browser-entry.mjs
+          node --check packages/sac-multistack/src/real-game-loop-evidence.mjs
+          node --check scripts/sac_game_loops_phaser_lhs_probe.mjs
+          node --test tests/sac_real_game_loop_evidence.test.mjs
+  live-render-and-ticks:
+    name: Drive original Phaser keyboard and original LHS minute engine offline
+    runs-on: ubuntu-24.04
+    timeout-minutes: 29
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: Softdown-prog/A7-forge-2D-
+          ref: 2cb4be0144354f1753c9a0cec4edca929a9dc92f
+          path: .sac-snapshots/lhs-canvas
+          submodules: false
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: Softdown-prog/Terrania
+          ref: 3c94b6f11d656afc6740121b853056efe164830c
+          path: .sac-snapshots/terrania-canvas
+          submodules: false
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install pinned bundler from LHS without lifecycle scripts
+        run: npm ci --prefix .sac-snapshots/lhs-canvas/games/lan_house_simulator --ignore-scripts --no-audit --no-fund
+      - name: Install Terrania Phaser with pinned dependencies, never its scripts
+        run: npm ci --prefix .sac-snapshots/terrania-canvas --ignore-scripts --no-audit --no-fund
+      - name: Install trusted SAC TypeScript parser, never target code
+        run: npm ci --prefix packages/angular-postcompiler/smoke --ignore-scripts --no-audit --no-fund
+      - name: Install trusted Playwright API without lifecycle scripts
+        run: npm install --prefix packages/angular-guardian --ignore-scripts --no-audit --no-fund --package-lock=false
+      - name: Pull immutable offline Chromium container
+        run: docker pull mcr.microsoft.com/playwright@sha256:47b510dd9230bf0b9bfc9b20102241e577ea7a99334ab4c3ca19f19770e9b8ea
+      - name: Execute original production game loops in browser-only Docker
+        shell: bash
+        env:
+          SAC_SANDBOX_IMAGE: mcr.microsoft.com/playwright@sha256:47b510dd9230bf0b9bfc9b20102241e577ea7a99334ab4c3ca19f19770e9b8ea
+        run: |
+          node scripts/sac_game_loops_phaser_lhs_probe.mjs > "$RUNNER_TEMP/sac-live-game-loops.json"
+          cat "$RUNNER_TEMP/sac-live-game-loops.json"
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: sac-lhs-terrania-original-offline-loop-receipts
+          path: ${{ runner.temp }}/sac-live-game-loops.json
+          if-no-files-found: error
+          retention-days: 14
