@@ -87,6 +87,15 @@ de recursos, objetos fora do mapa, densidade, culling, ordem de desenho,
 de um adaptador de gameplay explícito para cada motor, não de heurísticas
 que declarariam milhares de erros falsos.
 
+## Extensão opt-in: parâmetros de animação e catálogo de módulos
+
+O Terrania expõe `architecture/modules.json` para delimitar renderer,
+atores, simulação e loop. A ferramenta
+[`SAC_ANIMATION_PARAMETERS.md`](SAC_ANIMATION_PARAMETERS.md) usa o índice
+para observar constantes e chamadas de animação e oferece verificação
+de amostras de poses a dois FPS. Não substitui esta prova Canvas de
+pixels, nem executa as animações reais do jogo.
+
 ## Segurança / evidência
 
 As análises ficam dentro do GitHub Actions efêmero. Não há execução
