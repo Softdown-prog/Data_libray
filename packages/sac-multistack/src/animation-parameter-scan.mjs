@@ -71,12 +71,13 @@ export async function scanAnimationWorkspace({
  maxDirectories=256
 }={}){
  if(typeof workspace!=='string'||!path.isAbsolute(workspace)||
-   !typescript?.createSourceFile||!safeRel(manifestPath)||
+   !typescript?.createSourceFile||
    !Number.isInteger(maxFiles)||maxFiles<1||maxFiles>512||
    !Number.isInteger(maxTotalBytes)||maxTotalBytes<1||maxTotalBytes>16*MiB||
    !Number.isInteger(maxFileBytes)||maxFileBytes<1||maxFileBytes>256*1024||
    !Number.isInteger(maxDirectories)||maxDirectories<1||maxDirectories>512)
   throw Error('animation-scan-configuration-invalid');
+ if(!safeRel(manifestPath))return unavailable('animation-manifest-path-invalid');
  try{
   const stat=await lstat(workspace);
   if(!stat.isDirectory()||stat.isSymbolicLink())
