@@ -1,0 +1,73 @@
+name: SAC animation parameters from Terrania module architecture
+on:
+  pull_request:
+    paths:
+      - 'packages/sac-multistack/src/animation-parameters.mjs'
+      - 'packages/sac-multistack/src/animation-parameter-scan.mjs'
+      - 'packages/sac-multistack/bin/animation-parameters.mjs'
+      - 'packages/sac-multistack/fixtures/terrania/**'
+      - 'tests/sac_animation_parameters.test.mjs'
+      - 'scripts/sac_terrania_animation_parameters_probe.mjs'
+      - 'docs/SAC_ANIMATION_PARAMETERS.md'
+      - '.github/workflows/sac-terrania-animation-parameters.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  animation-contracts:
+    name: Test synthetic animation parameters and negative controls
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install only trusted pinned SAC TypeScript parser
+        run: npm ci --prefix packages/angular-postcompiler/smoke --ignore-scripts --no-audit --no-fund
+      - name: Syntax and negative animation contracts
+        run: |
+          node --check packages/sac-multistack/src/animation-parameters.mjs
+          node --check packages/sac-multistack/src/animation-parameter-scan.mjs
+          node --check packages/sac-multistack/bin/animation-parameters.mjs
+          node --check scripts/sac_terrania_animation_parameters_probe.mjs
+          node --test tests/sac_animation_parameters.test.mjs
+  terrania-pinned:
+    name: Observe real Terrania animation modules without running game code
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: Softdown-prog/Terrania
+          ref: e116033578e1bab36c2c7080e10ae48b3070a54b
+          path: .sac-snapshots/terrania-animation
+          submodules: false
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify immutable Terrania checkout and module manifest
+        shell: bash
+        run: |
+          test "$(git -C .sac-snapshots/terrania-animation rev-parse HEAD)" = 'e116033578e1bab36c2c7080e10ae48b3070a54b'
+          test "$(git -C .sac-snapshots/terrania-animation hash-object architecture/modules.json)" = '47d7269d220552a2531d3e707e91ae60fef4a87c'
+          cmp packages/sac-multistack/fixtures/terrania/architecture/modules.json .sac-snapshots/terrania-animation/architecture/modules.json
+      - name: Install trusted TypeScript AST parser without game dependencies
+        run: npm ci --prefix packages/angular-postcompiler/smoke --ignore-scripts --no-audit --no-fund
+      - name: Static animation source observation
+        shell: bash
+        run: |
+          node scripts/sac_terrania_animation_parameters_probe.mjs > "$RUNNER_TEMP/sac-terrania-animation-parameters.json"
+          cat "$RUNNER_TEMP/sac-terrania-animation-parameters.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sac-terrania-animation-parameters-static-only
+          path: ${{ runner.temp }}/sac-terrania-animation-parameters.json
+          if-no-files-found: error
+          retention-days: 14
