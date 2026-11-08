@@ -64,7 +64,7 @@ test('AST flags literal timing/opacity faults but refuses to claim runtime valid
    'const fps=0; const attackInterval=flag?0.1:0.2;\n'+
    'ctx.globalAlpha=1.5; requestAnimationFrame(draw);\n'},
   {path:'src/engine/Weapons.ts',content:
-   'export const weapons={wood:{interval:0.8},bad:{interval:-1}};\n'}
+   'export const weapons={wood:{interval:0.8,cooldown:0},bad:{interval:-1}};\n'}
  ];
  const result=inspectAnimationSources({manifest:original,sources:samples,typescript:ts});
  assert.equal(result.status,'unverified');
@@ -76,6 +76,8 @@ test('AST flags literal timing/opacity faults but refuses to claim runtime valid
  assert.ok(codes.includes('non-positive-animation-timing'));
  assert.ok(codes.includes('frame-rate-outside-supported-range'));
  assert.ok(codes.includes('opacity-outside-zero-one'));
+ assert.equal(result.candidate_findings.some(f=>f.key==='cooldown'),false,
+  'cooldown 0 is valid when ready to attack');
  assert.match(result.source_snapshot_sha256,/^[a-f0-9]{64}$/);
  assert.equal(result.runtime_execution_verified,false);
  assert.equal(result.deployment_authorized,false);
