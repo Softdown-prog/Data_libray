@@ -93,6 +93,14 @@ export async function scanAnimationWorkspace({
    if(depth>16||++dirs>maxDirectories)deny('animation-dir-budget');
    const dir=path.join(root,rel);
    if(!within(root,dir))deny('animation-source-symlink');
+   // Enforce non-symlink directory components, including module roots.
+   let checked=root;
+   for(const segment of rel.split('/')){
+    checked=path.join(checked,segment);
+    const st=await lstat(checked);
+    if(st.isSymbolicLink())deny('animation-source-symlink');
+    if(!st.isDirectory())deny('animation-source-unavailable');
+   }
    const entries=await readdir(dir,{withFileTypes:true});
    entries.sort((a,b)=>a.name<b.name?-1:a.name>b.name?1:0);
    for(const item of entries){
