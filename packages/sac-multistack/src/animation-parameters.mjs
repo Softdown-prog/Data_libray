@@ -6,7 +6,7 @@
 import {createHash} from 'node:crypto';
 
 const ID=/^[a-z][a-z0-9-]{0,63}$/;
-const PATH=/^[A-Za-z0-9_-][A-Za-z0-9_./-]{0,191}$/;
+const PATH=/^[A-Za-z0-9_.-][A-Za-z0-9_./-]{0,191}$/;
 const MODULES=Object.freeze(['renderer','actors','simulation','phaser-game']);
 const EXT=/\.(?:ts|tsx|js|jsx|mjs|cjs)$/;
 const timing=/^(?:duration|interval|windup|cooldown|fps|frameRate|framesPerSecond|frameInterval|durationMs|durationSeconds|fadeTime|fadeMs|attackInterval|attackWindup|attackCooldown|swingDuration)$/i;
