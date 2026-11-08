@@ -64,6 +64,18 @@ A instalação única está em [deploy/install-vps-worker.sh](deploy/install-vps
 
 A fila suporta até 1.000 IDs existentes, mas não fabrica exemplos novos. Nenhuma aprovação promove legados automaticamente à especificação v2.
 
+## SAC — parâmetros de animação de jogos (Terrania)
+
+O índice `architecture/modules.json` do Terrania agora possui uma fixture
+versionada no SAC Multistack. O auditor opt-in usa os módulos renderer,
+atores, simulação e orquestração para identificar constantes de duração,
+cadência, FPS e transparência via AST, sem executar código do jogo.
+Um comparador separado analisa amostras de poses a diferentes FPS,
+sem confundir amostras fornecidas com gameplay real.
+
+Veja [ferramenta e limitações](docs/SAC_ANIMATION_PARAMETERS.md).
+A inspeção estática permanece `unverified` e não autoriza deploy.
+
 ## SAC Multistack (em desenvolvimento)
 
 Treze novos perfis opt-in, com pré-verificação somente leitura e probes
