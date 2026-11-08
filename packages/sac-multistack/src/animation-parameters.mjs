@@ -146,7 +146,7 @@ export function inspectAnimationSources({manifest,sources,typescript,moduleIds=M
  let bytes=0,astNodes=0,parseErrors=0,parameters=0,dynamic=0,animationCalls=0;
  const findings=[],paths=[],seen=new Set();
  const digest=createHash('sha256');
- for(const item of [...sources].sort((a,b)=>a.path.localeCompare(b.path,'en'))){
+ for(const item of [...sources].sort((a,b)=>a.path<b.path?-1:a.path>b.path?1:0)){
   if(!plain(item)||!safeRel(item.path)||!EXT.test(item.path)||
      !scope.roots.some(root=>item.path.startsWith(root+'/'))||
      typeof item.content!=='string'||seen.has(item.path))
@@ -189,11 +189,7 @@ export function assessAnimationFrameSamples({samples,positionTolerance=.5,
   if(!plain(item)||!Number.isInteger(item.fps)||item.fps<1||item.fps>240||
      !Number.isInteger(item.timeMs)||item.timeMs<0||item.timeMs>300000||
      !plain(item.pose)||keys.some(k=>!finite(item.pose[k]))||
-     !('progress' in item.pose?true:false) &&
-      Object.keys(item.pose).some(k=>!keys.includes(k))){
-   return report('unverified','animation-samples-invalid');
-  }
-  if(!('progress' in item.pose) && Object.keys(item.pose).some(k=>!keys.includes(k)))
+     Object.keys(item.pose).some(k=>!keys.includes(k)&&k!=='progress'))
    return report('unverified','animation-samples-invalid');
   if('progress' in item.pose&&(!finite(item.pose.progress)||
      item.pose.progress<0||item.pose.progress>1))
