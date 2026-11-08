@@ -1,0 +1,267 @@
+{
+  "schemaVersion": 1,
+  "description": "Registro humano e computável dos módulos do Terrania. Índices derivados em docs/INDEX.md e docs/indexes/*.md.",
+  "modules": [
+    {
+      "id": "angular-site",
+      "name": "Site e HUD Angular",
+      "layer": "presentation",
+      "status": "active",
+      "roots": [
+        "src/app",
+        "src/site",
+        "src/types"
+      ],
+      "entrypoints": [
+        "src/app/routes.ts",
+        "src/app/game-page.component.ts"
+      ],
+      "doc": "src/app/README.md",
+      "description": "Páginas do site, navegação, HUD e ações de interface. Não calcula regras autoritativas."
+    },
+    {
+      "id": "phaser-game",
+      "name": "Orquestração Phaser",
+      "layer": "application",
+      "status": "active",
+      "roots": [
+        "src/game"
+      ],
+      "entrypoints": [
+        "src/game/Game.ts",
+        "src/game/PhaserGame.ts"
+      ],
+      "doc": "src/game/README.md",
+      "description": "Integra loop, inputs, simulação, câmera, render e rede. Evitar transferir regras do motor para este adaptador."
+    },
+    {
+      "id": "renderer",
+      "name": "Renderização e adaptadores Canvas",
+      "layer": "presentation",
+      "status": "active",
+      "roots": [
+        "src/render",
+        "src/ui"
+      ],
+      "entrypoints": [
+        "src/render/WorldRenderer.ts",
+        "src/ui/CanvasScene.ts",
+        "src/ui/GameUi.ts"
+      ],
+      "doc": "src/render/README.md",
+      "description": "Desenha entidades e mundo; GameUi separa o Angular do orquestrador do jogo."
+    },
+    {
+      "id": "simulation",
+      "name": "Regras e simulação offline",
+      "layer": "domain",
+      "status": "active",
+      "roots": [
+        "src/engine"
+      ],
+      "entrypoints": [
+        "src/engine/OfflineSimulation.ts",
+        "src/engine/ClassicCombat.ts",
+        "src/engine/ClassicTileWalker.ts",
+        "src/engine/Experience.ts",
+        "src/engine/Weapons.ts",
+        "src/engine/Equipment.ts"
+      ],
+      "doc": "src/engine/README.md",
+      "description": "Combate, progressão, inventário, equipamento, loot e navegação; sem DOM, Phaser ou Angular."
+    },
+    {
+      "id": "actors",
+      "name": "Entidades jogáveis",
+      "layer": "domain",
+      "status": "active",
+      "roots": [
+        "src/actors"
+      ],
+      "entrypoints": [
+        "src/actors/Player.ts",
+        "src/actors/Slime.ts",
+        "src/actors/CreatureCatalog.ts"
+      ],
+      "doc": "src/actors/README.md",
+      "description": "Estado e comportamento do herói e das criaturas; catálogo inicial de espécies separado das instâncias."
+    },
+    {
+      "id": "world",
+      "name": "Terreno, colisões e NPCs",
+      "layer": "domain",
+      "status": "active",
+      "roots": [
+        "src/world"
+      ],
+      "entrypoints": [
+        "src/world/terrain.ts",
+        "src/world/regions.ts",
+        "src/world/biomes.ts",
+        "src/world/regionDifficulty.ts",
+        "src/world/collision.ts",
+        "src/world/npcs.ts",
+        "src/world/aelaQuest.ts"
+      ],
+      "doc": "src/world/README.md",
+      "description": "Mundo procedural determinístico regionalizado, biomas, dificuldade, tiles, colisão, vila e marcos."
+    },
+    {
+      "id": "input",
+      "name": "Entrada e controles",
+      "layer": "input",
+      "status": "active",
+      "roots": [
+        "src/input"
+      ],
+      "entrypoints": [
+        "src/input/Input.ts",
+        "src/input/tap.ts"
+      ],
+      "doc": "src/input/README.md",
+      "description": "Normalização de teclado, joystick e toque; regras de gameplay pertencem à simulação."
+    },
+    {
+      "id": "client-network",
+      "name": "Rede cliente: presença e catálogo",
+      "layer": "transport",
+      "status": "active",
+      "roots": [
+        "src/net"
+      ],
+      "entrypoints": [
+        "src/net/presence.ts",
+        "src/net/itemCatalog.ts"
+      ],
+      "doc": "src/net/README.md",
+      "description": "Consultas HTTP do site: contador de quem está jogando e catálogo de itens. O jogo é solo e offline; não há conexão de jogo."
+    },
+    {
+      "id": "local-save",
+      "name": "Persistência local",
+      "layer": "storage",
+      "status": "active",
+      "roots": [
+        "src/storage"
+      ],
+      "entrypoints": [
+        "src/storage/localSave.ts"
+      ],
+      "doc": "src/storage/README.md",
+      "description": "Save no navegador, versão e compatibilidade; não é persistência autoritativa online."
+    },
+    {
+      "id": "quality",
+      "name": "QA e testes",
+      "layer": "quality",
+      "status": "active",
+      "roots": [
+        "src/qa",
+        "tests"
+      ],
+      "entrypoints": [
+        "src/qa/QaBot.ts",
+        "tests/classic-tile-walker.test.ts"
+      ],
+      "doc": "tests/README.md",
+      "description": "Testes unitários e navegador desktop/Android; cenários de regressão e robôs de QA."
+    },
+    {
+      "id": "node-server",
+      "name": "Servidor Node atual",
+      "layer": "backend",
+      "status": "active",
+      "roots": [
+        "server"
+      ],
+      "entrypoints": [
+        "server/src/main.ts",
+        "server/src/db/database.ts",
+        "server/src/db/migrate.ts",
+        "server/src/presence.ts"
+      ],
+      "doc": "server/README.md",
+      "description": "Serviço HTTP: contador de quem está jogando, catálogo de itens (PostgreSQL) e saúde. Sem salas nem WebSocket; o jogo é solo e offline."
+    },
+    {
+      "id": "go-engine",
+      "name": "Motor Go autoritativo em validação",
+      "layer": "backend",
+      "status": "experimental",
+      "roots": [
+        "server-go/engine"
+      ],
+      "entrypoints": [
+        "server-go/engine/room.go",
+        "server-go/engine/world_regions.go",
+        "server-go/engine/protocol.go"
+      ],
+      "doc": "server-go/README.md",
+      "description": "Implementação Go de regras e paridade; substituição do backend ativo requer decisão e validação separadas."
+    },
+    {
+      "id": "go-runtime",
+      "name": "Executáveis e presença Go",
+      "layer": "backend",
+      "status": "experimental",
+      "roots": [
+        "server-go/cmd",
+        "server-go/presence",
+        "server-go/scripts"
+      ],
+      "entrypoints": [
+        "server-go/cmd/terrania/main.go",
+        "server-go/cmd/gateway/main.go"
+      ],
+      "doc": "server-go/README.md",
+      "description": "Worker, gateway, laboratório de capacidade, presença e scripts de paridade."
+    },
+    {
+      "id": "go-cluster",
+      "name": "Cluster e recuperação experimental Go",
+      "layer": "infrastructure",
+      "status": "lab",
+      "roots": [
+        "server-go/cluster",
+        "server-go/autoscale"
+      ],
+      "entrypoints": [
+        "server-go/cluster/router.go",
+        "server-go/autoscale/controller.go"
+      ],
+      "doc": "server-go/cluster/README.md",
+      "description": "Handoff, epochs, autoscale e laboratórios de quorum. Não pressupor produção, failover ou capacidade comprovada."
+    },
+    {
+      "id": "rust-spatial",
+      "name": "Módulo Rust espacial e entidades",
+      "layer": "infrastructure",
+      "status": "experimental",
+      "roots": [
+        "rust/spatial-kernel"
+      ],
+      "entrypoints": [
+        "rust/spatial-kernel/src/lib.rs"
+      ],
+      "doc": "rust/spatial-kernel/README.md",
+      "description": "Kernel Rust e FFI opt-in; não é servidor de rede."
+    },
+    {
+      "id": "tooling",
+      "name": "Scripts, automação e CI",
+      "layer": "tooling",
+      "status": "active",
+      "roots": [
+        "scripts",
+        ".github/workflows"
+      ],
+      "entrypoints": [
+        "scripts/verify-build.mjs",
+        ".github/workflows/ci.yml",
+        "scripts/mcp/server.mjs"
+      ],
+      "doc": "scripts/README.md",
+      "description": "Build, verificação, testes automatizados, deploys e índice; operações de produção são fluxos distintos."
+    }
+  ]
+}
