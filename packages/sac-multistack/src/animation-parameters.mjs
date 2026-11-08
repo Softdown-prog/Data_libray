@@ -98,6 +98,9 @@ function analyseFile(ts,file,text,maximumNodes){
   if(opacity.test(key)){if(value<0||value>1)add('opacity-outside-zero-one',key);}
   else if(/fps|framerate|framespersecond/i.test(key)){
    if(value<=0||value>240)add('frame-rate-outside-supported-range',key);
+  }else if(/cooldown/i.test(key)){
+   // Cooldown = 0 is the legitimate ready/idle state in a game loop.
+   if(value<0)add('negative-animation-cooldown',key);
   }else if(value<=0)add('non-positive-animation-timing',key);
  };
  const fnName=node=>node?.name&&ts.isIdentifier(node.name)?node.name.text:null;
